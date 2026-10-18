@@ -106,19 +106,23 @@ flowchart TD
         ADMIN["⚙️ Trung Tâm Quản Trị Hệ Thống (/admin/)"]
     end
 
-    DEV1 & DEV2 & DEV3 -->|LoRa RF 923MHz| CS
-    CS -->|HTTP Uplink| HC_CLOUD
-    HC_CLOUD -->|Webhook POST OutboundRecord| WH
+    DEV1 -->|"LoRa RF 923MHz"| CS
+    DEV2 -->|"LoRa RF 923MHz"| CS
+    DEV3 -->|"LoRa RF 923MHz"| CS
+    CS -->|"HTTP Uplink"| HC_CLOUD
+    HC_CLOUD -->|"Webhook POST OutboundRecord"| WH
     WH --> DEDUP
     DEDUP --> DJANGO
     DJANGO --> PG
     DJANGO --> CACHE
-    DJANGO -->|Phát tín hiệu IOT_UPLINK / DOWNLINK| SSE
-    SSE -->|SSE Stream 0ms| DASH & ADMIN
-    ADMIN -->|Phát Lệnh Downlink| CLIENT
-    CLIENT -->|POST /devices/{id}/commands| HC_CLOUD
-    HC_CLOUD -->|Downlink Queue| CS
-    CS -->|LoRa Downlink RX1/RX2| DEV1 & DEV2
+    DJANGO -->|"Phát tín hiệu IOT_UPLINK & DOWNLINK"| SSE
+    SSE -->|"SSE Stream 0ms"| DASH
+    SSE -->|"SSE Stream 0ms"| ADMIN
+    ADMIN -->|"Phát Lệnh Downlink"| CLIENT
+    CLIENT -->|"POST /devices/:id/commands"| HC_CLOUD
+    HC_CLOUD -->|"Downlink Queue"| CS
+    CS -->|"LoRa Downlink RX1/RX2"| DEV1
+    CS -->|"LoRa Downlink RX1/RX2"| DEV2
 ```
 
 ---
