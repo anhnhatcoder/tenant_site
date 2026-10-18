@@ -157,4 +157,4 @@ AUTH_USER_MODEL = 'Server_tenant.User'
 
 HCTECH_IOT_BASE_URL = "https://iot-staging.hctech.com.vn/api/public/v1"
 
-HCTECH_IOT_API_TOKEN = "iot_RmsRJUHfZHzHk8d1mCWwSKK5kbstP9mgD1HCaUiWXCk"
+HCTECH_IOT_API_TOKEN = "Key_Bao_Mat"
