@@ -814,7 +814,7 @@
                   </td>
                   <td class="p-3.5 whitespace-nowrap">
                     {% if log.is_open %}
-                    <button onclick="openCoordinationModal({{ log.id }}, '{{ log.device.device_name }}', '{{ log.device.dev_eui }}')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg">
+                    <button type="button" data-id="{{ log.id }}" data-name="{{ log.device.device_name }}" data-eui="{{ log.device.dev_eui }}" onclick="openCoordinationModal(this.dataset.id, this.dataset.name, this.dataset.eui)" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg">
                       Điều phối / Đóng hồ sơ
                     </button>
                     {% else %}
@@ -944,7 +944,7 @@
                     <td class="p-3.5">{{ u.phone_display }}</td>
                     <td class="p-3.5 text-right">
                       {% if u.can_delete %}
-                      <button type="button" onclick="deleteUserAccount({{ u.id }}, '{{ u.username }}')" class="bg-red-500/15 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/40 px-3 py-1 rounded-lg font-semibold transition">
+                      <button type="button" data-id="{{ u.id }}" data-username="{{ u.username }}" onclick="deleteUserAccount(this.dataset.id, this.dataset.username)" class="bg-red-500/15 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/40 px-3 py-1 rounded-lg font-semibold transition">
                         <i class="fa-solid fa-trash-can mr-1"></i> Xóa
                       </button>
                       {% else %}
