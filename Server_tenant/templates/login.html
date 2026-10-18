@@ -1,0 +1,103 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Đăng Nhập - Trung Tâm Quản Lý Sự Cố & Báo Động Khẩn Cấp HC TECH
+    </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+  </head>
+  <body
+    class="min-h-screen bg-[#041523] text-slate-100 flex items-center justify-center p-4 relative overflow-hidden"
+  >
+    <div
+      class="absolute -top-32 -left-32 w-96 h-96 bg-cyan-400/15 rounded-full blur-3xl pointer-events-none"
+    ></div>
+    <div
+      class="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"
+    ></div>
+
+    <div
+      class="w-full max-w-md bg-[#072238] border border-[#114264] rounded-2xl shadow-2xl p-8 space-y-6 z-10"
+    >
+      <div class="text-center space-y-2">
+        <img
+          src="{% static 'images/logo.jpg' %}"
+          alt="HC Logo"
+          class="w-20 h-20 mx-auto rounded-2xl border-2 border-[#22ece9] shadow-lg object-cover bg-white p-1"
+        />
+        <h1
+          class="text-lg font-extrabold uppercase tracking-wider text-white pt-2"
+        >
+          Trung Tâm Quản Lý Sự Cố
+        </h1>
+        <p class="text-xs text-cyan-300 font-medium">
+          HOLDING HC Technology Solutions • IoT LoRaWAN GIS
+        </p>
+      </div>
+
+      {% if error_msg %}
+      <div
+        class="bg-red-500/20 border border-red-500 text-red-300 text-xs px-4 py-3 rounded-xl flex items-center space-x-2"
+      >
+        <i class="fa-solid fa-circle-exclamation text-base"></i>
+        <span>{{ error_msg }}</span>
+      </div>
+      {% endif %}
+
+      <form method="POST" action="/login/" class="space-y-4">
+        {% csrf_token %}
+        <div>
+          <label class="block text-xs text-slate-300 font-semibold mb-1.5"
+            >Tài khoản đăng nhập</label
+          >
+          <div class="relative">
+            <i
+              class="fa-solid fa-user absolute left-3.5 top-3 text-slate-400 text-xs"
+            ></i>
+            <input
+              name="username"
+              type="text"
+              required
+              placeholder="Nhập tài khoản..."
+              class="w-full bg-[#041829] border border-[#114264] focus:border-[#22ece9] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white outline-none"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-300 font-semibold mb-1.5"
+            >Mật khẩu</label
+          >
+          <div class="relative">
+            <i
+              class="fa-solid fa-lock absolute left-3.5 top-3 text-slate-400 text-xs"
+            ></i>
+            <input
+              name="password"
+              type="password"
+              required
+              placeholder="Nhập mật khẩu..."
+              class="w-full bg-[#041829] border border-[#114264] focus:border-[#22ece9] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white outline-none"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          class="w-full py-3 rounded-xl font-extrabold text-sm uppercase tracking-wider transition shadow-lg hover:brightness-110"
+          style="
+            background: linear-gradient(135deg, #22ece9 0%, #06b6d4 100%);
+            color: #062338;
+          "
+        >
+          <i class="fa-solid fa-right-to-bracket mr-1.5"></i> Đăng Nhập Hệ Thống
+        </button>
+      </form>
+    </div>
+  </body>
+</html>

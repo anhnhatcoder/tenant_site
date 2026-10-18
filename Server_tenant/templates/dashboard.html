@@ -1,0 +1,1527 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRUNG TÂM QUẢN LÝ SỰ CỐ, BÁO ĐỘNG KHẨN CẤP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+      };
+    </script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v={% now 'U' %}" />
+    <style>
+      /* CSS trực tiếp đảm bảo đóng/mở Sidebar bằng Logo luôn hoạt động 100% */
+      #app-sidebar {
+        width: 250px;
+        min-width: 250px;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #app-sidebar.is-closed {
+        width: 0px !important;
+        min-width: 0px !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+        border-right-width: 0px !important;
+        opacity: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body class="hc-body theme-dark font-sans overflow-hidden">
+    <!-- HEADER TOPBAR -->
+    <header
+      class="h-16 hc-surface border-b px-5 flex items-center justify-between gap-4"
+    >
+      <div class="flex items-center space-x-3 min-w-0">
+        <!-- BẤM VÀO LOGO ĐỂ ĐÓNG / MỞ SIDEBAR -->
+        <button
+          type="button"
+          onclick="toggleSidebarByLogo()"
+          class="group relative flex items-center justify-center rounded-xl focus:outline-none shrink-0"
+          title="Nhấn vào Logo để Đóng / Mở thanh Menu"
+        >
+          <img
+            src="{% static 'images/logo.jpg' %}"
+            alt="HC Logo"
+            class="h-11 w-11 rounded-xl object-cover hc-logo-box bg-white p-0.5 cursor-pointer group-hover:scale-105 active:scale-95 transition transform"
+          />
+        </button>
+
+        <div
+          class="truncate cursor-pointer select-none"
+          onclick="toggleSidebarByLogo()"
+          title="Nhấn để Đóng / Mở Menu"
+        >
+          <div class="flex items-center space-x-2">
+            <span
+              class="px-2 py-0.5 rounded text-[11px] font-extrabold shrink-0"
+              style="background: #22ece9; color: #062338"
+              >HCTECH</span
+            >
+            <h1
+              class="font-extrabold text-sm md:text-base uppercase tracking-wide truncate"
+            >
+              Trung Tâm Quản Lý Sự Cố
+            </h1>
+          </div>
+          <p class="text-[11px] hc-text-muted truncate">
+            IoT LoRaWAN Center •
+            <span id="mapvina-status">MapVina Connected</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 shrink-0">
+        <div
+          class="hidden 2xl:flex items-center space-x-3 hc-input hc-header-pill"
+        >
+          <span class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span>Bình thường:</span>
+            <strong id="stat-online">{{ online_count }}</strong>
+          </span>
+          <span class="text-slate-500">|</span>
+          <span class="flex items-center gap-1.5 text-red-500 font-semibold">
+            <span
+              class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"
+            ></span>
+            <span>SOS:</span>
+            <strong id="stat-sos">{{ sos_count }}</strong>
+          </span>
+          <span class="text-slate-500">|</span>
+          <span class="flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+            <span>Offline:</span>
+            <strong id="stat-offline">{{ offline_count }}</strong>
+          </span>
+        </div>
+
+        <button
+          id="btn-header-emergency"
+          onclick="handleHeaderEmergencyAction()"
+          class="hc-header-pill {% if sos_count > 0 %}bg-amber-600 hover:bg-amber-500 animate-pulse{% else %}bg-red-600 hover:bg-red-500{% endif %} text-white font-bold shadow-md transition"
+          data-state="{% if sos_count > 0 %}alerting{% else %}idle{% endif %}"
+          title="{% if sos_count > 0 %}Đang có cảnh báo khẩn cấp - Bấm để tắt cảnh báo{% else %}Bấm để phát cảnh báo khẩn cấp thủ công{% endif %}"
+        >
+          <i id="icon-header-emergency" class="fa-solid {% if sos_count > 0 %}fa-bell-slash{% else %}fa-bolt{% endif %} mr-1.5"></i>
+          <span id="text-header-emergency">{% if sos_count > 0 %}Tắt cảnh báo{% else %}Gửi thông báo khẩn{% endif %}</span>
+        </button>
+
+        <button
+          id="btn-sound-toggle"
+          onclick="toggleSoundSetting()"
+          class="hc-input hc-header-pill font-medium"
+        >
+          <i
+            id="icon-sound"
+            class="fa-solid fa-volume-high text-emerald-400 mr-1.5"
+          ></i>
+          <span id="text-sound">Âm báo: BẬT</span>
+        </button>
+
+        <button
+          id="btn-theme-toggle"
+          onclick="toggleTheme()"
+          class="hc-input hc-header-pill font-semibold hover:border-cyan-400"
+        >
+          <i id="icon-theme" class="fa-solid fa-sun text-amber-400 mr-1.5"></i>
+          <span id="text-theme">Nền: TỐI</span>
+        </button>
+
+        <!-- prettier-ignore -->
+        <div class="hc-input hc-header-pill space-x-2">
+          <i class="fa-solid fa-circle-user text-cyan-400 text-sm"></i>
+          <span>Xin chào <strong>{{ current_user_display }}</strong></span>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold {{ role_badge_cls }}">{{ user_role_label }}</span>
+        </div>
+
+        <a
+          href="/logout/"
+          class="hc-input hc-header-pill hover:bg-red-500/20 hover:text-red-400"
+          title="Đăng xuất"
+        >
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </a>
+      </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-4rem)]">
+      <!-- SIDEBAR MENU (Ban đầu hiện đầy đủ, bấm vào Logo sẽ thu gọn) -->
+      <aside
+        id="app-sidebar"
+        class="hc-surface border-r flex flex-col justify-between p-3.5 overflow-y-auto shrink-0"
+      >
+        <nav class="space-y-1">
+          <button
+            onclick="switchTab('map')"
+            id="tab-btn-map"
+            class="hc-nav-btn hc-nav-active w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition"
+          >
+            <i class="fa-solid fa-house w-5 text-center"></i>
+            <span>Trang chủ (Bản đồ GIS)</span>
+          </button>
+          <button
+            onclick="switchTab('stats')"
+            id="tab-btn-stats"
+            class="hc-nav-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition"
+          >
+            <i class="fa-solid fa-chart-column w-5 text-center"></i>
+            <span>Thống kê</span>
+          </button>
+          <button
+            onclick="switchTab('alerts')"
+            id="tab-btn-alerts"
+            class="hc-nav-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition"
+          >
+            <i class="fa-solid fa-clock-rotate-left w-5 text-center"></i>
+            <span>Lịch sử báo động</span>
+          </button>
+          <button
+            onclick="switchTab('playback')"
+            id="tab-btn-playback"
+            class="hc-nav-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition"
+          >
+            <i class="fa-solid fa-route w-5 text-center"></i>
+            <span>Hành trình GPS (Replay)</span>
+          </button>
+          <button
+            onclick="switchTab('devices')"
+            id="tab-btn-devices"
+            class="hc-nav-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition"
+          >
+            <i class="fa-solid fa-microchip w-5 text-center"></i>
+            <span>Quản lý thiết bị</span>
+          </button>
+          {% if is_admin %}
+          <button
+            onclick="switchTab('accounts')"
+            id="tab-btn-accounts"
+            class="hc-nav-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition"
+          >
+            <i class="fa-solid fa-users-gear w-5 text-center"></i>
+            <span>Quản lý tài khoản</span>
+          </button>
+          {% endif %}
+          <div
+            class="pt-2 border-t my-1"
+            style="border-color: var(--border-color)"
+          >
+            <p
+              class="px-3.5 py-1 text-[10px] font-bold uppercase hc-text-muted"
+            >
+              Cài đặt hệ thống
+            </p>
+            <button
+              onclick="switchTab('settings')"
+              id="tab-btn-settings"
+              class="hc-nav-btn w-full flex items-center space-x-3 px-3.5 py-2 rounded-xl text-xs font-medium transition"
+            >
+              <i class="fa-solid fa-user-pen w-5 text-center"></i>
+              <span>Thông tin cá nhân</span>
+            </button>
+          </div>
+        </nav>
+
+        <div
+          class="text-[11px] hc-text-muted px-2 pt-3 border-t whitespace-nowrap"
+          style="border-color: var(--border-color)"
+        >
+          HCTECH © 2026
+        </div>
+      </aside>
+
+      <!-- MAIN WORKSPACE -->
+      <main class="flex-1 p-4 overflow-y-auto">
+        <!-- 1. TRANG CHỦ BẢN ĐỒ GIS & PLAYBACK -->
+        <section id="section-map" class="space-y-3">
+          <div
+            id="playback-toolbar"
+            class="hidden hc-surface p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3"
+          >
+            <div class="flex items-center space-x-2.5">
+              <!-- prettier-ignore -->
+              <select id="playback-device" class="hc-input rounded-lg px-3 py-1.5 text-xs">
+                <option value="">-- Chọn tàu/thiết bị có GPS --</option>
+                {% for d in devices %}
+                {% if d.has_gps %}
+                <option value="{{ d.id }}">{{ d.device_name }} ({{ d.dev_eui }})</option>
+                {% endif %}
+                {% endfor %}
+              </select>
+              <select
+                id="playback-range"
+                class="hc-input rounded-lg px-3 py-1.5 text-xs"
+              >
+                <option value="today">Hôm nay</option>
+                <option value="24h" selected>24 giờ qua</option>
+                <option value="7d">7 ngày qua</option>
+                <option value="30d">30 ngày qua</option>
+              </select>
+              <button
+                onclick="loadRouteHistory()"
+                class="hc-btn-primary px-3.5 py-1.5 rounded-lg text-xs"
+              >
+                <i class="fa-solid fa-magnifying-glass mr-1"></i> Tải hành trình
+              </button>
+            </div>
+
+            <div class="flex items-center space-x-3 flex-1 max-w-md">
+              <button
+                onclick="togglePlayRoute()"
+                id="btn-play"
+                class="hc-btn-primary w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+              >
+                <i class="fa-solid fa-play"></i>
+              </button>
+              <input
+                type="range"
+                id="route-slider"
+                min="0"
+                max="100"
+                value="0"
+                oninput="seekRoute(this.value)"
+                class="w-full accent-cyan-400"
+              />
+              <select
+                id="playback-speed"
+                onchange="changeSpeed(this.value)"
+                class="hc-input rounded-lg px-2 py-1 text-xs font-bold"
+              >
+                <option value="1">1x</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+                <option value="8">8x</option>
+              </select>
+            </div>
+
+            <div class="flex items-center space-x-4 text-xs">
+              <span
+                >Tổng quãng đường:
+                <strong id="route-distance" class="text-emerald-500"
+                  >0.0 km</strong
+                ></span
+              >
+              <span
+                >Tốc độ:
+                <strong id="route-speed" class="text-cyan-400"
+                  >0 km/h</strong
+                ></span
+              >
+              <button
+                onclick="exportRouteKML()"
+                class="hc-input px-3 py-1.5 rounded-lg font-semibold"
+              >
+                <i class="fa-solid fa-download mr-1"></i> Xuất KML/GPX
+              </button>
+            </div>
+          </div>
+
+          <!-- KHUNG BẢN ĐỒ + HỘP LỌC NHỎ NẰM GỌN TRÊN GÓC DƯỚI BÊN PHẢI BẢN ĐỒ -->
+          <div class="relative w-full">
+            <div id="gis-map"></div>
+
+            <!-- Hộp lọc nhỏ gọn (w-52 = 208px) đè nổi ở góc dưới bên phải bên trong bản đồ -->
+            <div
+              id="map-filter-box"
+              class="absolute bottom-7 right-3 z-[400] w-52 hc-surface border rounded-xl p-2.5 shadow-2xl backdrop-blur-md"
+            >
+              <div
+                onclick="toggleFilterBody()"
+                class="flex items-center justify-between cursor-pointer select-none"
+              >
+                <span
+                  class="text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5"
+                  style="color: var(--hc-cyan)"
+                >
+                  <i class="fa-solid fa-filter"></i> Bộ lọc GIS
+                </span>
+                <i
+                  id="floating-filter-icon"
+                  class="fa-solid fa-chevron-down text-[10px] hc-text-muted"
+                ></i>
+              </div>
+
+              <div
+                id="floating-filter-body"
+                class="space-y-2 mt-2 pt-2 border-t"
+                style="border-color: var(--border-color)"
+              >
+                <div>
+                  <label class="text-[10px] hc-text-muted block mb-0.5"
+                    >Loại hình cứu hộ</label
+                  >
+                  <select
+                    id="filter-gps"
+                    onchange="refreshMapMarkers(true)"
+                    class="w-full hc-input rounded-lg px-2 py-1 text-[11px]"
+                  >
+                    <option value="">Tất cả (Biển & Đất liền)</option>
+                    <option value="true">🚢 Cứu hộ Biển (GPS)</option>
+                    <option value="false">🏠 Cứu hộ Đất liền</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[10px] hc-text-muted block mb-0.5"
+                    >Trạng thái kết nối</label
+                  >
+                  <select
+                    id="filter-status"
+                    onchange="refreshMapMarkers(true)"
+                    class="w-full hc-input rounded-lg px-2 py-1 text-[11px]"
+                  >
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="ONLINE">🟢 Bình thường</option>
+                    <option value="SOS">🔴 Đang phát SOS</option>
+                    <option value="PROCESSING">🟡 Đang xử lý</option>
+                    <option value="OFFLINE">⚪ Offline</option>
+                  </select>
+                </div>
+                <div class="pt-1">
+                  <button
+                    type="button"
+                    onclick="fitMapToDevices(true)"
+                    class="w-full py-1.5 px-2 rounded-lg text-[11px] font-bold hc-button-outline flex items-center justify-center gap-1.5 transition cursor-pointer hover:bg-cyan-500/10 active:scale-95"
+                    title="Tự động căn chỉnh và zoom toàn bộ vị trí thiết bị"
+                  >
+                    <i class="fa-solid fa-expand text-cyan-400"></i> Zoom bao quát thiết bị
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. TRANG THỐNG KÊ -->
+        <section id="section-stats" class="hidden space-y-5">
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p class="text-xs hc-text-muted">Trang chủ &gt; Thống kê</p>
+              <h2 class="text-xl font-extrabold">Thống kê</h2>
+            </div>
+            <div class="flex items-center space-x-2 text-xs">
+              <button
+                id="btn-stat-range-today"
+                onclick="selectStatRange('today')"
+                class="hc-input px-3 py-2 rounded-full transition-all"
+              >
+                Hôm nay
+              </button>
+              <button
+                id="btn-stat-range-7d"
+                onclick="selectStatRange('7d')"
+                class="hc-input px-3 py-2 rounded-full transition-all"
+              >
+                7 ngày
+              </button>
+              <button
+                id="btn-stat-range-30d"
+                onclick="selectStatRange('30d')"
+                class="hc-input px-3 py-2 rounded-full transition-all"
+              >
+                30 ngày
+              </button>
+              <button
+                id="btn-stat-range-3m"
+                onclick="selectStatRange('3m')"
+                class="hc-input px-3 py-2 rounded-full transition-all"
+              >
+                3 tháng
+              </button>
+              <button
+                id="btn-stat-range-12m"
+                onclick="selectStatRange('12m')"
+                class="hc-btn-primary px-4 py-2 rounded-full font-bold transition-all"
+              >
+                12 tháng
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+            <div
+              class="lg:col-span-3 bg-[#062338] text-white p-6 rounded-2xl border border-[#114264] flex flex-col justify-between"
+            >
+              <div class="space-y-4">
+                <h3 class="text-sm font-bold text-cyan-300">Tổng cộng</h3>
+                <!-- prettier-ignore -->
+                <div class="space-y-3">
+                  <div class="text-2xl font-extrabold"><span id="stat-count-chay">{{ chay_count }}</span> <span class="text-xs font-normal text-slate-300">Cháy</span></div>
+                  <div class="text-2xl font-extrabold"><span id="stat-count-yte">{{ yte_count }}</span> <span class="text-xs font-normal text-slate-300">Cấp Cứu/Y tế & Biển</span></div>
+                  <div class="text-2xl font-extrabold"><span id="stat-count-anninh">{{ anninh_count }}</span> <span class="text-xs font-normal text-slate-300">An Ninh</span></div>
+                </div>
+              </div>
+              <svg
+                viewBox="0 0 200 50"
+                class="w-full h-14 stroke-cyan-400 fill-none mt-6"
+                stroke-width="2.5"
+              >
+                <polyline
+                  points="0,45 25,30 50,38 75,18 100,32 130,12 160,26 200,8"
+                />
+              </svg>
+            </div>
+
+            <div
+              class="lg:col-span-5 hc-surface p-6 rounded-2xl border flex flex-col justify-between space-y-5"
+            >
+              <div class="flex space-x-2 text-xs">
+                <button
+                  id="btn-stat-type-all"
+                  onclick="selectStatType('')"
+                  class="hc-btn-primary px-3 py-1.5 rounded-lg font-bold transition-all"
+                >
+                  Tất cả
+                </button>
+                <button
+                  id="btn-stat-type-CHAY"
+                  onclick="selectStatType('CHAY')"
+                  class="hc-input px-3 py-1.5 rounded-lg font-medium transition-all"
+                >
+                  Cháy
+                </button>
+                <button
+                  id="btn-stat-type-CAP_CUU_Y_TE"
+                  onclick="selectStatType('CAP_CUU_Y_TE')"
+                  class="hc-input px-3 py-1.5 rounded-lg font-medium transition-all"
+                >
+                  Cấp Cứu/Y tế
+                </button>
+                <button
+                  id="btn-stat-type-AN_NINH"
+                  onclick="selectStatType('AN_NINH')"
+                  class="hc-input px-3 py-1.5 rounded-lg font-medium transition-all"
+                >
+                  An Ninh
+                </button>
+              </div>
+
+              <!-- prettier-ignore -->
+              <div class="space-y-4 text-xs">
+                <div>
+                  <div class="flex justify-between mb-1"><span>Mới</span><strong id="stat-alert-new">{{ alert_new }} vụ</strong></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-new" class="bg-red-500 h-full transition-all duration-300" style="width: {{ pct_new }}%"></div></div>
+                </div>
+                <div>
+                  <div class="flex justify-between mb-1"><span>Đang xử lý</span><strong id="stat-alert-proc">{{ alert_proc }} vụ</strong></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-proc" class="bg-amber-500 h-full transition-all duration-300" style="width: {{ pct_proc }}%"></div></div>
+                </div>
+                <div>
+                  <div class="flex justify-between mb-1"><span>Đã xử lý</span><strong id="stat-alert-res">{{ alert_res }} vụ</strong></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-res" class="bg-emerald-500 h-full transition-all duration-300" style="width: {{ pct_res }}%"></div></div>
+                </div>
+                <div>
+                  <div class="flex justify-between mb-1"><span>Báo động giả</span><strong id="stat-alert-false">{{ alert_false }} vụ</strong></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-false" class="bg-slate-400 h-full transition-all duration-300" style="width: {{ pct_false }}%"></div></div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="lg:col-span-4 hc-surface p-6 rounded-2xl border flex flex-col justify-between"
+            >
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-sm">Biểu đồ thiết bị</h3>
+                <span class="text-xs hc-text-muted"
+                  >Tất cả (<span>{{ total_devices }}</span>)</span
+                >
+              </div>
+              <div class="relative w-48 h-48 mx-auto my-3">
+                <canvas
+                  id="deviceDonutChart"
+                  data-online="{{ online_count }}"
+                  data-offline="{{ offline_count }}"
+                  data-maint="{{ maint_count }}"
+                ></canvas>
+              </div>
+              <div class="space-y-2 text-xs">
+                <div class="flex justify-between">
+                  <span class="flex items-center gap-2"
+                    ><span class="w-3 h-3 rounded-full bg-blue-500"></span>Thiết
+                    bị đang kết nối</span
+                  >
+                  <strong>{{ online_count }}</strong>
+                </div>
+                <div class="flex justify-between">
+                  <span class="flex items-center gap-2"
+                    ><span class="w-3 h-3 rounded-full bg-red-500"></span>Thiết
+                    bị mất kết nối / SOS</span
+                  >
+                  <strong>{{ offline_count }}</strong>
+                </div>
+                <div class="flex justify-between">
+                  <span class="flex items-center gap-2"
+                    ><span class="w-3 h-3 rounded-full bg-amber-400"></span
+                    >Thiết bị đang bảo trì</span
+                  >
+                  <strong>{{ maint_count }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. TRANG QUẢN LÝ THIẾT BỊ -->
+        <section id="section-devices" class="hidden space-y-5">
+          <div>
+            <p class="text-xs hc-text-muted">Trang chủ &gt; Quản lý thiết bị</p>
+            <h2 class="text-xl font-extrabold">Danh sách thiết bị</h2>
+          </div>
+
+          <!-- prettier-ignore -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+            <div class="hc-stat-card">
+              <div class="text-xs font-bold hc-text-muted">Camera</div>
+              <div class="text-2xl font-extrabold flex items-baseline gap-1">
+                <span class="text-emerald-500">{{ cam_online }}</span>
+                <span>/</span>
+                <span>{{ cam_total }}</span>
+                <span class="text-xs font-normal hc-text-muted ml-1">online</span>
+              </div>
+              <div class="text-xs text-red-400"><span>{{ cam_offline }}</span> thiết bị không hoạt động</div>
+            </div>
+            <div class="hc-stat-card">
+              <div class="text-xs font-bold hc-text-muted">Nút nhấn LoRaWAN</div>
+              <div class="text-2xl font-extrabold flex items-baseline gap-1">
+                <span class="text-emerald-500">{{ btn_online }}</span>
+                <span>/</span>
+                <span>{{ btn_total }}</span>
+                <span class="text-xs font-normal hc-text-muted ml-1">online</span>
+              </div>
+              <div class="text-xs text-red-400"><span>{{ btn_offline }}</span> thiết bị không hoạt động</div>
+            </div>
+            <div class="hc-stat-card">
+              <div class="text-xs font-bold hc-text-muted">Gateway</div>
+              <div class="text-2xl font-extrabold flex items-baseline gap-1">
+                <span class="text-emerald-500">{{ gw_online }}</span>
+                <span>/</span>
+                <span>{{ gw_total }}</span>
+                <span class="text-xs font-normal hc-text-muted ml-1">online</span>
+              </div>
+              <div class="text-xs text-red-400"><span>{{ gw_offline }}</span> thiết bị không hoạt động</div>
+            </div>
+            <div class="hc-stat-card">
+              <div class="text-xs font-bold hc-text-muted">Tổng cộng</div>
+              <div class="text-2xl font-extrabold text-cyan-500"><span>{{ total_devices }}</span></div>
+              <div class="text-xs hc-text-muted">thiết bị thuộc Tenant</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+            <div>
+              <label class="block font-semibold mb-1 hc-text-muted"
+                >Tìm kiếm</label
+              >
+              <input
+                id="dev-search-input"
+                oninput="filterDeviceTable()"
+                type="text"
+                placeholder="🔍 Nhập tên / DevEUI để tìm..."
+                class="w-full hc-input rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label class="block font-semibold mb-1 hc-text-muted"
+                >Loại thiết bị</label
+              >
+              <select
+                id="dev-type-filter"
+                onchange="filterDeviceTable()"
+                class="w-full hc-input rounded-lg px-3 py-2"
+              >
+                <option value="">Tất cả loại thiết bị</option>
+                <option value="CAMERA">Camera</option>
+                <option value="NUT_NHAN">Nút nhấn</option>
+                <option value="GATEWAY">Gateway</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold mb-1 hc-text-muted"
+                >Tình trạng kết nối</label
+              >
+              <select
+                id="dev-conn-filter"
+                onchange="filterDeviceTable()"
+                class="w-full hc-input rounded-lg px-3 py-2"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="ONLINE">Đang kết nối</option>
+                <option value="SOS">Đang phát SOS</option>
+                <option value="OFFLINE">Mất kết nối</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold mb-1 hc-text-muted"
+                >Loại hình cứu hộ</label
+              >
+              <select
+                id="dev-gps-filter"
+                onchange="filterDeviceTable()"
+                class="w-full hc-input rounded-lg px-3 py-2"
+              >
+                <option value="">Tất cả (Biển & Đất liền)</option>
+                <option value="GPS">Có GPS (Cứu hộ biển)</option>
+                <option value="STATIC">Không GPS (Đất liền)</option>
+              </select>
+            </div>
+          </div>
+
+          {% if is_admin %}
+          <div class="flex items-center space-x-3">
+            <button
+              onclick="deleteSelectedDevices()"
+              class="hc-input hover:bg-red-500/20 hover:text-red-400 px-4 py-2 rounded-lg text-xs font-semibold transition"
+            >
+              <i class="fa-solid fa-trash-can mr-1.5"></i> Xóa thiết bị
+            </button>
+            <button
+              onclick="openAddDeviceModal()"
+              class="hc-btn-primary px-4 py-2 rounded-lg text-xs"
+            >
+              <i class="fa-solid fa-plus mr-1.5"></i> Thêm mới
+            </button>
+          </div>
+          {% else %}
+          <div
+            class="hc-input px-4 py-2 rounded-lg text-xs text-amber-500 inline-block font-semibold"
+          >
+            <i class="fa-solid fa-lock mr-1"></i> Tài khoản Viewer chỉ có quyền
+            xem, không có quyền thêm/xóa thiết bị.
+          </div>
+          {% endif %}
+
+          <div class="hc-surface rounded-xl border overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="hc-input uppercase">
+                  <tr>
+                    <th class="p-3.5 w-10">
+                      <input
+                        type="checkbox"
+                        onclick="toggleAllDeviceChecks(this)"
+                      />
+                    </th>
+                    <th class="p-3.5">Loại</th>
+                    <th class="p-3.5">Lĩnh vực</th>
+                    <th class="p-3.5">Tên thiết bị</th>
+                    <th class="p-3.5">ID / DevEUI</th>
+                    <th class="p-3.5">Chủ hộ / SĐT</th>
+                    <th class="p-3.5">Vị trí / Tọa độ</th>
+                    <th class="p-3.5">Trạng thái</th>
+                  </tr>
+                </thead>
+                <!-- prettier-ignore -->
+                <tbody id="device-table-body" class="divide-y" style="border-color: var(--border-color)">
+                  {% for d in devices %}
+                  <tr class="device-row hover:bg-cyan-500/10 transition" data-type="{{ d.device_type }}" data-conn="{{ d.connection_status }}" data-gps="{{ d.gps_code }}">
+                    <td class="p-3.5"><input type="checkbox" class="dev-check" value="{{ d.id }}" /></td>
+                    <td class="p-3.5 whitespace-nowrap">
+                      <span class="inline-block whitespace-nowrap {{ d.type_bg }} text-white px-3 py-1 rounded-full text-[11px] font-bold">{{ d.type_label }}</span>
+                    </td>
+                    <td class="p-3.5 whitespace-nowrap">
+                      <span class="inline-block whitespace-nowrap border {{ d.cat_cls }} px-3 py-0.5 rounded-full text-[11px] font-semibold">{{ d.cat_label }}</span>
+                    </td>
+                    <td class="p-3.5 font-bold">{{ d.device_name }}</td>
+                    <td class="p-3.5 font-mono hc-text-muted">{{ d.dev_eui }}</td>
+                    <td class="p-3.5">
+                      <div class="font-medium">{{ d.customer_name }}</div>
+                      <div class="hc-text-muted text-[11px]">{{ d.emergency_phone }}</div>
+                    </td>
+                    <td class="p-3.5">{{ d.loc_display }}</td>
+                    <td class="p-3.5 font-semibold whitespace-nowrap">{{ d.get_connection_status_display }}</td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="8" class="p-6 text-center hc-text-muted">Chưa có thiết bị nào. Hãy bấm "+ Thêm mới".</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. TRANG LỊCH SỬ BÁO ĐỘNG -->
+        <section id="section-alerts" class="hidden space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p class="text-xs hc-text-muted">
+                Trang chủ &gt; Lịch sử báo động
+              </p>
+              <h2 class="text-xl font-extrabold">
+                Lịch sử sự kiện & Báo cáo cứu hộ
+              </h2>
+            </div>
+            {% if is_admin %}
+            <a
+              href="/export/alerts/csv/"
+              class="hc-btn-primary px-4 py-2 rounded-lg text-xs flex items-center space-x-2"
+            >
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Xuất Báo Cáo Excel / CSV (Tenant Admin)</span>
+            </a>
+            {% endif %}
+          </div>
+
+          <div class="hc-surface rounded-xl border overflow-hidden">
+            <table class="w-full text-left text-xs">
+              <thead class="hc-input uppercase">
+                <tr>
+                  <th class="p-3.5">Mã / Thời điểm SOS</th>
+                  <th class="p-3.5">Thiết bị phát tin</th>
+                  <th class="p-3.5">Tọa độ / Địa chỉ</th>
+                  <th class="p-3.5">Trạng thái</th>
+                  <th class="p-3.5">Ghi chú Điều phối & Kết quả</th>
+                  <th class="p-3.5">Thao tác</th>
+                </tr>
+              </thead>
+              <!-- prettier-ignore -->
+              <tbody class="divide-y" style="border-color: var(--border-color)">
+                {% for log in alerts %}
+                <tr class="hover:bg-cyan-500/10 transition">
+                  <td class="p-3.5 whitespace-nowrap">
+                    <div class="font-bold text-red-500">#SOS-{{ log.id }}</div>
+                    <div class="hc-text-muted">{{ log.created_at|date:"H:i:s d/m/Y" }}</div>
+                  </td>
+                  <td class="p-3.5">
+                    <div class="font-semibold">{{ log.device.device_name }}</div>
+                    <div class="hc-text-muted font-mono">{{ log.device.dev_eui }}</div>
+                  </td>
+                  <td class="p-3.5">{{ log.loc_display }}</td>
+                  <td class="p-3.5 font-semibold whitespace-nowrap">{{ log.get_status_display }}</td>
+                  <td class="p-3.5">
+                    <div><strong>Điều phối:</strong> <span>{{ log.notes_display }}</span></div>
+                    <div><strong>Kết quả:</strong> <span>{{ log.report_display }}</span></div>
+                  </td>
+                  <td class="p-3.5 whitespace-nowrap">
+                    {% if log.is_open %}
+                    <button onclick="openCoordinationModal({{ log.id }}, '{{ log.device.device_name }}', '{{ log.device.dev_eui }}')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg">
+                      Điều phối / Đóng hồ sơ
+                    </button>
+                    {% else %}
+                    <span class="text-emerald-500 font-semibold"><i class="fa-solid fa-check-circle"></i> Đã đóng băng</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="6" class="p-6 text-center hc-text-muted">Chưa có sự kiện SOS nào.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 5. TRANG QUẢN LÝ TÀI KHOẢN -->
+        {% if is_admin %}
+        <section id="section-accounts" class="hidden space-y-4">
+          <div>
+            <p class="text-xs hc-text-muted">
+              Trang chủ &gt; Quản lý tài khoản
+            </p>
+            <h2 class="text-xl font-extrabold">
+              Quản lý Tài khoản & Phân quyền Tenant
+            </h2>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div class="hc-surface p-5 rounded-xl border space-y-3.5 text-xs">
+              <h3
+                class="font-bold text-sm border-b pb-2"
+                style="border-color: var(--border-color)"
+              >
+                <i class="fa-solid fa-user-plus text-cyan-500 mr-1.5"></i> Tạo
+                Tài Khoản Mới
+              </h3>
+              <div>
+                <label class="block hc-text-muted mb-1"
+                  >Tên đăng nhập (Username) *</label
+                >
+                <input
+                  id="usr-username"
+                  type="text"
+                  placeholder="VD: vanhanh01"
+                  class="w-full hc-input rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block hc-text-muted mb-1"
+                  >Họ và tên người dùng *</label
+                >
+                <input
+                  id="usr-fullname"
+                  type="text"
+                  placeholder="VD: Trần Văn An"
+                  class="w-full hc-input rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block hc-text-muted mb-1">Số điện thoại</label>
+                <input
+                  id="usr-phone"
+                  type="text"
+                  placeholder="VD: 0905123456"
+                  class="w-full hc-input rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block hc-text-muted mb-1"
+                  >Mật khẩu khởi tạo *</label
+                >
+                <input
+                  id="usr-password"
+                  type="password"
+                  placeholder="Nhập mật khẩu..."
+                  class="w-full hc-input rounded-lg px-3 py-2"
+                />
+              </div>
+              <div>
+                <label class="block hc-text-muted mb-1"
+                  >Phân quyền hệ thống (Role) *</label
+                >
+                <select
+                  id="usr-role"
+                  class="w-full hc-input rounded-lg px-3 py-2"
+                >
+                  <option value="VIEWER">
+                    Viewer (Chỉ xem & Tiếp nhận SOS)
+                  </option>
+                  <option value="TENANT_ADMIN">
+                    Tenant Admin (Toàn quyền quản trị)
+                  </option>
+                </select>
+              </div>
+              <button
+                type="button"
+                onclick="submitNewUser()"
+                class="w-full hc-btn-primary py-2.5 rounded-lg"
+              >
+                <i class="fa-solid fa-check mr-1"></i> Tạo Tài Khoản
+              </button>
+            </div>
+
+            <div
+              class="lg:col-span-2 hc-surface rounded-xl border overflow-hidden"
+            >
+              <table class="w-full text-left text-xs">
+                <thead class="hc-input uppercase">
+                  <tr>
+                    <th class="p-3.5">Username</th>
+                    <th class="p-3.5">Họ và tên</th>
+                    <th class="p-3.5">Phân quyền (RBAC)</th>
+                    <th class="p-3.5">Số điện thoại</th>
+                    <th class="p-3.5 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <!-- prettier-ignore -->
+                <tbody class="divide-y" style="border-color: var(--border-color)">
+                  {% for u in users_list %}
+                  <tr id="user-row-{{ u.id }}" class="hover:bg-cyan-500/10 transition">
+                    <td class="p-3.5 font-mono font-bold">{{ u.username }}</td>
+                    <td class="p-3.5">{{ u.display_name }}</td>
+                    <td class="p-3.5">
+                      <span class="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-500 font-bold text-[11px]">{{ u.get_role_display }}</span>
+                    </td>
+                    <td class="p-3.5">{{ u.phone_display }}</td>
+                    <td class="p-3.5 text-right">
+                      {% if u.can_delete %}
+                      <button type="button" onclick="deleteUserAccount({{ u.id }}, '{{ u.username }}')" class="bg-red-500/15 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/40 px-3 py-1 rounded-lg font-semibold transition">
+                        <i class="fa-solid fa-trash-can mr-1"></i> Xóa
+                      </button>
+                      {% else %}
+                      <span class="hc-text-muted italic text-[11px]">Đang đăng nhập</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+        {% endif %}
+
+        <!-- 6. TRANG THÔNG TIN CÁ NHÂN -->
+        <section id="section-settings" class="hidden max-w-xl space-y-4">
+          <h2 class="text-xl font-extrabold">
+            Thông tin cá nhân & Cài đặt cảnh báo
+          </h2>
+          <!-- prettier-ignore -->
+          <div class="hc-surface p-6 rounded-xl border space-y-3 text-xs">
+            <div class="flex justify-between py-2.5 border-b" style="border-color: var(--border-color)">
+              <span class="hc-text-muted">Tài khoản đang đăng nhập:</span>
+              <strong class="font-mono">{{ current_username }}</strong>
+            </div>
+            <div class="flex justify-between py-2.5 border-b" style="border-color: var(--border-color)">
+              <span class="hc-text-muted">Họ và tên người vận hành:</span>
+              <strong>{{ current_user_display }}</strong>
+            </div>
+            <div class="flex justify-between py-2.5 border-b" style="border-color: var(--border-color)">
+              <span class="hc-text-muted">Cấp độ phân quyền (Role):</span>
+              <strong class="text-cyan-500">{{ user_role_label }}</strong>
+            </div>
+            <div class="pt-3">
+              <a href="/logout/" class="inline-block bg-red-600 hover:bg-red-500 text-white font-bold px-4 py-2 rounded-lg">
+                <i class="fa-solid fa-right-from-bracket mr-1.5"></i> Đăng xuất khỏi phiên làm việc
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- MODAL THÊM MỚI THIẾT BỊ -->
+    <div
+      id="add-device-modal"
+      class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    >
+      <div
+        class="hc-surface border rounded-2xl max-w-lg w-full p-6 space-y-4 text-xs"
+      >
+        <div
+          class="flex items-center justify-between border-b pb-3"
+          style="border-color: var(--border-color)"
+        >
+          <h3 class="text-base font-extrabold">
+            <i class="fa-solid fa-plus-circle text-cyan-400 mr-1.5"></i> Đăng Ký
+            Thiết Bị Mới
+          </h3>
+          <button
+            onclick="closeAddDeviceModal()"
+            class="text-slate-400 hover:text-white text-lg"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block hc-text-muted mb-1">Loại thiết bị *</label>
+            <select
+              id="reg-device-type"
+              class="w-full hc-input rounded-lg px-3 py-2"
+            >
+              <option value="NUT_NHAN">Nút nhấn LoRaWAN</option>
+              <option value="CAMERA">Camera giám sát</option>
+              <option value="GATEWAY">Gateway LoRa</option>
+            </select>
+          </div>
+          <div>
+            <label class="block hc-text-muted mb-1">Lĩnh vực cảnh báo *</label>
+            <select
+              id="reg-category-type"
+              class="w-full hc-input rounded-lg px-3 py-2"
+            >
+              <option value="CAP_CUU_Y_TE">Cấp Cứu / Y tế / Biển</option>
+              <option value="AN_NINH">An Ninh</option>
+              <option value="CHAY">Báo Cháy</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block hc-text-muted mb-1">Tên thiết bị *</label>
+            <input
+              id="reg-name"
+              type="text"
+              placeholder="VD: Nút nhấn cấp cứu 01"
+              class="w-full hc-input rounded-lg px-3 py-2"
+            />
+          </div>
+          <div>
+            <label class="block hc-text-muted mb-1">Mã ID / DevEUI *</label>
+            <input
+              id="reg-deveui"
+              type="text"
+              placeholder="VD: cf8b03ffff6430c5"
+              class="w-full hc-input rounded-lg px-3 py-2 font-mono"
+            />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block hc-text-muted mb-1"
+              >Chủ sở hữu / Đơn vị *</label
+            >
+            <input
+              id="reg-owner"
+              type="text"
+              placeholder="Nguyễn Văn A"
+              class="w-full hc-input rounded-lg px-3 py-2"
+            />
+          </div>
+          <div>
+            <label class="block hc-text-muted mb-1">SĐT Khẩn cấp *</label>
+            <input
+              id="reg-phone"
+              type="text"
+              placeholder="0905123456"
+              class="w-full hc-input rounded-lg px-3 py-2"
+            />
+          </div>
+        </div>
+        <div>
+          <label class="block hc-text-muted mb-1">Chế độ định vị GPS</label>
+          <select
+            id="reg-has-gps"
+            onchange="toggleStaticAddressField()"
+            class="w-full hc-input rounded-lg px-3 py-2"
+          >
+            <option value="false">Cố định trên đất liền (Không GPS)</option>
+            <option value="true">
+              Tàu thuyền di chuyển trên biển (Có GPS)
+            </option>
+          </select>
+        </div>
+        <div id="address-only-field">
+          <label class="block hc-text-muted mb-1">Địa chỉ tĩnh</label>
+          <input
+            id="reg-address"
+            type="text"
+            placeholder="Số 12 Trần Phú, Hải Châu, Đà Nẵng"
+            class="w-full hc-input rounded-lg px-3 py-2"
+          />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block hc-text-muted mb-1">Vĩ độ (Latitude)</label>
+            <input
+              id="reg-lat"
+              type="number"
+              step="any"
+              value="16.054407"
+              class="w-full hc-input rounded-lg px-3 py-2"
+            />
+          </div>
+          <div>
+            <label class="block hc-text-muted mb-1">Kinh độ (Longitude)</label>
+            <input
+              id="reg-lng"
+              type="number"
+              step="any"
+              value="108.202167"
+              class="w-full hc-input rounded-lg px-3 py-2"
+            />
+          </div>
+        </div>
+        <div class="flex justify-end space-x-3 pt-2">
+          <button
+            onclick="closeAddDeviceModal()"
+            class="hc-input px-4 py-2 rounded-lg"
+          >
+            Hủy
+          </button>
+          <button
+            onclick="submitNewDevice()"
+            class="hc-btn-primary px-5 py-2 rounded-lg"
+          >
+            Lưu & Đồng Bộ IoT
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL PHÁT THÔNG BÁO KHẨN CẤP THỦ CÔNG (CHỌN THIẾT BỊ & GHI CHÚ) -->
+    <div
+      id="manual-dispatch-modal"
+      class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onclick="if(event.target === this) closeManualSOSModal()"
+    >
+      <div
+        class="hc-surface border rounded-2xl max-w-lg w-full p-6 space-y-4 text-xs shadow-2xl"
+        style="border-color: #ef4444;"
+      >
+        <!-- Tiêu đề Modal -->
+        <div
+          class="flex items-center justify-between border-b pb-3"
+          style="border-color: var(--border-color)"
+        >
+          <div class="flex items-center space-x-2.5">
+            <div
+              class="w-8 h-8 rounded-lg bg-red-500/15 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-base shrink-0"
+            >
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-extrabold text-red-600 dark:text-red-400">
+                Phát Cảnh Báo Khẩn Cấp
+              </h3>
+              <p class="text-[11px] font-medium" style="color: var(--text-secondary);">
+                Chọn thiết bị nhận cảnh báo và tùy chọn đính kèm ghi chú điều phối
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onclick="closeManualSOSModal()"
+            class="text-slate-400 hover:text-slate-700 dark:hover:text-white text-xl leading-none px-2 py-1 transition"
+          >
+            &times;
+          </button>
+        </div>
+
+        <!-- 1. Chọn Thiết Bị Đích -->
+        <div class="space-y-1.5">
+          <label class="block font-bold text-sm mb-1.5" style="color: var(--text-primary);">
+            <i class="fa-solid fa-ship text-cyan-600 dark:text-cyan-400 mr-1.5"></i> 1. Chọn thiết bị phát / nhận cảnh báo *
+          </label>
+          <select
+            id="manual-sos-device"
+            onchange="updateSelectedDevicePreview()"
+            class="w-full hc-input rounded-xl px-3 py-2.5 text-xs font-semibold cursor-pointer border shadow-sm"
+          >
+            {% for d in devices %}
+            <option
+              value="{{ d.id }}"
+              data-eui="{{ d.dev_eui }}"
+              data-name="{{ d.device_name }}"
+              data-owner="{{ d.customer_name|default:'Chưa đăng ký' }}"
+              data-phone="{{ d.emergency_phone|default:'-' }}"
+              data-status="{{ d.connection_status }}"
+              data-gps="{% if d.has_gps %}true{% else %}false{% endif %}"
+              data-lat="{{ d.latitude|default:'16.054407' }}"
+              data-lng="{{ d.longitude|default:'108.202167' }}"
+              data-address="{{ d.address|default:'Vùng biển Đà Nẵng' }}"
+            >
+              {{ d.device_name }} ({{ d.dev_eui }}) - {{ d.customer_name|default:"Ngư dân" }}
+            </option>
+            {% empty %}
+            <option value="" disabled>Không có thiết bị khả dụng trong hệ thống</option>
+            {% endfor %}
+          </select>
+
+          <!-- Thẻ tóm tắt thông tin thiết bị đã chọn -->
+          <div
+            id="manual-sos-device-preview"
+            class="p-3 rounded-xl hc-input space-y-2 text-xs shadow-sm"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-semibold" style="color: var(--text-secondary);">Chủ sở hữu / SĐT:</span>
+              <span id="preview-device-owner" class="font-bold text-emerald-600 dark:text-emerald-400">-</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="font-semibold" style="color: var(--text-secondary);">Vị trí hiện tại:</span>
+              <span id="preview-device-location" class="font-mono font-bold text-cyan-600 dark:text-cyan-400 truncate max-w-[280px]">-</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="font-semibold" style="color: var(--text-secondary);">Trạng thái kết nối:</span>
+              <span id="preview-device-status" class="font-bold">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Loại cảnh báo -->
+        <div class="space-y-1.5">
+          <label class="block font-bold text-sm mb-1.5" style="color: var(--text-primary);">
+            <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-1.5"></i> 2. Loại tình huống khẩn cấp *
+          </label>
+          <select
+            id="manual-sos-type"
+            class="w-full hc-input rounded-xl px-3 py-2.5 text-xs font-semibold cursor-pointer border shadow-sm"
+          >
+            <option value="CUU_HO_BIEN">🌊 Cứu hộ biển khẩn cấp (Sóng to, chìm tàu, chết máy)</option>
+            <option value="CAP_CUU_Y_TE">🚑 Cấp cứu y tế / Tai nạn thuyền viên</option>
+            <option value="CHAY">🔥 Báo cháy / Hỏa hoạn phương tiện</option>
+            <option value="AN_NINH">🚨 An ninh trật tự / Tranh chấp lãnh hải</option>
+          </select>
+        </div>
+
+        <!-- 3. Tùy chọn ghi chú (Checkbox bật/tắt ghi chú) -->
+        <div
+          class="p-3 rounded-xl hc-input space-y-2.5 shadow-sm"
+        >
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="manual-sos-has-notes"
+                onchange="toggleManualSOSNotes()"
+                class="w-4 h-4 rounded text-cyan-600 border-slate-300 dark:border-slate-600 focus:ring-0 cursor-pointer"
+              />
+              <span class="font-bold text-xs" style="color: var(--text-primary);">Kèm theo ghi chú cho cảnh báo này</span>
+            </label>
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400">Tùy chọn</span>
+          </div>
+
+          <div id="manual-sos-notes-wrapper" class="hidden pt-1">
+            <textarea
+              id="manual-sos-notes"
+              rows="3"
+              placeholder="Nhập ghi chú chi tiết (VD: Tàu hỏng chân vịt cách bờ 12 hải lý, có 4 thuyền viên, nước đang rò rỉ, cần tàu cứu hộ gần nhất tiếp cận gấp)..."
+              class="w-full hc-input rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-cyan-500"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Các nút thao tác -->
+        <div class="flex items-center justify-end space-x-3 pt-2">
+          <button
+            type="button"
+            onclick="closeManualSOSModal()"
+            class="hc-input px-5 py-2.5 rounded-xl font-bold hover:brightness-95 transition text-xs"
+          >
+            Hủy bỏ
+          </button>
+          <button
+            id="btn-submit-manual-sos"
+            type="button"
+            onclick="submitManualSOS()"
+            class="bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-red-600/30 flex items-center gap-2 transition"
+          >
+            <i class="fa-solid fa-bolt"></i>
+            <span>Phát Cảnh Báo Ngay</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL BÁO ĐỘNG KHẨN CẤP NỔI -->
+    <div
+      id="emergency-modal"
+      class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onclick="if(event.target === this) closeEmergencyModal()"
+    >
+      <div
+        class="hc-surface border-2 border-red-500 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 relative"
+      >
+        <!-- Nút đóng nhanh góc trên phải -->
+        <button
+          type="button"
+          onclick="closeEmergencyModal()"
+          class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 dark:hover:text-white text-2xl leading-none w-8 h-8 rounded-lg flex items-center justify-center transition"
+          title="Đóng cửa sổ"
+        >
+          &times;
+        </button>
+
+        <div class="flex items-center space-x-3 text-red-500 pr-8">
+          <i
+            class="fa-solid fa-triangle-exclamation text-3xl animate-bounce shrink-0"
+          ></i>
+          <div>
+            <h2 class="text-lg font-extrabold uppercase">
+              Cảnh Báo Cứu Hộ Khẩn Cấp (SOS)!
+            </h2>
+            <p class="text-xs font-medium" style="color: var(--text-secondary);">
+              Phát hiện tín hiệu cầu cứu từ thiết bị đầu cuối LoRaWAN
+            </p>
+          </div>
+        </div>
+        <div class="hc-input p-4 rounded-xl space-y-2 text-xs border">
+          <div class="flex justify-between items-center">
+            <span class="font-semibold" style="color: var(--text-secondary);">Tên thiết bị:</span>
+            <strong id="sos-modal-name" class="text-sm font-bold" style="color: var(--text-primary);"></strong>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-semibold" style="color: var(--text-secondary);">Mã DevEUI:</span>
+            <span
+              id="sos-modal-deveui"
+              class="font-mono text-amber-600 dark:text-amber-400 font-bold"
+            ></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-semibold" style="color: var(--text-secondary);">Chủ sở hữu / SĐT:</span>
+            <strong id="sos-modal-phone" class="text-emerald-600 dark:text-emerald-400 font-bold"></strong>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-semibold" style="color: var(--text-secondary);">Tọa độ / Vị trí:</span>
+            <strong id="sos-modal-loc" class="font-mono text-cyan-600 dark:text-cyan-400 font-bold"></strong>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-semibold" style="color: var(--text-secondary);">Thời điểm phát SOS:</span>
+            <span id="sos-modal-time" class="font-semibold" style="color: var(--text-primary);"></span>
+          </div>
+          <div
+            id="sos-modal-notes-row"
+            class="hidden flex justify-between items-start border-t pt-1.5 mt-1.5"
+            style="border-color: var(--border-color);"
+          >
+            <span class="font-semibold shrink-0" style="color: var(--text-secondary);">Ghi chú sự cố:</span>
+            <span
+              id="sos-modal-notes"
+              class="text-amber-600 dark:text-amber-400 font-bold max-w-[280px] text-right"
+            ></span>
+          </div>
+        </div>
+        <div id="step3-box">
+          <button
+            onclick="acknowledgeSOS()"
+            class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-red-600/30 transition"
+          >
+            <i class="fa-solid fa-shield-halved mr-2"></i> XÁC NHẬN TIẾP NHẬN
+            CỨU HỘ (TẮT CÒI)
+          </button>
+        </div>
+        <div
+          id="step4-5-box"
+          class="hidden space-y-3 text-xs border-t pt-4"
+          style="border-color: var(--border-color)"
+        >
+          <textarea
+            id="sos-notes"
+            rows="2"
+            placeholder="Ghi chú điều phối (Bước 4)..."
+            class="w-full hc-input rounded-lg p-2.5 border"
+          ></textarea>
+          <textarea
+            id="sos-report"
+            rows="2"
+            placeholder="Báo cáo kết quả hoàn tất (Bước 5)..."
+            class="w-full hc-input rounded-lg p-2.5 border"
+          ></textarea>
+          <div class="flex items-center justify-between gap-3 pt-1">
+            <button
+              type="button"
+              onclick="closeEmergencyModal()"
+              class="hc-input px-5 py-2.5 rounded-xl font-bold hover:brightness-95 transition text-xs"
+            >
+              Đóng lại
+            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                onclick="saveCoordinationNotes()"
+                class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs transition"
+              >
+                Lưu Ghi Chú
+              </button>
+              <button
+                type="button"
+                onclick="resolveSOS()"
+                class="hc-btn-primary py-2.5 px-5 rounded-xl font-bold text-xs shadow-md transition"
+              >
+                <i class="fa-solid fa-check-circle mr-1"></i> Hoàn Tất & Đóng Hồ Sơ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{% static 'js/dashboard.js' %}?v={% now 'U' %}"></script>
+
+    <!-- Script trực tiếp xử lý Đóng/Mở Sidebar bằng Logo, giữ cố định Popup thiết bị & Xóa tài khoản -->
+    <script>
+      // 1. Bấm vào Logo để đóng/mở Sidebar
+      function toggleSidebarByLogo() {
+        const sidebar = document.getElementById("app-sidebar");
+        if (!sidebar) return;
+        sidebar.classList.toggle("is-closed");
+        setTimeout(() => {
+          if (typeof map !== "undefined" && map) {
+            map.invalidateSize();
+          }
+        }, 280);
+      }
+
+      // 2. Thu gọn/mở rộng hộp lọc nhỏ góc dưới phải bản đồ
+      function toggleFilterBody() {
+        const body = document.getElementById("floating-filter-body");
+        const icon = document.getElementById("floating-filter-icon");
+        if (!body) return;
+        body.classList.toggle("hidden");
+        if (icon) {
+          icon.className = body.classList.contains("hidden")
+            ? "fa-solid fa-chevron-up text-[10px] hc-text-muted"
+            : "fa-solid fa-chevron-down text-[10px] hc-text-muted";
+        }
+      }
+
+      // 3. Tự động đóng popup khi nhấp chuột ra ngoài bản đồ hoặc chuyển sang thiết bị khác
+      window.addEventListener("load", () => {
+        if (typeof map !== "undefined" && map) {
+          map.options.closePopupOnClick = true;
+          map.setMinZoom(5);
+          map.on("click", () => {
+            map.closePopup();
+          });
+        }
+      });
+
+      async function submitNewUser() {
+        const username = document.getElementById("usr-username").value.trim();
+        const full_name = document.getElementById("usr-fullname").value.trim();
+        const phone_number = document.getElementById("usr-phone").value.trim();
+        const password = document.getElementById("usr-password").value.trim();
+        const role = document.getElementById("usr-role").value;
+
+        if (!username || !password) {
+          return alert(
+            "Vui lòng nhập đầy đủ Tên đăng nhập (Username) và Mật khẩu!",
+          );
+        }
+
+        try {
+          const res = await fetch("/api/users/create/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username,
+              full_name,
+              phone_number,
+              password,
+              role,
+            }),
+          });
+          const result = await res.json();
+          if (res.ok && result.status === "success") {
+            sessionStorage.setItem("active_hc_tab", "accounts");
+            alert("✅ " + result.message);
+            location.reload();
+          } else {
+            alert("❌ " + (result.message || "Không thể tạo tài khoản"));
+          }
+        } catch (err) {
+          alert("❌ Lỗi kết nối: " + err.message);
+        }
+      }
+
+      async function deleteUserAccount(userId, username) {
+        if (
+          !confirm(`Bạn có chắc chắn muốn xóa tài khoản "${username}" không?`)
+        )
+          return;
+
+        try {
+          const res = await fetch("/api/users/delete/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId }),
+          });
+          const result = await res.json();
+          if (res.ok && result.status === "success") {
+            const row = document.getElementById(`user-row-${userId}`);
+            if (row) row.remove();
+            alert("✅ " + result.message);
+          } else {
+            alert("❌ " + (result.message || "Không thể xóa tài khoản"));
+          }
+        } catch (err) {
+          alert("❌ Lỗi kết nối khi xóa: " + err.message);
+        }
+      }
+
+      window.addEventListener("load", () => {
+        const savedTab = sessionStorage.getItem("active_hc_tab");
+        if (savedTab) {
+          sessionStorage.removeItem("active_hc_tab");
+          if (typeof switchTab === "function") {
+            switchTab(savedTab);
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

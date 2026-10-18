@@ -1,0 +1,17 @@
+# ==============================================================================
+# HC TECH IoT LoRaWAN Management Platform - Python Dependencies
+# ==============================================================================
+
+# Core Web Framework & REST API
+Django==6.1.2
+djangorestframework==3.18.3
+
+# PostgreSQL Database Adapter
+psycopg2-binary==2.9.13
+
+# HTTP Client for IoT Cloud APIs & Webhook integrations
+requests==2.34.2
+
+# Async & SQL Parsing Utilities
+asgiref==3.12.1
+sqlparse==0.6.0

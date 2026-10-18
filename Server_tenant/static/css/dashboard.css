@@ -1,0 +1,207 @@
+/* ================= BẢNG MÀU CHỦ ĐỀ LOGO HC TECHNOLOGY SOLUTIONS ================= */
+:root,
+body.theme-dark {
+  --hc-cyan: #22ece9;
+  --hc-cyan-hover: #06b6d4;
+  --hc-cyan-soft: rgba(34, 236, 233, 0.14);
+  --hc-navy-deep: #041523;
+  --bg-main: #041523;
+  --bg-surface: #072238;
+  --bg-input: #041829;
+  --border-color: #114264;
+  --text-primary: #f0fdfa;
+  --text-secondary: #8ab4cc;
+  --shadow-card: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+body.theme-light {
+  --hc-cyan: #0891b2;
+  --hc-cyan-hover: #0e7490;
+  --hc-cyan-soft: rgba(34, 236, 233, 0.22);
+  --hc-navy-deep: #062338;
+  --bg-main: #f0f9ff;
+  --bg-surface: #ffffff;
+  --bg-input: #f8fafc;
+  --border-color: #bae6fd;
+  --text-primary: #062338;
+  --text-secondary: #475569;
+  --shadow-card: 0 4px 14px rgba(6, 35, 56, 0.06);
+}
+
+body.hc-body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.hc-surface {
+  background-color: var(--bg-surface);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-card);
+}
+
+.hc-input {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.hc-input:focus {
+  outline: none;
+  border-color: #22ece9;
+  box-shadow: 0 0 0 2px rgba(34, 236, 233, 0.25);
+}
+
+.hc-text-muted {
+  color: var(--text-secondary);
+}
+
+.hc-btn-primary {
+  background: linear-gradient(135deg, #22ece9 0%, #06b6d4 100%);
+  color: #062338 !important;
+  font-weight: 700;
+  border: 1px solid #22ece9;
+  white-space: nowrap;
+}
+
+.hc-btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+/* Chống lệch dòng cho các nút & badge trên Header và Card */
+.hc-header-pill {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  padding: 0 12px;
+  border-radius: 0.6rem;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.hc-stat-card {
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: 0.85rem;
+  padding: 1rem 1.25rem;
+  border: 1.5px solid var(--border-color);
+  background-color: var(--bg-surface);
+}
+
+.hc-nav-btn {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.hc-nav-btn:hover {
+  background-color: var(--hc-cyan-soft);
+  color: var(--text-primary);
+}
+
+.hc-nav-active {
+  background: linear-gradient(135deg, #22ece9 0%, #14b8a6 100%) !important;
+  color: #062338 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(34, 236, 233, 0.25);
+}
+
+.hc-logo-box {
+  border: 2px solid #22ece9;
+}
+
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.9);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 18px rgba(239, 68, 68, 0);
+    transform: scale(1.15);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    transform: scale(1);
+  }
+}
+
+.marker-sos {
+  animation: pulse-red 1.2s infinite;
+  background-color: #ef4444 !important;
+  border: 2px solid #ffffff;
+}
+
+.marker-normal {
+  background-color: #10b981;
+  border: 2px solid #ffffff;
+}
+
+.marker-processing {
+  background-color: #f59e0b;
+  border: 2px solid #ffffff;
+}
+
+.marker-offline {
+  background-color: #6b7280;
+  border: 2px solid #ffffff;
+}
+
+.custom-pin {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 15px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35);
+}
+
+#gis-map {
+  height: calc(100vh - 150px);
+  width: 100%;
+  border-radius: 0.75rem;
+  z-index: 10;
+  border: 1.5px solid var(--border-color);
+}
+
+/* ================= HIỆU ỨNG ĐÓNG / MỞ SIDEBAR & BỘ LỌC NỔI ================= */
+#app-sidebar {
+  width: 16rem;
+  /* 256px */
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.2s ease;
+  overflow-x: hidden;
+}
+
+#app-sidebar.sidebar-collapsed {
+  width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border-right-width: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Bộ lọc hiển thị GIS nổi ở góc dưới bên phải bản đồ */
+.gis-floating-filter {
+  position: absolute;
+  bottom: 28px;
+  right: 14px;
+  z-index: 400;
+  /* Nằm trên nền bản đồ Leaflet nhưng dưới Modal khẩn cấp */
+  width: 250px;
+  border-radius: 0.85rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  transition: all 0.25s ease;
+}

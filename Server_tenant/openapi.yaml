@@ -1,0 +1,792 @@
+openapi: 3.1.0
+
+info:
+  title: HCTech IoT Platform — Public API
+  version: "1.2.0"
+  description: |
+    Hợp đồng API công khai của Nền tảng Quản lý IoT Tập trung.
+
+    Xem SRS chương 9. Nguồn: BRD FR-10, FR-11, FR-12.
+
+    ## Ba điều phải biết về Webhook trước khi viết mã
+
+    Kênh Webhook và kênh API này có **mức bảo đảm khác nhau**:
+
+    | | Webhook | API này |
+    |---|---|---|
+    | Số lần giao | **Ít nhất một lần** — có thể nhiều lần (FR-11.21) | Đúng một lần |
+    | Thứ tự | **Không bảo đảm** (FR-11.22) | Sắp xếp được theo thời gian |
+    | Trùng lặp | Có thể — lọc bằng `event_id` (FR-11.23) | Không trùng (FR-11.25) |
+
+    Chi tiết và ví dụ mã lọc trùng: xem tài liệu tích hợp.
+
+    ## Múi giờ
+
+    Mọi mốc thời gian trao đổi theo RFC 3339 có offset. Ranh giới ngày khi tổng hợp
+    tính theo `Asia/Ho_Chi_Minh` (FR-11.19).
+  contact:
+    name: HCTech
+    email: nguyen.nguyen@hctech.com.vn
+
+servers:
+  - url: https://iot.hctech.com.vn/api/public/v1
+    description: Sản xuất
+  - url: https://iot-staging.hctech.com.vn/api/public/v1
+    description: Thử nghiệm (VH-05)
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: telemetry
+    description: Truy vấn dữ liệu đo — FR-11.11 → FR-11.13
+  - name: catalog
+    description: Danh mục thiết bị, nhóm, đại lượng — FR-11.14
+  - name: commands
+    description: Gửi lệnh xuống — FR-10.1, FR-10.4, FR-10.5
+
+paths:
+
+  /telemetry:
+    get:
+      tags: [telemetry]
+      operationId: queryTelemetry
+      x-scopes: ['data:read']
+      summary: Truy vấn dữ liệu đo chi tiết
+      description: |
+        FR-11.11. Truy vấn theo thiết bị hoặc theo nhóm, theo khoảng thời gian,
+        chọn đại lượng cần lấy. Truyền **đúng một** trong `device_id` và `group_id`.
+        Theo nhóm là đọc **từng thiết bị** của nhóm — kể cả thiết bị đã ngừng sử dụng
+        (FR-05.10a) — không cộng gộp số liệu của nhiều thiết bị.
+
+        **Thứ tự**: `reported_at` tăng dần, rồi `event_id` (FR-11.22).
+
+        **Giới hạn khoảng thời gian** (FR-11.18, SRS 9.4.3): tối đa P-13 = 31 ngày cho một
+        thiết bị; theo nhóm là P-13 ÷ số thiết bị của nhóm, tối thiểu 1 ngày. Vượt giới hạn
+        trả `IOT-API-011`; với nhóm, `details` nêu `device_count` và `formula`. Đường đi tiếp
+        là `/telemetry/aggregated`, hoặc chia nhỏ khoảng thời gian.
+
+        **Không có dữ liệu** trả `200` với mảng rỗng, **không phải lỗi** (FR-11.20).
+        Tên đại lượng không tồn tại trong `metrics` cũng không phải lỗi.
+
+        **Bản ghi không có số đo**: khi **không** truyền `metrics`, kết quả có cả bản ghi
+        `decode_status = failed` và `pending_profile` (`decode_reason` nói vì sao), và bản ghi
+        `ok` mà bộ giải mã không trả đại lượng nào — đều với `measurements: []`, đúng như Webhook
+        đã gửi chúng. Khi có `metrics`, chỉ bản ghi có ít nhất một đại lượng được chọn.
+
+        **`package` và `attributes`** là `null`/vắng mặt khi không còn biết phiên bản gói
+        đã giải mã bản ghi — sau thời gian giữ payload thô (P-38, 3 tháng).
+
+        **Tầng dữ liệu**: mọi phản hồi `200` có header `X-Query-Tier`. Khoảng thời gian chạm
+        dữ liệu cũ sẽ chậm hơn rõ rệt (RB-08); khi đó header là `cold` và `warnings` có
+        `cold_tier`.
+      parameters:
+        - { $ref: '#/components/parameters/DeviceId' }
+        - { $ref: '#/components/parameters/GroupId' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - name: metrics
+          in: query
+          description: |
+            Danh sách tên đại lượng, ngăn bằng dấu phẩy, ví dụ `temperature,humidity`. Bỏ trống là
+            lấy tất cả — kể cả bản ghi không có số đo.
+          # No `example` on purpose: the try-it page (T-1.5-08) pre-fills an example as the value,
+          # and a filter nobody chose hides the failed and pending records (measured 10/10/2026).
+          schema: { type: string }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Danh sách bản ghi. Mảng rỗng khi không có dữ liệu.
+          headers:
+            X-Query-Tier:
+              description: '`hot` | `warm` | `cold` — có trên mọi phản hồi `200`; cold nghĩa là truy vấn chậm hơn rõ rệt'
+              schema: { type: string, enum: [hot, warm, cold] }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination, warnings]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/OutboundRecord' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+                  warnings:
+                    type: array
+                    description: '`["cold_tier"]` khi chạm tầng cold, còn lại `[]` — không bao giờ `null`'
+                    items: { type: string, enum: [cold_tier] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /telemetry/aggregated:
+    get:
+      tags: [telemetry]
+      operationId: queryAggregatedTelemetry
+      x-scopes: ['data:read']
+      summary: Truy vấn số liệu tổng hợp theo giờ hoặc ngày
+      description: |
+        FR-11.13. Trả về nhỏ nhất / lớn nhất / trung bình / tổng / số mẫu.
+
+        Đây là **đường đi tiếp** khi `/telemetry` báo `IOT-API-011` (FR-11.18).
+
+        Ranh giới ngày tính theo `Asia/Ho_Chi_Minh` (FR-11.19).
+
+        Theo nhóm là **từng thiết bị** của nhóm: mỗi khoảng mang `device_id`, không có
+        số liệu cộng gộp cả nhóm.
+
+        **Giới hạn khoảng thời gian** (FR-11.18, SRS 9.4.3): `interval=hour` tối đa P-66 = 366
+        ngày, vượt trả `IOT-API-012`; `interval=day` không giới hạn.
+
+        Trường `is_final` cho biết khoảng đó **đã chốt** hay **còn có thể thay đổi**
+        (còn trong cửa sổ tính lại — mặc định 7 ngày, cộng một khoảng và một giờ; FR-09.18a, FR-09.18c).
+        Một khoảng đã chốt chỉ đổi khi Quản trị Hệ thống tính lại nó theo yêu cầu (FR-09.18d).
+      parameters:
+        - { $ref: '#/components/parameters/DeviceId' }
+        - { $ref: '#/components/parameters/GroupId' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - name: interval
+          in: query
+          required: true
+          schema: { type: string, enum: [hour, day] }
+        - name: metrics
+          in: query
+          schema: { type: string }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Danh sách khoảng tổng hợp
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AggregateBucket' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /devices:
+    get:
+      tags: [catalog]
+      operationId: listDevices
+      x-scopes: ['data:read']
+      summary: Danh mục thiết bị
+      description: FR-11.14. Chỉ trong phạm vi tenant của khóa API (FR-11.17).
+      parameters:
+        - { $ref: '#/components/parameters/GroupId' }
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, disabled, retired] }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Danh sách thiết bị
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Device' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /devices/{deviceId}/metrics:
+    get:
+      tags: [catalog]
+      operationId: getDeviceMetrics
+      x-scopes: ['data:read']
+      summary: Các đại lượng thiết bị này cung cấp, kèm đơn vị
+      description: |
+        FR-11.14. Đọc từ danh mục đầu ra của phiên bản gói hồ sơ đang gán.
+
+        Cờ `deprecated` là **đường chuyển đổi** cho bên tích hợp (FR-08.5c):
+        đại lượng sắp biến mất được đánh dấu trước, thay vì dashboard trống đột ngột.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Danh mục đại lượng
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeviceMetrics' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /groups:
+    get:
+      tags: [catalog]
+      operationId: listGroups
+      x-scopes: ['data:read']
+      summary: Danh mục nhóm
+      description: |
+        FR-11.14. Nhóm phẳng một cấp, mỗi nhóm đúng một loại kết nối (FR-03.1, FR-03.2).
+        Xếp theo tên. Phân trang bằng con trỏ như mọi danh sách (FR-11.12).
+      parameters:
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Danh sách nhóm
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Group' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /devices/{deviceId}/commands:
+    post:
+      tags: [commands]
+      operationId: sendCommand
+      x-scopes: ['downlink:write']
+      summary: Gửi lệnh xuống thiết bị LoRaWAN
+      description: |
+        FR-10.1, SRS 10 (1.128). Cần phạm vi `downlink:write`.
+
+        Hai cách gửi, chọn đúng một: `command` (theo biểu mẫu gói hồ sơ — FR-10.2)
+        hoặc `raw` (chuỗi byte thô — FR-10.3).
+
+        Thiết bị HTTP → `IOT-CMD-006`; thiết bị MQTT → `IOT-CMD-007` (chưa hỗ trợ); thiết bị
+        vô hiệu hóa → `IOT-CMD-008`. Mỗi lệnh ghi audit log đủ nội dung, người gửi là khóa API
+        ⇒ FR-15.11.
+
+        **Với thiết bị LoRaWAN Class A tiết kiệm pin, lệnh chỉ gửi được khi thiết bị
+        thức dậy** (RB-04, FR-10.7) — phản hồi `202` nghĩa là đã nhận vào hàng đợi,
+        không phải đã tới thiết bị. Theo dõi tiếp bằng `GET /devices/{id}/commands`.
+
+        Giới hạn hàng đợi (FR-10.6, tham số P-11): vượt thì trả `IOT-CMD-003`,
+        **không âm thầm bỏ lệnh**.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommandRequest' }
+      responses:
+        '202':
+          description: Lệnh đã vào hàng đợi
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Command' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Hàng đợi đầy — IOT-CMD-003; thiết bị vô hiệu hóa — IOT-CMD-008
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    get:
+      tags: [commands]
+      operationId: listCommands
+      x-scopes: ['data:read']
+      summary: Hàng đợi và lịch sử lệnh của thiết bị
+      description: FR-10.4, FR-10.5. Vòng đời lệnh xem SRS 10.2. Mới nhất trước.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, queued, sent, delivered, failed, cancelled, expired]
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Danh sách lệnh
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Command' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /devices/{deviceId}/commands/{commandId}:
+    delete:
+      tags: [commands]
+      operationId: cancelCommand
+      x-scopes: ['downlink:write']
+      summary: Hủy lệnh chưa phát xuống
+      description: |
+        FR-10.4, SRS 10.2 (1.128). Chỉ hủy được lệnh `pending` hoặc `queued`. Lệnh đã phát, hoặc thiết
+        bị đang chờ báo nhận một lệnh khác (`details.reason = awaiting_ack`) → `IOT-CMD-004`.
+        `503 IOT-SYS-002`: ChirpStack không trả lời, không gì bị hủy. `503 IOT-SYS-015`: dịch vụ lệnh xuống không
+        trả lời kịp — lượt hủy có thể vẫn đã xong, đọc lại danh sách lệnh trước khi thử lại.
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: commandId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Đã hủy }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Lệnh đã phát xuống, hoặc thiết bị đang chờ báo nhận — IOT-CMD-004
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: IOT-SYS-002 (không gì bị hủy) hoặc IOT-SYS-015 (không trả lời kịp — đọc lại danh sách lệnh)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      description: |
+        `Authorization: Bearer iot_<khóa>`
+
+        Khóa API do Quản trị Hệ thống cấp (FR-12.1), có **phạm vi** (FR-12.4):
+        `data:read` · `downlink:write` · `devices:manage`.
+
+        Giá trị khóa **chỉ hiển thị đúng một lần** khi phát hành (FR-12.6).
+        Thu hồi có hiệu lực ngay (FR-12.7).
+
+  parameters:
+    DeviceId:
+      name: device_id
+      in: query
+      description: |
+        Truyền **đúng một** trong hai — `device_id` hoặc `group_id`. Thiếu cả hai hay có
+        cả hai trả `400 IOT-COM-001`. Mã của tenant khác trả `404`, như mã không tồn tại.
+
+        `device_id` **ổn định** trong tenant: thiết bị bị xóa rồi khôi phục — hoặc thêm lại cùng
+        DevEUI — giữ nguyên `device_id`, nên lưu nó làm khóa phía bạn và chuỗi số liệu truy vấn
+        liền mạch; quãng giữa lần xóa và lần khôi phục chỉ là quãng không có dữ liệu ⇒ FR-05.10a-1
+        (BRD 1.12, SRS 13.2).
+      schema: { type: string, format: uuid }
+    GroupId:
+      name: group_id
+      in: query
+      schema: { type: string, format: uuid }
+    From:
+      name: from
+      in: query
+      required: true
+      description: RFC 3339 có offset múi giờ.
+      schema: { type: string, format: date-time, example: "2026-08-01T00:00:00+07:00" }
+    To:
+      name: to
+      in: query
+      required: true
+      schema: { type: string, format: date-time, example: "2026-08-11T00:00:00+07:00" }
+    Cursor:
+      name: cursor
+      in: query
+      description: |
+        Con trỏ trang tiếp theo, lấy từ `pagination.next_cursor`. Chỉ dùng được với **đúng**
+        endpoint và **đúng** các tham số lọc của trang đã sinh ra nó; khác đi trả `400 IOT-COM-001`.
+        Phân trang bằng con trỏ chứ không phải `offset` — với hypertable hàng chục
+        triệu dòng, `OFFSET` sâu buộc CSDL quét và bỏ hàng trăm nghìn dòng.
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+
+  schemas:
+
+    OutboundRecord:
+      type: object
+      description: |
+        Phép chiếu ra ngoài của bản ghi nội bộ (SRS 4.2.2).
+
+        **Không bao giờ chứa payload thô** — QT-09, FR-11.2. Điều này được cưỡng chế
+        bằng ba phép thử tự động trong CI (SRS 4.2.3).
+      required: [schema_version, event_id, tenant_id, device, reported_at, received_at, measurements, decode_status, decode_reason]
+      properties:
+        schema_version:
+          type: string
+          const: "1.0"
+          description: FR-11.15 — phiên bản hợp đồng rõ ràng
+        event_id:
+          type: string
+          description: |
+            Mã sự kiện duy nhất (FR-09.8a). **Không đổi qua các lần thử lại webhook**
+            (FR-11.23) — dùng làm khóa lọc trùng ở phía bên nhận.
+          example: "cs:8f2a1c4e-7b3d-4a1f-9c8e-2d5b7a1f3c9e"
+        tenant_id: { type: string, format: uuid }
+        device:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+            group_id: { type: [string, "null"], format: uuid }
+            group_name: { type: [string, "null"] }
+        reported_at:
+          type: string
+          format: date-time
+          description: Mốc chính thức của bản ghi (FR-09.7). Dùng mốc này để sắp thứ tự, không dùng thứ tự nhận (FR-11.22).
+        received_at:
+          type: string
+          format: date-time
+          description: Thời điểm Nền tảng nhận được (FR-09.7)
+        measurements:
+          type: array
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name: { type: string, example: "temperature" }
+              value: { type: [number, string, boolean] }
+              unit: { type: [string, "null"], example: "Cel" }
+              deprecated:
+                type: boolean
+                const: true
+                description: Đại lượng đã đánh dấu ngừng dùng (FR-08.5c)
+              out_of_range:
+                type: boolean
+                const: true
+                description: |
+                  Giá trị nằm ngoài dải `min`/`max` mà gói hồ sơ khai (FR-08.11). Giá trị
+                  **được giữ nguyên** — một cảm biến báo số vô lý thường là cảm biến hỏng
+                  hoặc lắp sai, và đó là thông tin — nhưng **không** được tính vào số liệu
+                  tổng hợp theo giờ/ngày. Vắng mặt khi giá trị nằm trong dải (SRS 4.2.2, 6.5).
+        link_info:
+          type: [object, "null"]
+          description: '`null` với thiết bị MQTT/HTTP. Không chứa danh sách gateway — xem SRS 4.2.2.'
+          properties:
+            rssi: { type: [number, "null"], description: dBm }
+            snr: { type: [number, "null"], description: dB }
+            data_rate: { type: [integer, "null"] }
+            quality_level:
+              type: [string, "null"]
+              enum: [very_good, good, fair, poor, very_poor, null]
+              description: FR-13.4a — thang 5 mức, mức thấp hơn trong RSSI/SNR quyết định
+        package:
+          type: [object, "null"]
+          description: Gói hồ sơ và phiên bản đã dùng để giải mã (QT-06, FR-09.4)
+          properties:
+            id: { type: string }
+            version: { type: string }
+        decode_status:
+          type: string
+          enum: [ok, failed, pending_profile]
+          description: |
+            `failed` — giải mã lỗi, payload thô vẫn được lưu bên trong (FR-09.6).
+            `pending_profile` — thiết bị chưa gán gói hồ sơ; dữ liệu sẽ được giải mã lại
+            sau khi gán (FR-09.6b).
+        decode_reason:
+          type: [string, "null"]
+          enum: [no_package, codec_error, codec_exception, time_limit, memory_limit, output_too_large, invalid_codec, formula_error, unknown, null]
+          description: |
+            Vì sao bản ghi không có số đo — `null` khi `decode_status = ok` (SRS 4.2.2).
+            `no_package` đi cùng `pending_profile`; mọi giá trị khác đi cùng `failed`:
+            `codec_error` — bộ giải mã của hãng tự báo lỗi; `codec_exception` — bộ giải mã ném
+            ngoại lệ; `time_limit`, `memory_limit` — vượt giới hạn chạy; `output_too_large` —
+            kết quả quá lớn; `invalid_codec` — bộ giải mã không chạy được; `formula_error` —
+            công thức của gói lỗi; `unknown` — lỗi khác.
+            Là mã từ danh mục đóng: thông điệp lỗi của bộ giải mã **không bao giờ** ra ngoài,
+            vì nó có thể chép lại byte của payload thô (QT-09).
+        attributes:
+          type: object
+          additionalProperties: true
+          description: |
+            Thuộc tính đi kèm các đại lượng có mặt trong bản ghi (FR-08.14) — hằng số của gói
+            hồ sơ, không phải số đo. Vắng mặt khi gói không khai, hoặc khi không còn biết
+            phiên bản gói đã giải mã bản ghi.
+
+    AggregateBucket:
+      type: object
+      required: [device_id, bucket_start, interval, metrics, is_final]
+      properties:
+        device_id: { type: string, format: uuid }
+        bucket_start:
+          type: string
+          format: date-time
+          description: Ranh giới tính theo `Asia/Ho_Chi_Minh` với `interval=day` (FR-11.19)
+        interval: { type: string, enum: [hour, day] }
+        is_final:
+          type: boolean
+          description: |
+            `false` nghĩa là khoảng này **còn có thể thay đổi** — vẫn trong cửa sổ tính lại
+            (mặc định 7 ngày, cộng một khoảng và một giờ; FR-09.18a, FR-09.18c). Đừng chốt báo cáo
+            trên khoảng chưa `is_final`.
+        metrics:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              min: { type: [number, "null"] }
+              max: { type: [number, "null"] }
+              avg: { type: [number, "null"] }
+              sum:
+                type: [number, "null"]
+                description: |
+                  `null` cả bốn khi khoảng không có giá trị số nào được tính: mọi giá trị đều
+                  ngoài dải (xem `out_of_range_count`), hoặc đại lượng không phải kiểu số.
+              count:
+                type: integer
+                description: Số mẫu đã tính — **không** gồm giá trị ngoài dải (FR-08.11, SRS 4.4.3)
+              out_of_range_count:
+                type: integer
+                description: |
+                  Số giá trị ngoài dải của khoảng này, bị loại khỏi `min`/`max`/`avg`/`sum`/`count`.
+                  Một khoảng chỉ toàn giá trị ngoài dải vẫn có mặt, với `count = 0` (SRS 4.4.3).
+
+    Device:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        connection_type: { type: string, enum: [lorawan, mqtt, http] }
+        group_id: { type: [string, "null"], format: uuid }
+        status:
+          type: string
+          enum: [active, disabled, retired]
+          description: '`retired` = đã ngừng sử dụng; dữ liệu lịch sử vẫn tra cứu được (FR-05.10a, FR-05.10b)'
+        package: { type: [object, "null"], properties: { id: { type: string }, version: { type: string } } }
+        last_seen_at:
+          type: [string, "null"]
+          format: date-time
+          description: '`null` khi thiết bị chưa từng liên lạc kể từ khi đăng ký hoặc khôi phục (SRS 11.2.5)'
+        connection_status:
+          type: [string, "null"]
+          enum: [online, offline, never_seen, not_applicable, disabled, null]
+          description: |
+            `online` — có bản tin trong [P-01] × chu kỳ báo cáo của gói; `offline` — đã từng liên lạc rồi im lặng quá
+            ngưỡng ấy; `never_seen` — chưa có bản tin nào kể từ khi đăng ký hoặc khôi phục; `not_applicable` — thiết bị
+            theo sự kiện, hoặc chưa có gói khai chu kỳ (SRS 11.2.5); `disabled` — thiết bị đang bị vô hiệu hoá, theo luật
+            *không áp dụng* (độ khả dụng `null`, không bao giờ `offline`) nhưng là trạng thái riêng. `null` với thiết bị đã
+            ngừng sử dụng (`retired`):
+            thiết bị ấy không còn chỉ số sức khỏe nào. Tính sẵn mỗi [P-42].
+        availability_pct:
+          type: [number, "null"]
+          description: Độ khả dụng trong cửa sổ [P-67] — `null` là không áp dụng, không phải 0 (SRS 11.2.1)
+        health_score:
+          type: [number, "null"]
+          description: '`null` khi không tính được — **không phải 0** (FR-13.10)'
+        battery_level:
+          type: [string, "null"]
+          enum: [good, fair, poor, critical, null]
+          description: Bốn mức của SRS 11.2.4 (FR-13.8, FR-13.31)
+        battery_value:
+          type: [number, "null"]
+          description: |
+            Giá trị pin mới nhất mà `battery_level` xếp hạng (FR-13.8), theo đơn vị gói khai — `battery_unit`, `%` hoặc
+            `V`, không quy đổi. `null` khi gói không khai đại lượng pin
+        battery_unit:
+          type: [string, "null"]
+          description: Đơn vị của `battery_value`; `null` khi không có giá trị
+        signal_quality:
+          type: [string, "null"]
+          enum: [very_good, good, fair, poor, very_poor, null]
+        tags: { type: object, additionalProperties: { type: string } }
+
+    Group:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        type:
+          type: string
+          enum: [lorawan, mqtt, http]
+          description: Không đổi được sau khi tạo (FR-03.2)
+        device_count:
+          type: integer
+          description: |
+            Số thiết bị **đang** thuộc nhóm — không gồm thiết bị đã ngừng sử dụng (`retired`).
+            Truy vấn dữ liệu đo theo nhóm thì đọc cả thiết bị đã ngừng (FR-05.10a), nên số chia
+            trong `IOT-API-011` (`details.device_count`) có thể lớn hơn con số này.
+
+    DeviceMetrics:
+      type: object
+      properties:
+        device_id: { type: string, format: uuid }
+        package: { type: [object, "null"], properties: { id: { type: string }, version: { type: string } } }
+        metrics:
+          type: array
+          items:
+            type: object
+            required: [name, label, data_type]
+            properties:
+              name: { type: string }
+              label: { type: string, description: Nhãn hiển thị tiếng Việt }
+              unit: { type: [string, "null"] }
+              data_type: { type: string, enum: [number, string, boolean] }
+              min: { type: number }
+              max: { type: number }
+              deprecated: { type: boolean }
+              deprecated_since: { type: string }
+              replaced_by: { type: string }
+
+    CommandRequest:
+      type: object
+      description: Gửi đúng một trong hai — `command` hoặc `raw`.
+      properties:
+        command:
+          type: object
+          description: Theo danh sách lệnh khai trong gói hồ sơ (FR-10.2)
+          required: [name]
+          properties:
+            name: { type: string, example: "set_interval" }
+            parameters: { type: object, additionalProperties: true }
+        raw:
+          type: object
+          description: Chuỗi byte thô, dành cho kỹ thuật viên và cho thiết bị có gói không khai lệnh (FR-10.3)
+          required: [f_port, payload]
+          properties:
+            f_port: { type: integer, minimum: 1, maximum: 223, description: 'Cổng ứng dụng LoRaWAN; 0 là lệnh MAC, 224 là cổng thử' }
+            payload: { type: string, pattern: '^([0-9A-Fa-f]{2}){1,242}$', description: 'Tối đa 242 byte — khung LoRaWAN dài nhất' }
+        confirmed:
+          type: boolean
+          default: false
+          description: Yêu cầu thiết bị báo nhận. Có báo nhận thì trạng thái mới đi tới `delivered` (FR-10.5).
+      oneOf:
+        - required: [command]
+        - required: [raw]
+
+    Command:
+      type: object
+      required: [id, device_id, source, parameters, f_port, payload, confirmed, status, created_at, created_by, expires_at]
+      properties:
+        id: { type: string, format: uuid }
+        device_id: { type: string, format: uuid }
+        source: { type: string, enum: [form, raw] }
+        command_name: { type: [string, "null"], description: 'Tên lệnh của gói; `null` với lệnh thô' }
+        parameters: { type: object, additionalProperties: true, description: 'Tham số đã kiểm, đã áp mặc định; `{}` với lệnh thô' }
+        f_port: { type: integer, minimum: 1, maximum: 223 }
+        payload: { type: string, description: 'Chuỗi byte đã đưa vào hàng đợi, hex thường' }
+        confirmed: { type: boolean }
+        status:
+          type: string
+          enum: [pending, queued, sent, delivered, failed, cancelled, expired]
+          description: Vòng đời xem SRS 10.2
+        error:
+          type: [string, "null"]
+          enum: [chirpstack_refused, nack, dropped_from_queue, not_acknowledged, device_deleted, null]
+          description: |
+            Lý do khép lệnh. `dropped_from_queue`: lệnh rời hàng đợi mà không thấy báo đã phát — thiết bị
+            join lại, hoặc báo đã phát bị lạc; không phân biệt được nên **không tự gửi lại**, kẻo lệnh chạy
+            hai lần. `not_acknowledged`: lệnh có báo nhận đã phát mà hết hạn sống chưa có báo nhận.
+        created_at: { type: string, format: date-time }
+        created_by: { type: string, description: 'Tên tài khoản hoặc khóa API đã gửi' }
+        queued_at: { type: [string, "null"], format: date-time }
+        sent_at: { type: [string, "null"], format: date-time }
+        delivered_at: { type: [string, "null"], format: date-time }
+        closed_at: { type: [string, "null"], format: date-time, description: 'Lệnh không báo nhận khép ngay khi phát' }
+        expires_at: { type: string, format: date-time }
+
+    Pagination:
+      type: object
+      required: [total_count]
+      properties:
+        total_count: { type: integer, description: FR-11.12 }
+        next_cursor: { type: [string, "null"] }
+
+    Error:
+      type: object
+      description: |
+        Cấu trúc lỗi thống nhất. Mọi thông điệp bằng tiếng Việt, nêu rõ **nguyên nhân
+        và cách khắc phục** — GD-02. Danh mục đầy đủ ở SRS chương 15.
+      required: [error_code, message, remediation, trace_id]
+      properties:
+        error_code: { type: string, example: "IOT-API-011" }
+        message:
+          type: string
+          example: "Khoảng thời gian yêu cầu (92 ngày) vượt giới hạn 31 ngày cho dữ liệu chi tiết."
+        remediation:
+          type: string
+          description: Bắt buộc, không được rỗng — SRS 15.3
+          example: "Chia nhỏ khoảng thời gian, hoặc dùng /telemetry/aggregated với interval=day."
+        details: { type: object, additionalProperties: true }
+        trace_id: { type: string, description: Mã theo dõi xuyên suốt các thành phần (VH-04) }
+
+  responses:
+    BadRequest:
+      description: Yêu cầu không hợp lệ
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Khóa API không hợp lệ, đã hết hạn, hoặc đã bị thu hồi
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: |
+        Khóa API không được phép thực hiện lời gọi này:
+        `IOT-API-004` — khóa thiếu phạm vi (FR-12.4); `IOT-API-006` — địa chỉ gọi đến không nằm
+        trong danh sách được phép của khóa (FR-12.11); `IOT-TEN-004` — tenant đang tạm ngưng.
+
+        Lưu ý: truy cập tài nguyên **của tenant khác** trả `404`, không phải `403` —
+        `403` sẽ xác nhận tài nguyên có tồn tại (SRS 8.3.2).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Không tìm thấy tài nguyên, hoặc tài nguyên thuộc tenant khác
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Vượt giới hạn tần suất gọi (FR-12.8)
+      headers:
+        Retry-After:
+          description: Số giây phải chờ trước khi gọi lại
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

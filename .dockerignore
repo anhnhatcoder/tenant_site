@@ -1,0 +1,28 @@
+# Virtual Environments
+.venv/
+venv/
+ENV/
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git & IDE Configuration
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local Databases & Logs
+*.sqlite3
+*.db
+*.log
+.gemini/
+scratch/

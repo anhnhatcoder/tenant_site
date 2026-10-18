@@ -1,0 +1,2290 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trung Tâm Quản Trị Hệ Thống & API / Webhook | HC TECH Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      const saved = localStorage.getItem('hc_admin_theme') || (localStorage.getItem('hc_dashboard_theme') === 'light' ? 'light' : 'dark');
+      if (saved === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.4);
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.7);
+    }
+
+    /* ========================================================================== */
+    /* CHẾ ĐỘ SÁNG (LIGHT THEME) HOÀN CHỈNH - ĐẢM BẢO TƯƠNG PHẢN & DỄ ĐỌC */
+    /* ========================================================================== */
+    html.light {
+      color-scheme: light;
+    }
+
+    html.light body {
+      background-color: #f8fafc !important;
+      background-image: radial-gradient(at 0% 0%, rgba(203, 213, 225, 0.4) 0px, transparent 50%),
+                        radial-gradient(at 100% 100%, rgba(226, 232, 240, 0.5) 0px, transparent 50%) !important;
+      color: #0f172a !important;
+    }
+
+    /* Các thẻ kính mờ & Bảng điều khiển */
+    html.light .glass-panel {
+      background: rgba(255, 255, 255, 0.95) !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.02) !important;
+    }
+
+    /* Header & Navbar */
+    html.light header.glass-panel,
+    html.light nav.glass-panel {
+      background: rgba(255, 255, 255, 0.97) !important;
+      border-color: #e2e8f0 !important;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03) !important;
+    }
+
+    /* Chữ tiêu đề & Văn bản trắng -> Đổi sang chữ đen đậm nét */
+    html.light .text-white {
+      color: #0f172a !important;
+    }
+
+    html.light .text-slate-100 {
+      color: #0f172a !important;
+    }
+
+    html.light .text-slate-200 {
+      color: #1e293b !important;
+    }
+
+    html.light .text-slate-300 {
+      color: #334155 !important;
+    }
+
+    html.light .text-slate-400 {
+      color: #64748b !important;
+    }
+
+    html.light .text-slate-500 {
+      color: #94a3b8 !important;
+    }
+
+    /* Tông màu chỉ số (Metrics) sắc nét hơn trên nền sáng */
+    html.light .text-amber-400 { color: #d97706 !important; }
+    html.light .text-sky-400 { color: #0284c7 !important; }
+    html.light .text-cyan-400 { color: #0891b2 !important; }
+    html.light .text-emerald-400 { color: #059669 !important; }
+    html.light .text-purple-400 { color: #7c3aed !important; }
+    html.light .text-red-400 { color: #dc2626 !important; }
+
+    /* NGOẠI LỆ QUAN TRỌNG: Nút bấm & Huy hiệu nền màu đặc PHẢI GIỮ CHỮ TRẮNG */
+    html.light .bg-red-600,
+    html.light .bg-red-500,
+    html.light .bg-cyan-600,
+    html.light .bg-cyan-500,
+    html.light .bg-emerald-600,
+    html.light .bg-emerald-500,
+    html.light .bg-blue-600,
+    html.light .bg-blue-500,
+    html.light .bg-indigo-600,
+    html.light .bg-indigo-500,
+    html.light .bg-amber-600,
+    html.light .bg-amber-500,
+    html.light [class*="bg-gradient-to-"] {
+      color: #ffffff !important;
+    }
+
+    html.light .bg-red-600 *,
+    html.light .bg-red-500 *,
+    html.light .bg-cyan-600 *,
+    html.light .bg-cyan-500 *,
+    html.light .bg-emerald-600 *,
+    html.light .bg-emerald-500 *,
+    html.light .bg-blue-600 *,
+    html.light .bg-blue-500 *,
+    html.light .bg-indigo-600 *,
+    html.light .bg-indigo-500 *,
+    html.light .bg-amber-600 *,
+    html.light .bg-amber-500 *,
+    html.light [class*="bg-gradient-to-"] * {
+      color: #ffffff !important;
+    }
+
+    /* Hộp con bên trong các thẻ (Cards & Sub-panels) */
+    html.light .bg-slate-900:not(#advanced-console):not(#overview-console):not([class*="bg-red-"]):not([class*="bg-cyan-"]):not([class*="bg-emerald-"]),
+    html.light .bg-slate-900\/90,
+    html.light .bg-slate-900\/80,
+    html.light .bg-slate-900\/60,
+    html.light .bg-slate-900\/50,
+    html.light .bg-slate-900\/40 {
+      background-color: #ffffff !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    html.light .bg-slate-800:not([class*="text-white"]),
+    html.light .bg-slate-800\/60,
+    html.light .bg-slate-800\/50,
+    html.light .bg-slate-800\/40,
+    html.light .bg-slate-800\/30 {
+      background-color: #f1f5f9 !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    html.light .bg-slate-950:not(#advanced-console):not(#overview-console):not(#confirm-modal) {
+      background-color: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Đường kẻ viền */
+    html.light .border-slate-800,
+    html.light .border-slate-800\/80,
+    html.light .border-slate-800\/60,
+    html.light .border-slate-700,
+    html.light .border-slate-700\/60 {
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Các ô nhập liệu (Input, Select, Textarea) */
+    html.light input:not([type="checkbox"]):not([type="radio"]),
+    html.light select,
+    html.light textarea {
+      background-color: #ffffff !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #0f172a !important;
+    }
+    html.light input:focus,
+    html.light select:focus,
+    html.light textarea:focus {
+      border-color: #0891b2 !important;
+      box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.15) !important;
+    }
+    html.light input::placeholder,
+    html.light textarea::placeholder {
+      color: #94a3b8 !important;
+    }
+
+    /* Webhook Simulator Payload Textarea & Response */
+    html.light #simulator-payload,
+    html.light #downlink-cmd-params,
+    html.light #downlink-raw-payload,
+    html.light #downlink-response,
+    html.light #telemetry-query-response {
+      background-color: #f8fafc !important;
+      color: #047857 !important;
+      border-color: #cbd5e1 !important;
+    }
+    html.light #simulator-response {
+      background-color: #f8fafc !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    html.light #webhook-url-input,
+    html.light #cloud-base-url-input {
+      color: #0f172a !important;
+    }
+
+    /* Khối thẻ code inline */
+    html.light code {
+      background-color: #e2e8f0 !important;
+      color: #0369a1 !important;
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.25rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Bảng dữ liệu (Tables) */
+    html.light table thead {
+      color: #475569 !important;
+    }
+    html.light table thead th {
+      color: #475569 !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+    }
+    html.light table tbody tr {
+      border-bottom: 1px solid #f1f5f9 !important;
+    }
+    html.light table tbody tr:hover {
+      background-color: #f8fafc !important;
+    }
+    html.light table tbody td {
+      color: #334155 !important;
+    }
+    html.light table tbody td strong {
+      color: #0f172a !important;
+    }
+
+    /* Tabs điều hướng */
+    html.light .tab-btn:not(.bg-cyan-500\/20) {
+      color: #64748b !important;
+    }
+    html.light .tab-btn:not(.bg-cyan-500\/20):hover {
+      color: #0f172a !important;
+      background-color: #f1f5f9 !important;
+    }
+    html.light .tab-btn.bg-cyan-500\/20 {
+      background-color: #e0f2fe !important;
+      color: #0369a1 !important;
+      border-color: #7dd3fc !important;
+    }
+
+    /* Hộp console / Terminal */
+    html.light #overview-console,
+    html.light #advanced-console {
+      background-color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    html.light #advanced-console {
+      color: #34d399 !important;
+    }
+
+    /* Modal xác nhận */
+    html.light #confirm-modal > div {
+      background-color: #ffffff !important;
+      border-color: #e2e8f0 !important;
+    }
+    html.light #confirm-modal-title {
+      color: #0f172a !important;
+    }
+    html.light #confirm-modal-desc {
+      color: #64748b !important;
+    }
+
+    /* Toast Notifications */
+    html.light .bg-emerald-950\/90 {
+      background-color: #ecfdf5 !important;
+      border-color: #a7f3d0 !important;
+      color: #065f46 !important;
+    }
+    html.light .bg-red-950\/90 {
+      background-color: #fef2f2 !important;
+      border-color: #fecaca !important;
+      color: #991b1b !important;
+    }
+    html.light .bg-cyan-950\/90 {
+      background-color: #f0fdfa !important;
+      border-color: #99f6e4 !important;
+      color: #115e59 !important;
+    }
+
+    /* Nút đổi theme */
+    html.light #theme-icon {
+      color: #d97706 !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white transition-colors duration-200">
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none"></div>
+
+  <!-- CONFIRMATION MODAL -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="max-w-md w-full glass-panel bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 text-center transform transition-all">
+      <div id="confirm-modal-icon" class="w-14 h-14 mx-auto rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl mb-4 border border-amber-500/30">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 id="confirm-modal-title" class="text-lg font-bold text-white mb-2">Xác nhận thao tác</h3>
+      <p id="confirm-modal-desc" class="text-xs text-slate-400 mb-6 leading-relaxed">Bạn có chắc chắn muốn thực hiện hành động này?</p>
+      <div class="flex items-center justify-center gap-3">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition">
+          Hủy bỏ
+        </button>
+        <button id="confirm-modal-btn" class="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition">
+          Đồng ý thực hiện
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="glass-panel sticky top-0 z-40 border-b border-slate-800 px-4 lg:px-8 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3.5">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 font-bold text-lg">
+        <i class="fa-solid fa-server"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base lg:text-lg font-black tracking-tight text-white flex items-center gap-2">
+            HC TECH <span class="text-cyan-400">ADMIN CONSOLE</span>
+          </h1>
+          <span class="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-extrabold uppercase tracking-wider">
+            v2.4
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400">Trung tâm Quản trị Nâng cao: API, Webhook & Cơ sở Dữ liệu</p>
+      </div>
+    </div>
+
+    <!-- SYSTEM STATUS PILLS & ACTIONS -->
+    <div class="flex items-center gap-2.5 flex-wrap justify-end">
+      <!-- Database status pill -->
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>PostgreSQL: <strong id="header-db-size" class="text-emerald-400">{{ db_size }}</strong></span>
+      </div>
+
+      <!-- Cloud API status pill -->
+      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
+        <i class="fa-solid fa-cloud text-sky-400 text-xs"></i>
+        <span>Cloud IoT: <span class="text-sky-400 font-semibold">Sẵn sàng</span></span>
+      </div>
+
+      <!-- Button Back to Dashboard -->
+      <a href="/" target="_blank" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-600/20 transition" title="Mở trang giám sát chính">
+        <i class="fa-solid fa-desktop"></i>
+        <span>Xem Dashboard</span>
+      </a>
+
+      <!-- Theme toggle -->
+      <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-amber-400 transition" title="Chuyển đổi giao diện Sáng / Tối">
+        <i id="theme-icon" class="fa-solid fa-sun"></i>
+      </button>
+
+      <!-- User badge & logout -->
+      <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
+        <div class="hidden lg:block text-right text-xs">
+          <div class="font-bold text-white">{{ current_user_display }}</div>
+          <div class="text-[10px] text-cyan-400 font-medium">{{ user_role_label }}</div>
+        </div>
+        <a href="/logout/" class="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition text-xs" title="Đăng xuất">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="glass-panel border-b border-slate-800 px-4 lg:px-8 py-2 overflow-x-auto custom-scrollbar">
+    <div class="flex items-center gap-2 min-w-max">
+      <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+        <i class="fa-solid fa-chart-pie"></i>
+        <span>Tổng Quan & Sức Khỏe Hệ Thống</span>
+      </button>
+
+      <button onclick="switchTab('webhook')" id="tab-btn-webhook" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i class="fa-solid fa-satellite-dish"></i>
+        <span>Quản Lý Webhook & API</span>
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      </button>
+
+      <button onclick="switchTab('commands')" id="tab-btn-commands" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i class="fa-solid fa-tower-broadcast"></i>
+        <span>Lệnh Điều Khiển LoRaWAN</span>
+        <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[9px] font-mono">OpenAPI v1.2</span>
+      </button>
+
+      <button onclick="switchTab('database')" id="tab-btn-database" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i class="fa-solid fa-database"></i>
+        <span>Thao Tác Cơ Sở Dữ Liệu</span>
+      </button>
+
+      <button onclick="switchTab('advanced')" id="tab-btn-advanced" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+        <i class="fa-solid fa-bolt"></i>
+        <span>Lệnh Nâng Cao & Giả Lập</span>
+      </button>
+
+      <a href="/django-admin/" target="_blank" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent ml-auto" title="Truy cập Django Admin thuần">
+        <i class="fa-solid fa-table-cells"></i>
+        <span>Django Model Admin</span>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+      </a>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+
+    <!-- ======================================================================= -->
+    <!-- TAB 1: TỔNG QUAN & SỨC KHỎE HỆ THỐNG -->
+    <!-- ======================================================================= -->
+    <div id="tab-content-overview" class="tab-content space-y-6">
+      <!-- TOP METRIC CARDS -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <!-- Card 1: Devices -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800 relative overflow-hidden group hover:border-cyan-500/40 transition">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Thiết Bị</span>
+            <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-microchip"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-black text-white" id="stat-device-total">{{ device_total }}</div>
+          <div class="mt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/60 pt-2">
+            <span class="text-emerald-400 font-semibold">{{ device_online }} Online</span>
+            <span class="text-red-400 font-semibold">{{ device_sos }} SOS</span>
+            <span class="text-slate-500">{{ device_offline }} Off</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Alerts -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800 relative overflow-hidden group hover:border-red-500/40 transition">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Sự Cố SOS</span>
+            <div class="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-black text-white" id="stat-alert-total">{{ alert_total }}</div>
+          <div class="mt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/60 pt-2">
+            <span class="text-red-400 font-bold">{{ alert_new }} Mới</span>
+            <span class="text-amber-400 font-semibold">{{ alert_processing }} Xử lý</span>
+            <span class="text-emerald-400 font-semibold">{{ alert_resolved }} Xong</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Location History -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800 relative overflow-hidden group hover:border-sky-500/40 transition">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tọa Độ GPS</span>
+            <div class="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-location-dot"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-black text-white" id="stat-location-total">{{ location_total }}</div>
+          <div class="mt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/60 pt-2">
+            <span>Hải trình biển</span>
+            <span class="text-red-400 font-bold">{{ location_sos }} điểm SOS</span>
+          </div>
+        </div>
+
+        <!-- Card 4: Areas -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800 relative overflow-hidden group hover:border-purple-500/40 transition">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Khu Vực</span>
+            <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-map-location-dot"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-black text-white">{{ area_total }}</div>
+          <div class="mt-2 text-[10px] text-slate-400 border-t border-slate-800/60 pt-2">
+            Biển & Đất liền
+          </div>
+        </div>
+
+        <!-- Card 5: Users -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800 relative overflow-hidden group hover:border-amber-500/40 transition">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Tài Khoản</span>
+            <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-users"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-black text-white">{{ user_total }}</div>
+          <div class="mt-2 text-[10px] text-slate-400 border-t border-slate-800/60 pt-2">
+            Admin & Vận hành
+          </div>
+        </div>
+
+        <!-- Card 6: Database Size -->
+        <div class="glass-panel rounded-2xl p-4 border border-slate-800 relative overflow-hidden group hover:border-emerald-500/40 transition">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Dung Lượng DB</span>
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-hard-drive"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-black text-emerald-400" id="stat-db-size">{{ db_size }}</div>
+          <div class="mt-2 text-[10px] text-slate-400 border-t border-slate-800/60 pt-2">
+            PostgreSQL 15
+          </div>
+        </div>
+      </div>
+
+      <!-- SYSTEM DIAGNOSTICS & QUICK COMMANDS -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Quick Action Bar -->
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
+          <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i>
+            Thao Tác Nhanh
+          </h2>
+          <div class="space-y-2">
+            <button onclick="runAdminAction('system_check')" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-left text-xs font-semibold text-slate-200 transition flex items-center justify-between group">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-stethoscope text-cyan-400 w-4 text-center"></i>
+                Kiểm tra toàn bộ hệ thống (System Check)
+              </span>
+              <i class="fa-solid fa-chevron-right text-[10px] text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+            </button>
+
+            <button onclick="runAdminAction('clear_webhook_cache')" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-left text-xs font-semibold text-slate-200 transition flex items-center justify-between group">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-broom text-amber-400 w-4 text-center"></i>
+                Xóa Cache chống trùng lặp Webhook
+              </span>
+              <i class="fa-solid fa-chevron-right text-[10px] text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+            </button>
+
+            <button onclick="confirmAction('reset_devices', 'Đặt lại tất cả thiết bị', 'Đưa toàn bộ thiết bị đang kẹt trạng thái SOS hoặc PROCESSING về ONLINE, đồng thời đánh dấu hoàn tất các cảnh báo chưa xử lý?')" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-left text-xs font-semibold text-slate-200 transition flex items-center justify-between group">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-rotate-left text-emerald-400 w-4 text-center"></i>
+                Đặt lại toàn bộ thiết bị về ONLINE
+              </span>
+              <i class="fa-solid fa-chevron-right text-[10px] text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+            </button>
+
+            <button onclick="confirmAction('seed_data', 'Nạp lại Dữ liệu Mẫu', 'Hệ thống sẽ tái khởi tạo 4 khu vực, 14 thiết bị, 4 sự cố và 35 tọa độ hành trình chuẩn. Bạn có chắc muốn thực hiện?')" class="w-full py-2.5 px-4 rounded-xl bg-red-950/30 hover:bg-red-950/50 border border-red-500/30 text-left text-xs font-semibold text-red-300 transition flex items-center justify-between group">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-seedling text-red-400 w-4 text-center"></i>
+                Khôi phục / Nạp Dữ liệu Mẫu (Seed Data)
+              </span>
+              <i class="fa-solid fa-chevron-right text-[10px] text-red-400 group-hover:translate-x-1 transition-transform"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- System Environment Specs -->
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
+          <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-circle-info text-sky-400"></i>
+            Thông Tin Môi Trường Vận Hành
+          </h2>
+          <div class="space-y-2 text-xs">
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-400">Hệ điều hành / Container:</span>
+              <span class="text-slate-200 font-mono">Linux / Docker</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-400">Nền tảng Framework:</span>
+              <span class="text-slate-200 font-mono">Django 6.1.2 (Python 3.14)</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-400">Cơ sở dữ liệu:</span>
+              <span class="text-emerald-400 font-mono">PostgreSQL 15 (Alpine)</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-400">Kênh truyền Real-time:</span>
+              <span class="text-cyan-400 font-mono">Server-Sent Events (SSE)</span>
+            </div>
+            <div class="flex justify-between py-1">
+              <span class="text-slate-400">Thời gian máy chủ:</span>
+              <span class="text-slate-200 font-mono">{{ server_time }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diagnostic Output Console -->
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-2 flex flex-col">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-terminal text-emerald-400"></i>
+              Console Chẩn Đoán
+            </h2>
+            <button onclick="clearConsole('overview-console')" class="text-[10px] text-slate-500 hover:text-slate-300">Xóa console</button>
+          </div>
+          <div id="overview-console" class="flex-1 bg-slate-950 rounded-xl p-3 font-mono text-[11px] text-slate-300 overflow-y-auto max-h-[160px] custom-scrollbar border border-slate-800 space-y-1">
+            <div class="text-slate-500">> Hệ thống sẵn sàng. Chọn lệnh để thực thi...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT ALERTS & LOCATIONS GRID -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Recent Alerts -->
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
+              Sự Cố Gần Nhất ({{ recent_alerts|length }})
+            </h3>
+            <a href="/export/alerts/csv/" class="text-xs text-cyan-400 hover:underline flex items-center gap-1 font-semibold">
+              <i class="fa-solid fa-file-csv"></i> Tải CSV
+            </a>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="text-slate-500 border-b border-slate-800 text-[11px] uppercase">
+                <tr>
+                  <th class="pb-2">Mã SOS</th>
+                  <th class="pb-2">Thiết Bị</th>
+                  <th class="pb-2">Trạng Thái</th>
+                  <th class="pb-2 text-right">Thời Gian</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                {% for log in recent_alerts %}
+                <tr class="hover:bg-slate-800/30 transition">
+                  <td class="py-2 font-mono font-bold text-red-400">#SOS-{{ log.id }}</td>
+                  <td class="py-2 text-slate-200">{{ log.device.device_name }}</td>
+                  <td class="py-2">
+                    {% if log.status == 'NEW' %}
+                    <span class="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">Mới</span>
+                    {% elif log.status == 'PROCESSING' %}
+                    <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold">Đang xử lý</span>
+                    {% else %}
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Đã xử lý</span>
+                    {% endif %}
+                  </td>
+                  <td class="py-2 text-right text-slate-400 font-mono text-[11px]">{{ log.created_at|date:"H:i:s d/m" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="4" class="py-4 text-center text-slate-500">Chưa có bản ghi sự cố nào.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent GPS Points -->
+        <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-route text-sky-400"></i>
+              Bản Ghi Tọa Độ GPS Gần Nhất ({{ recent_locations|length }})
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">Auto Recorded</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="text-slate-500 border-b border-slate-800 text-[11px] uppercase">
+                <tr>
+                  <th class="pb-2">Tàu / Thiết Bị</th>
+                  <th class="pb-2">Tọa Độ</th>
+                  <th class="pb-2">Tốc Độ</th>
+                  <th class="pb-2 text-right">Thời Gian</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                {% for loc in recent_locations %}
+                <tr class="hover:bg-slate-800/30 transition">
+                  <td class="py-2 font-medium text-slate-200 flex items-center gap-1.5">
+                    {% if loc.is_sos_point %}
+                    <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                    {% else %}
+                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                    {% endif %}
+                    {{ loc.device.device_name }}
+                  </td>
+                  <td class="py-2 font-mono text-[11px] text-slate-400">{{ loc.latitude|floatformat:4 }}, {{ loc.longitude|floatformat:4 }}</td>
+                  <td class="py-2 font-semibold text-sky-400">{{ loc.speed }} km/h</td>
+                  <td class="py-2 text-right text-slate-400 font-mono text-[11px]">{{ loc.recorded_at|date:"H:i:s d/m" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="4" class="py-4 text-center text-slate-500">Chưa có dữ liệu tọa độ.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 2: QUẢN LÝ WEBHOOK & API -->
+    <!-- ======================================================================= -->
+    <div id="tab-content-webhook" class="tab-content space-y-6 hidden">
+      <!-- WEBHOOK INGESTION CARD -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-satellite-dish text-cyan-400"></i>
+              Cổng Tiếp Nhận Webhook Uplink (IoT Ingestion Endpoint)
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Tiếp nhận gói tin từ HC TECH Cloud, ChirpStack v4 Gateway hoặc các bộ cảm biến LoRaWAN</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              Đang hoạt động (Status 200 OK)
+            </span>
+          </div>
+        </div>
+
+        <!-- Webhook Endpoint Bar -->
+        <div class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+          <span class="px-2 py-1 rounded bg-cyan-600 text-white font-mono font-bold text-[11px]">POST</span>
+          <input type="text" id="webhook-url-input" value="{{ webhook_url }}" readonly class="bg-transparent text-slate-200 font-mono text-xs flex-1 outline-none select-all" />
+          <button onclick="copyWebhookUrl()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1">
+            <i class="fa-regular fa-copy"></i> Copy URL
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-400 pt-2">
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+            <div class="font-bold text-slate-200 mb-1 flex items-center gap-1.5">
+              <i class="fa-solid fa-shield-cat text-cyan-400"></i> Lọc Trùng Lặp (Deduplication)
+            </div>
+            <p class="text-[11px]">Lưu cache <code>event_id</code> trong 24h. Tự động bỏ qua các gói tin bị gửi lặp lại.</p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+            <div class="font-bold text-slate-200 mb-1 flex items-center gap-1.5">
+              <i class="fa-solid fa-clock text-amber-400"></i> Bảo Toàn Thứ Tự Thời Gian
+            </div>
+            <p class="text-[11px]">Phân tích <code>reported_at</code> RFC 3339. Gói tin cũ đến sau không ghi đè tọa độ mới.</p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+            <div class="font-bold text-slate-200 mb-1 flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt text-emerald-400"></i> Phát SSE Thời Gian Thực
+            </div>
+            <p class="text-[11px]">Bắn tín hiệu <code>IOT_UPLINK</code> tới toàn bộ Dashboard với độ trễ 0ms.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEBHOOK SIMULATOR / TESTER -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Editor Box -->
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-flask-vial text-purple-400"></i>
+              Trình Giả Lập Gói Tin Webhook (Simulator)
+            </h3>
+            <span class="text-[10px] text-slate-400 font-mono">Interactive Payload</span>
+          </div>
+
+          <!-- Template Preset Selector -->
+          <div class="space-y-1.5">
+            <label class="text-xs text-slate-400 font-semibold">Chọn gói tin mẫu:</label>
+            <select id="simulator-template" onchange="loadSimulatorTemplate()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-medium focus:border-cyan-500 outline-none">
+              <option value="sos_button">🚨 [Template 1] Báo Động SOS Nút Nhấn (HC TECH LoRaWAN WS101)</option>
+              <option value="maritime_gps">🚢 [Template 2] Tọa Độ GPS Tàu Cứu Hộ Hải Trình (GPS + Vận tốc)</option>
+              <option value="heartbeat_normal">💓 [Template 3] Gói Tin Định Kỳ Bình Thường (Heartbeat Uplink)</option>
+              <option value="low_battery">🪫 [Template 4] Cảnh Báo Pin Yếu (< 15%)</option>
+              <option value="chirpstack_v4">📡 [Template 5] Định Dạng ChirpStack v4 (Object Decoded)</option>
+            </select>
+          </div>
+
+          <!-- Payload Textarea -->
+          <div class="space-y-1.5 flex-1 flex flex-col">
+            <div class="flex items-center justify-between">
+              <label class="text-xs text-slate-400 font-semibold">Nội dung JSON Payload:</label>
+              <button onclick="formatSimulatorJson()" class="text-[10px] text-cyan-400 hover:underline">Format JSON</button>
+            </div>
+            <textarea id="simulator-payload" class="w-full h-64 bg-slate-950 border border-slate-700 rounded-xl p-3 font-mono text-xs text-emerald-400 focus:border-cyan-500 outline-none custom-scrollbar leading-relaxed" spellcheck="false"></textarea>
+          </div>
+
+          <!-- Action Button -->
+          <button onclick="sendSimulatedWebhook()" id="btn-send-webhook" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Gửi Gói Tin Giả Lập Vào Webhook Ngay</span>
+          </button>
+        </div>
+
+        <!-- Result Box -->
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-code text-cyan-400"></i>
+              Kết Quả Phản Hồi Từ Webhook
+            </h3>
+            <span id="simulator-latency" class="text-[10px] font-mono text-slate-500">Chờ gửi gói tin...</span>
+          </div>
+
+          <div id="simulator-response" class="flex-1 bg-slate-950 rounded-xl p-3 font-mono text-xs text-slate-300 border border-slate-800 overflow-y-auto max-h-[380px] custom-scrollbar whitespace-pre-wrap">
+// Kết quả trả về sau khi gửi gói tin sẽ xuất hiện tại đây...
+          </div>
+
+          <!-- Quick helper hints -->
+          <div class="text-[11px] text-slate-400 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80 space-y-1">
+            <div class="font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-question text-sky-400"></i> Lưu ý khi thử nghiệm:
+            </div>
+            <p>• Nếu <code>event_id</code> đã từng gửi trong 24 giờ, hệ thống sẽ trả về <code>"status": "ignored_duplicate"</code>.</p>
+            <p>• Để gửi lại cùng một ID, bấm nút <strong>"Xóa Cache chống trùng"</strong> ở Tab Thao tác Cơ sở dữ liệu.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- HC TECH CLOUD INTEGRATION CARD -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-cloud text-sky-400"></i>
+              Cấu Hình Nền Tảng HC TECH IoT Cloud (OpenAPI v1.2.0)
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Tích hợp API Gateway công khai: Bearer Auth, Rate Limiting, Telemetry Aggregation & Downlink</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-400 text-[11px] font-mono font-bold">
+            Spec: openapi.yaml (v1.2.0)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <!-- Preset Switcher -->
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Môi trường Cloud:</label>
+            <select id="cloud-env-preset" onchange="applyCloudPreset()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-medium focus:border-cyan-500 outline-none">
+              <option value="staging" selected>🧪 Staging (iot-staging.hctech.com.vn)</option>
+              <option value="production">🚀 Production (iot.hctech.com.vn)</option>
+              <option value="mock">💻 Mock Local (http://localhost:8000/api/public/v1)</option>
+              <option value="custom">⚙️ Tùy Chỉnh (Custom URL)</option>
+            </select>
+          </div>
+
+          <!-- Base URL Input -->
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">IoT Public Base URL:</label>
+            <input type="text" id="cloud-base-url-input" value="{{ cloud_base_url }}" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:border-cyan-500 outline-none" />
+          </div>
+
+          <!-- Token Input -->
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">API Public Bearer Token:</label>
+            <div class="flex items-center gap-2">
+              <input type="password" id="cloud-token-input" value="{{ cloud_token_full }}" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-mono focus:border-cyan-500 outline-none" />
+              <button onclick="toggleTokenVisibility()" class="p-2 bg-slate-800 rounded-xl text-slate-300 hover:text-white transition" title="Ẩn/Hiện Token">
+                <i id="token-eye-icon" class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+          <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="saveCloudConfig()" id="btn-save-cloud" class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md shadow-cyan-600/20 transition flex items-center gap-2">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Lưu Cấu Hình Cloud</span>
+            </button>
+
+            <button onclick="runAdminAction('test_cloud')" id="btn-test-cloud" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition flex items-center gap-2 border border-slate-700">
+              <i class="fa-solid fa-network-wired text-cyan-400"></i>
+              <span>Kiểm Tra Ping API</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <select id="sync-lookback-hours" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none">
+              <option value="0">Chỉ đồng bộ danh mục (Nhóm & Thiết bị)</option>
+              <option value="1">Kèm Telemetry 1 giờ qua</option>
+              <option value="24" selected>Kèm Telemetry 24 giờ qua</option>
+              <option value="168">Kèm Telemetry 7 ngày qua</option>
+            </select>
+
+            <button onclick="triggerCloudSync()" id="btn-sync-cloud" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-2">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Đồng Bộ Ngay Từ Cloud</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TELEMETRY EXPLORER (OPENAPI v1.2.0: /telemetry & /telemetry/aggregated) -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-cyan-400"></i>
+              Truy Vấn Telemetry Nâng Cao (Telemetry & Aggregated Explorer)
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Truy xuất chuỗi thời gian hoặc dữ liệu tổng hợp theo chu kỳ giờ/ngày từ Cloud (Mục FR-11.12 & FR-11.13)</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[10px]">
+              GET /telemetry
+            </span>
+            <span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[10px]">
+              GET /telemetry/aggregated
+            </span>
+          </div>
+        </div>
+
+        <!-- Query Form Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+          <!-- Device -->
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Thiết Bị Cần Tra:</label>
+            <select id="telemetry-query-device" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 outline-none">
+              <option value="">-- Tất Cả Thiết Bị --</option>
+              {% for d in devices_list %}
+              <option value="{{ d.dev_eui }}">{{ d.device_name }} ({{ d.dev_eui|slice:":8" }}...)</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Query Type -->
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Loại Truy Vấn:</label>
+            <select id="telemetry-query-type" onchange="toggleTelemetryIntervalVisibility()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 outline-none">
+              <option value="detailed">Từng điểm đo chi tiết (/telemetry)</option>
+              <option value="aggregated" selected>Dữ liệu gom nhóm (/telemetry/aggregated)</option>
+            </select>
+          </div>
+
+          <!-- Metric -->
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Chỉ Số (Metric):</label>
+            <select id="telemetry-query-metric" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 outline-none">
+              <option value="" selected>Tất cả các metric</option>
+              <option value="battery">Pin (%)</option>
+              <option value="speed">Tốc độ (km/h)</option>
+              <option value="latitude">Vĩ độ GPS</option>
+              <option value="longitude">Kinh độ GPS</option>
+              <option value="temperature">Nhiệt độ (°C)</option>
+            </select>
+          </div>
+
+          <!-- Interval (for aggregated) -->
+          <div class="space-y-1" id="box-telemetry-interval">
+            <label class="text-slate-400 font-semibold">Chu Kỳ (Interval):</label>
+            <select id="telemetry-query-interval" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 outline-none">
+              <option value="hour" selected>Theo từng giờ (hour)</option>
+              <option value="day">Theo từng ngày (day)</option>
+            </select>
+          </div>
+
+          <!-- Lookback Days -->
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Khung Thời Gian:</label>
+            <select id="telemetry-query-days" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 outline-none">
+              <option value="1">24 giờ qua</option>
+              <option value="7" selected>7 ngày qua</option>
+              <option value="30">30 ngày qua</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Execute Button -->
+        <div class="flex items-center justify-between pt-1">
+          <div class="flex items-center gap-2">
+            <button onclick="queryCloudTelemetry()" id="btn-query-telemetry" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-600/30 transition flex items-center gap-2">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <span>Thực Hiện Truy Vấn Telemetry</span>
+            </button>
+            <span id="telemetry-query-status" class="text-xs text-slate-400 font-mono"></span>
+          </div>
+
+          <!-- Format Switcher Buttons -->
+          <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <button onclick="switchTelemetryView('table')" id="btn-telemetry-view-table" class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-semibold">
+              <i class="fa-solid fa-table"></i> Dạng Bảng
+            </button>
+            <button onclick="switchTelemetryView('json')" id="btn-telemetry-view-json" class="px-3 py-1 rounded-lg text-slate-400 hover:text-slate-200 font-semibold">
+              <i class="fa-solid fa-code"></i> JSON Thuần
+            </button>
+          </div>
+        </div>
+
+        <!-- Telemetry Results Area -->
+        <div id="telemetry-result-container" class="space-y-3 pt-2">
+          <!-- Table View -->
+          <div id="telemetry-view-table" class="overflow-x-auto bg-slate-950 rounded-xl border border-slate-800 p-3 max-h-[350px] custom-scrollbar">
+            <table class="w-full text-left text-xs" id="telemetry-table">
+              <thead class="text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+                <tr>
+                  <th class="pb-2">Mốc Thời Gian</th>
+                  <th class="pb-2">Thiết Bị</th>
+                  <th class="pb-2">Chỉ Số</th>
+                  <th class="pb-2">Giá Trị / TB</th>
+                  <th class="pb-2">Min - Max</th>
+                  <th class="pb-2">Số Mẫu</th>
+                  <th class="pb-2 text-right">Trạng Thái Chốt (is_final)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60" id="telemetry-table-body">
+                <tr>
+                  <td colspan="7" class="py-6 text-center text-slate-500">
+                    Chọn tiêu chí và bấm "Thực Hiện Truy Vấn Telemetry" để tải dữ liệu từ Cloud hoặc cơ sở dữ liệu.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- JSON View (hidden by default) -->
+          <pre id="telemetry-query-response" class="hidden bg-slate-950 rounded-xl p-4 font-mono text-xs text-emerald-400 border border-slate-800 overflow-y-auto max-h-[350px] custom-scrollbar leading-relaxed whitespace-pre-wrap">
+// Kết quả JSON từ HC TECH Cloud API sẽ xuất hiện tại đây...
+          </pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 3: ĐIỀU KHIỂN & PHÁT LỆNH LORAWAN DOWNLINK (OPENAPI v1.2.0) -->
+    <!-- ======================================================================= -->
+    <div id="tab-content-commands" class="tab-content space-y-6 hidden">
+      <!-- TOP COMMAND CONTROL CARD -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-5">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-tower-broadcast text-cyan-400"></i>
+              Bộ Phát Lệnh Xuống Thiết Bị LoRaWAN (Downlink Command Dispatcher)
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Tuân thủ chuẩn OpenAPI v1.2.0: Hỗ trợ cả lệnh chức năng (Form Command) và gói tin Hex thuần (Raw Hex Bytes F-Port)
+            </p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[11px] font-mono font-bold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            POST /devices/{id}/commands (202 Accepted)
+          </span>
+        </div>
+
+        <!-- Target Device & Mode Selector Bar -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Target Device -->
+          <div class="space-y-1.5 md:col-span-1">
+            <label class="text-xs font-semibold text-slate-300">Chọn Thiết Bị Nhận Lệnh:</label>
+            <select id="downlink-device" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-200 outline-none focus:border-cyan-500">
+              {% for d in devices_list %}
+              <option value="{{ d.id }}" data-eui="{{ d.dev_eui }}">
+                {{ d.device_name }} ({{ d.dev_eui }})
+              </option>
+              {% empty %}
+              <option value="">Chưa có thiết bị nào</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Mode Selector -->
+          <div class="space-y-1.5 md:col-span-2">
+            <label class="text-xs font-semibold text-slate-300">Chế Độ Phát Lệnh (Command Payload Mode):</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" onclick="switchDownlinkMode('command')" id="btn-mode-command" class="py-2.5 px-3 rounded-xl border border-cyan-500/50 bg-cyan-500/20 text-cyan-300 text-xs font-bold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-cube"></i>
+                <span>Lệnh Định Dạng Chuẩn (Form Command)</span>
+              </button>
+              <button type="button" onclick="switchDownlinkMode('raw')" id="btn-mode-raw" class="py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-binary"></i>
+                <span>Gói Tin Hex Thuần (Raw Hex Bytes)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Command Sub-Panel -->
+        <div id="panel-downlink-command" class="space-y-4 pt-1">
+          <!-- Quick Presets -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs text-slate-400 font-semibold">Lệnh Mẫu Nhanh (Presets):</label>
+              <span class="text-[10px] text-slate-500">Bấm để điền tự động tham số</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="applyDownlinkPreset('set_interval')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-clock text-amber-400"></i> Đặt Chu Kỳ 300s
+              </button>
+              <button type="button" onclick="applyDownlinkPreset('buzzer_on')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-bell text-red-400"></i> Bật Còi Báo Động (30s)
+              </button>
+              <button type="button" onclick="applyDownlinkPreset('buzzer_off')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-bell-slash text-slate-400"></i> Tắt Còi Báo Động
+              </button>
+              <button type="button" onclick="applyDownlinkPreset('emergency_ack')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i> Xác Nhận Cứu Hộ (SAR ACK)
+              </button>
+              <button type="button" onclick="applyDownlinkPreset('request_location')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-location-crosshairs text-sky-400"></i> Yêu Cầu Gửi GPS
+              </button>
+              <button type="button" onclick="applyDownlinkPreset('reboot')" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] text-slate-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-arrows-rotate text-purple-400"></i> Khởi Động Lại Thiết Bị
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="space-y-1.5">
+              <label class="text-xs text-slate-300 font-semibold">Tên Lệnh (command.name):</label>
+              <input type="text" id="downlink-cmd-name" value="set_interval" placeholder="e.g. set_interval" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500" />
+            </div>
+            <div class="space-y-1.5 md:col-span-2">
+              <label class="text-xs text-slate-300 font-semibold">Tham Số JSON (command.parameters):</label>
+              <textarea id="downlink-cmd-params" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 font-mono text-xs text-emerald-400 outline-none focus:border-cyan-500 custom-scrollbar">{ "interval_seconds": 300 }</textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Raw Hex Sub-Panel (hidden by default) -->
+        <div id="panel-downlink-raw" class="space-y-4 pt-1 hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div class="space-y-1.5 sm:col-span-1">
+              <label class="text-xs text-slate-300 font-semibold">F-Port (1 - 223):</label>
+              <input type="number" id="downlink-raw-fport" min="1" max="223" value="1" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono outline-none focus:border-cyan-500" />
+              <p class="text-[10px] text-slate-500">Cổng ứng dụng LoRaWAN WAN</p>
+            </div>
+            <div class="space-y-1.5 sm:col-span-3">
+              <label class="text-xs text-slate-300 font-semibold">Hex Payload (Tối đa 242 bytes):</label>
+              <input type="text" id="downlink-raw-payload" value="010A0064" placeholder="VD: 010A0064 hoặc A00100" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-emerald-400 font-mono outline-none focus:border-cyan-500 uppercase" />
+              <p class="text-[10px] text-slate-500">Chuỗi ký tự Hex đại diện cho mảng byte truyền tải</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Options & Submit -->
+        <div class="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-800/80">
+          <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" id="downlink-confirmed" class="accent-cyan-500 w-4 h-4 rounded" />
+            <span class="font-semibold">Confirmed Downlink (Yêu cầu thiết bị phản hồi ACK)</span>
+            <span class="text-[10px] text-slate-500">(Nếu bỏ chọn: Unconfirmed Downlink không cần ACK)</span>
+          </label>
+
+          <button onclick="sendDownlinkCommand()" id="btn-send-downlink" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Phát Lệnh Xuống Thiết Bị (Send Command)</span>
+          </button>
+        </div>
+
+        <!-- Live Response Preview -->
+        <div id="downlink-response-box" class="hidden bg-slate-950 rounded-xl p-3 border border-slate-800 text-xs font-mono space-y-1">
+          <div class="flex items-center justify-between text-slate-400">
+            <span>Phản hồi từ máy chủ:</span>
+            <span id="downlink-response-status" class="text-emerald-400 font-bold">202 Accepted</span>
+          </div>
+          <div id="downlink-response" class="text-slate-300 whitespace-pre-wrap"></div>
+        </div>
+      </div>
+
+      <!-- COMMAND QUEUE & LIFECYCLE TABLE -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-emerald-400"></i>
+              Hàng Đợi & Lịch Sử Vòng Đời Lệnh Downlink
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Theo dõi trạng thái: queued (chờ phát) ➜ sent (đã gửi) ➜ delivered (đã nhận) / failed / cancelled</p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="loadDownlinkCommands()" class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold transition flex items-center gap-1.5">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Làm Mới Danh Sách</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Commands Table -->
+        <div class="overflow-x-auto bg-slate-950 rounded-xl border border-slate-800 p-3 max-h-[400px] custom-scrollbar">
+          <table class="w-full text-left text-xs" id="downlink-commands-table">
+            <thead class="text-slate-400 border-b border-slate-800 text-[11px] uppercase">
+              <tr>
+                <th class="pb-2">Mã Lệnh</th>
+                <th class="pb-2">Thiết Bị</th>
+                <th class="pb-2">Kiểu / Tên Lệnh</th>
+                <th class="pb-2">Payload / Chi Tiết</th>
+                <th class="pb-2">F-Port</th>
+                <th class="pb-2">Confirmed</th>
+                <th class="pb-2">Trạng Thái</th>
+                <th class="pb-2">Thời Gian</th>
+                <th class="pb-2 text-right">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60" id="downlink-commands-body">
+              <tr>
+                <td colspan="9" class="py-6 text-center text-slate-500">
+                  Đang tải danh sách lệnh downlink...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 4: THAO TÁC CƠ SỞ DỮ LIỆU & LỆNH DATABASE -->
+    <!-- ======================================================================= -->
+    <div id="tab-content-database" class="tab-content space-y-6 hidden">
+      <!-- DATABASE METRICS OVERVIEW -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-table text-cyan-400"></i>
+          Thống Kê Bảng Dữ Liệu PostgreSQL
+        </h2>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
+          <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Bảng Thiết Bị (Device)</div>
+            <div class="text-xl font-bold text-white mt-1">{{ device_total }} bản ghi</div>
+          </div>
+          <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Bảng Sự Cố (AlertLog)</div>
+            <div class="text-xl font-bold text-amber-400 mt-1">{{ alert_total }} bản ghi</div>
+          </div>
+          <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Hành Trình (LocationHistory)</div>
+            <div class="text-xl font-bold text-sky-400 mt-1">{{ location_total }} điểm GPS</div>
+          </div>
+          <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Khu Vực (Area)</div>
+            <div class="text-xl font-bold text-purple-400 mt-1">{{ area_total }} bản ghi</div>
+          </div>
+          <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+            <div class="text-slate-400 text-[11px]">Người Dùng (User)</div>
+            <div class="text-xl font-bold text-emerald-400 mt-1">{{ user_total }} tài khoản</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DATABASE MAINTENANCE COMMANDS -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Cleanup GPS Points -->
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-broom text-amber-400"></i>
+              Dọn Dẹp Tọa Độ GPS Cũ (Optimize LocationHistory)
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Xóa các điểm định vị cũ để giải phóng bộ nhớ và tăng tốc độ vẽ đường hành trình Replay.</p>
+          </div>
+
+          <div class="space-y-3 pt-2">
+            <div class="flex items-center gap-3">
+              <select id="cleanup-gps-days" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                <option value="30" selected>Cũ hơn 30 ngày</option>
+                <option value="60">Cũ hơn 60 ngày</option>
+                <option value="90">Cũ hơn 90 ngày</option>
+                <option value="180">Cũ hơn 180 ngày</option>
+              </select>
+
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" id="cleanup-gps-keep-sos" checked class="accent-cyan-500 rounded" />
+                <span>Bảo toàn điểm SOS</span>
+              </label>
+            </div>
+
+            <button onclick="executeGpsCleanup()" class="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-trash-can"></i> Thực Hiện Dọn Dẹp GPS Cũ
+            </button>
+          </div>
+        </div>
+
+        <!-- Cleanup Resolved Alerts -->
+        <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-box-archive text-purple-400"></i>
+              Dọn Dẹp Nhật Ký Sự Cố Cũ (Archive Alert Logs)
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Xóa các bản ghi đã hoàn tất (RESOLVED) hoặc báo động giả (FALSE_ALARM) quá hạn.</p>
+          </div>
+
+          <div class="space-y-3 pt-2">
+            <div class="flex items-center gap-3">
+              <select id="cleanup-alerts-days" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
+                <option value="30" selected>Đã giải quyết > 30 ngày</option>
+                <option value="60">Đã giải quyết > 60 ngày</option>
+                <option value="90">Đã giải quyết > 90 ngày</option>
+              </select>
+            </div>
+
+            <button onclick="executeAlertsCleanup()" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-trash-can"></i> Dọn Dẹp Sự Cố Đã Đóng
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BACKUP & EXPORT SUITE -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-file-export text-emerald-400"></i>
+          Sao Lưu & Xuất Dữ Liệu (Data Export & Backup)
+        </h2>
+        <p class="text-xs text-slate-400">Tải xuống các gói dữ liệu chuẩn phục vụ kiểm toán, đối soát hoặc sao lưu dự phòng:</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+          <button onclick="downloadDevicesJson()" class="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-left transition flex items-center justify-between group">
+            <div class="space-y-0.5">
+              <div class="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition">Danh Sách Thiết Bị</div>
+              <div class="text-[10px] text-slate-500">Định dạng JSON (Full attributes)</div>
+            </div>
+            <i class="fa-solid fa-download text-slate-400 group-hover:text-cyan-400"></i>
+          </button>
+
+          <a href="/export/alerts/csv/" class="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-left transition flex items-center justify-between group">
+            <div class="space-y-0.5">
+              <div class="text-xs font-bold text-slate-200 group-hover:text-amber-400 transition">Báo Cáo Sự Cố Cứu Hộ</div>
+              <div class="text-[10px] text-slate-500">Định dạng CSV (UTF-8 BOM Excel)</div>
+            </div>
+            <i class="fa-solid fa-download text-slate-400 group-hover:text-amber-400"></i>
+          </a>
+
+          <button onclick="downloadRouteExport()" class="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-left transition flex items-center justify-between group">
+            <div class="space-y-0.5">
+              <div class="text-xs font-bold text-slate-200 group-hover:text-sky-400 transition">Lịch Sử Hành Trình Tàu</div>
+              <div class="text-[10px] text-slate-500">Định dạng JSON / KML tọa độ</div>
+            </div>
+            <i class="fa-solid fa-download text-slate-400 group-hover:text-sky-400"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 4: LỆNH NÂNG CAO & GIẢ LẬP SỰ CỐ -->
+    <!-- ======================================================================= -->
+    <div id="tab-content-advanced" class="tab-content space-y-6 hidden">
+      <!-- EMERGENCY SIMULATOR -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-tower-broadcast text-red-500"></i>
+            Trình Giả Lập Phát Cảnh Báo Khẩn Cấp (Live Emergency Broadcast Simulator)
+          </h2>
+          <span class="px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold">
+            Realtime SSE Trigger
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">Chọn một thiết bị bất kỳ trong hệ thống để kích hoạt sự cố khẩn cấp. Lệnh sẽ cập nhật cơ sở dữ liệu và phát sóng thời gian thực đến toàn bộ Dashboard điều phối.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Chọn thiết bị phát cảnh báo:</label>
+            <select id="sim-emergency-device" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-medium outline-none">
+              {% for d in devices_list %}
+              <option value="{{ d.id }}">
+                {{ d.device_name }} ({{ d.dev_eui }}) {% if d.has_gps %}[GPS Biển]{% else %}[Đất liền]{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Loại sự cố khẩn cấp:</label>
+            <select id="sim-emergency-type" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 font-medium outline-none">
+              <option value="CUU_HO_BIEN">🚢 Cứu Hộ Biển (GPS)</option>
+              <option value="CAP_CUU_Y_TE">🚑 Cấp Cứu / Y Tế</option>
+              <option value="CHAY">🔥 Báo Cháy Khẩn Cấp</option>
+              <option value="AN_NINH">🛡️ An Ninh Trật Tự</option>
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="text-slate-400 font-semibold">Ghi chú điều phối thử nghiệm:</label>
+            <input type="text" id="sim-emergency-notes" value="Diễn tập sự cố cứu nạn khẩn cấp từ Trang Quản Trị" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 outline-none" />
+          </div>
+        </div>
+
+        <button onclick="triggerSimulatedEmergency()" id="btn-trigger-emergency" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-600/30 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation animate-pulse"></i>
+          <span>Kích Hoạt Phát Cảnh Báo Khẩn Cấp Thử Nghiệm Ngay</span>
+        </button>
+      </div>
+
+      <!-- SYSTEM COMMAND RUNNER TERMINAL -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-terminal text-cyan-400"></i>
+          Thực Thi Lệnh Kiểm Tra An Toàn (Safe Command Runner)
+        </h2>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button onclick="runAdminAction('system_check')" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition flex items-center gap-2">
+            <i class="fa-solid fa-stethoscope text-cyan-400"></i>
+            <span>Chạy django check</span>
+          </button>
+
+          <button onclick="runAdminAction('test_cloud')" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition flex items-center gap-2">
+            <i class="fa-solid fa-cloud text-sky-400"></i>
+            <span>Test HC TECH Cloud Latency</span>
+          </button>
+
+          <button onclick="runAdminAction('get_metrics')" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition flex items-center gap-2">
+            <i class="fa-solid fa-arrows-rotate text-emerald-400"></i>
+            <span>Làm Mới Thống Kê Database</span>
+          </button>
+
+          <button onclick="clearConsole('advanced-console')" class="px-3 py-2 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-800 text-xs text-slate-400 ml-auto">
+            Xóa màn hình
+          </button>
+        </div>
+
+        <div id="advanced-console" class="bg-slate-950 rounded-xl p-4 font-mono text-xs text-emerald-400 border border-slate-800 h-64 overflow-y-auto custom-scrollbar whitespace-pre-wrap leading-relaxed">
+> HC TECH Advanced Admin Terminal v2.4 initialized.
+> Ready for diagnostic and maintenance commands.
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // 1. TEMPLATES CHO TRÌNH GIẢ LẬP WEBHOOK (TUÂN THỦ OUTBOUNDRECORD OPENAPI v1.2.0)
+    const SIMULATOR_TEMPLATES = {
+      sos_button: {
+        "schema_version": "1.0",
+        "event_id": "sim_sos_" + Date.now(),
+        "dev_eui": "24E124128C020003",
+        "device_name": "Nút Khẩn Cấp An Ninh - KS Biển Đông",
+        "reported_at": new Date().toISOString(),
+        "measurements": [
+          { "name": "latitude", "value": 16.0654, "unit": "deg", "out_of_range": false },
+          { "name": "longitude", "value": 108.2442, "unit": "deg", "out_of_range": false },
+          { "name": "button_event", "value": "short_press" },
+          { "name": "battery", "value": 90, "unit": "%", "out_of_range": false }
+        ],
+        "link_info": {
+          "rssi": -78,
+          "snr": 9.5,
+          "quality_level": "good",
+          "gateways_count": 2
+        },
+        "decode_status": "ok",
+        "decode_reason": null,
+        "attributes": {
+          "firmware_version": "v2.1.0",
+          "device_profile": "WS101_LoRaWAN"
+        },
+        "notes": "Tín hiệu SOS thử nghiệm từ nút nhấn khẩn cấp"
+      },
+      maritime_gps: {
+        "schema_version": "1.0",
+        "event_id": "sim_gps_" + Date.now(),
+        "dev_eui": "24E124128C010001",
+        "device_name": "Tàu Cứu Hộ 01 - SAR DaNang",
+        "reported_at": new Date().toISOString(),
+        "measurements": [
+          { "name": "latitude", "value": 16.1158, "unit": "deg", "out_of_range": false },
+          { "name": "longitude", "value": 108.2390, "unit": "deg", "out_of_range": false },
+          { "name": "speed", "value": 14.2, "unit": "km/h", "out_of_range": false },
+          { "name": "battery", "value": 95, "unit": "%", "out_of_range": false },
+          { "name": "button_event", "value": "normal" }
+        ],
+        "link_info": {
+          "rssi": -85,
+          "snr": 8.0,
+          "quality_level": "good",
+          "gateways_count": 3
+        },
+        "decode_status": "ok",
+        "decode_reason": null,
+        "attributes": {
+          "vessel_id": "SAR-VN-01",
+          "tracker_model": "LW006-Maritime"
+        }
+      },
+      heartbeat_normal: {
+        "schema_version": "1.0",
+        "event_id": "sim_hb_" + Date.now(),
+        "dev_eui": "AC1F09FFFE010001",
+        "device_name": "LoRaWAN Gateway - Hải Đăng Tiên Sa",
+        "reported_at": new Date().toISOString(),
+        "measurements": [
+          { "name": "battery", "value": 99, "unit": "%", "out_of_range": false },
+          { "name": "temperature", "value": 28.5, "unit": "celsius", "out_of_range": false },
+          { "name": "button_event", "value": "normal" }
+        ],
+        "link_info": {
+          "rssi": -65,
+          "snr": 12.0,
+          "quality_level": "excellent",
+          "gateways_count": 1
+        },
+        "decode_status": "ok",
+        "decode_reason": null,
+        "attributes": {
+          "station": "Tien Sa Lighthouse Gateway"
+        }
+      },
+      low_battery: {
+        "schema_version": "1.0",
+        "event_id": "sim_bat_" + Date.now(),
+        "dev_eui": "24E124128C020001",
+        "device_name": "Nút Báo Cháy Xưởng A - KCN Hòa Khánh",
+        "reported_at": new Date().toISOString(),
+        "measurements": [
+          { "name": "battery", "value": 12, "unit": "%", "out_of_range": true },
+          { "name": "button_event", "value": "normal" }
+        ],
+        "link_info": {
+          "rssi": -92,
+          "snr": 4.5,
+          "quality_level": "fair",
+          "gateways_count": 1
+        },
+        "decode_status": "ok",
+        "decode_reason": null,
+        "notes": "Cảnh báo mức pin thấp thiết bị cần bảo trì"
+      },
+      chirpstack_v4: {
+        "event_id": "sim_cs_" + Date.now(),
+        "devEui": "24E124128C010001",
+        "time": new Date().toISOString(),
+        "rxInfo": [
+          {
+            "gatewayId": "AC1F09FFFE010001",
+            "rssi": -80,
+            "snr": 9.2
+          }
+        ],
+        "object": {
+          "latitude": 16.1180,
+          "longitude": 108.2415,
+          "speed": 11.5,
+          "battery": 93,
+          "is_sos": false
+        }
+      }
+    };
+
+    // 2. LỆNH MẪU DOWNLINK PRESETS (OPENAPI v1.2.0)
+    const DOWNLINK_PRESETS = {
+      set_interval: {
+        name: "set_interval",
+        params: { "interval_seconds": 300 }
+      },
+      buzzer_on: {
+        name: "buzzer_on",
+        params: { "duration_seconds": 30, "volume": 100 }
+      },
+      buzzer_off: {
+        name: "buzzer_off",
+        params: {}
+      },
+      emergency_ack: {
+        name: "emergency_ack",
+        params: { "ack_code": 1, "note": "SAR DaNang đã tiếp nhận điều phối" }
+      },
+      request_location: {
+        name: "request_location",
+        params: { "high_accuracy": true, "timeout_s": 60 }
+      },
+      reboot: {
+        name: "reboot",
+        params: { "delay_ms": 1000 }
+      }
+    };
+
+    let currentDownlinkMode = 'command'; // 'command' hoặc 'raw'
+
+    // 3. KHỞI TẠO BAN ĐẦU
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSimulatorTemplate();
+      loadDownlinkCommands();
+      setupSSE();
+
+      const isLight = document.documentElement.classList.contains('light');
+      const icon = document.getElementById('theme-icon');
+      if (icon) {
+        icon.className = isLight ? 'fa-solid fa-moon text-amber-500' : 'fa-solid fa-sun text-amber-400';
+      }
+    });
+
+    // 4. SSE REALTIME SUBSCRIPTION
+    function setupSSE() {
+      if (!window.EventSource) return;
+      try {
+        const es = new EventSource('/events/');
+        es.addEventListener('IOT_UPLINK', (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            const devName = data.device_name || data.dev_eui || 'Thiết bị';
+            appendConsole('overview-console', `[Realtime Uplink] ${devName}: Pin ${data.battery_level ?? 'N/A'}% | SOS: ${data.is_sos}`);
+            if (data.is_sos) {
+              showToast(`🚨 BÁO ĐỘNG SOS TỪ ${devName}!`, 'error');
+            }
+          } catch (err) {}
+        });
+
+        es.addEventListener('DOWNLINK_COMMAND', (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            loadDownlinkCommands();
+            showToast(`Lệnh Downlink #${data.command?.id?.slice(0, 8)} đã cập nhật: ${data.action}`, 'info');
+          } catch (err) {}
+        });
+
+        es.addEventListener('EMERGENCY_ALERT', (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            appendConsole('overview-console', `[Emergency Broadcast] ${data.device_name || 'Khẩn cấp'}`);
+          } catch (err) {}
+        });
+      } catch (e) {
+        console.warn("SSE connect failed:", e);
+      }
+    }
+
+    // 5. TEMPLATE & SIMULATOR LOGIC
+    function loadSimulatorTemplate() {
+      const type = document.getElementById('simulator-template').value;
+      const tpl = JSON.parse(JSON.stringify(SIMULATOR_TEMPLATES[type] || SIMULATOR_TEMPLATES.sos_button));
+      tpl.event_id = "sim_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now();
+      if (tpl.reported_at) tpl.reported_at = new Date().toISOString();
+      if (tpl.time) tpl.time = new Date().toISOString();
+      document.getElementById('simulator-payload').value = JSON.stringify(tpl, null, 2);
+    }
+
+    function formatSimulatorJson() {
+      try {
+        const parsed = JSON.parse(document.getElementById('simulator-payload').value);
+        document.getElementById('simulator-payload').value = JSON.stringify(parsed, null, 2);
+      } catch (e) {
+        showToast("Lỗi JSON không hợp lệ: " + e.message, "error");
+      }
+    }
+
+    // 6. CHUYỂN ĐỔI TAB GIAO DIỆN
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-cyan-500/20', 'text-cyan-300', 'border-cyan-500/30');
+        btn.classList.add('text-slate-400', 'border-transparent');
+      });
+
+      const targetContent = document.getElementById(`tab-content-${tabId}`);
+      const targetBtn = document.getElementById(`tab-btn-${tabId}`);
+      if (targetContent) targetContent.classList.remove('hidden');
+      if (targetBtn) {
+        targetBtn.classList.remove('text-slate-400', 'border-transparent');
+        targetBtn.classList.add('bg-cyan-500/20', 'text-cyan-300', 'border-cyan-500/30');
+      }
+
+      if (tabId === 'commands') {
+        loadDownlinkCommands();
+      }
+    }
+
+    // 7. TOAST NOTIFICATIONS
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `p-3.5 rounded-xl border shadow-xl text-xs font-semibold flex items-center justify-between gap-3 pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 ${
+        type === 'success'
+          ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200'
+          : type === 'error'
+          ? 'bg-red-950/90 border-red-500/40 text-red-200'
+          : 'bg-cyan-950/90 border-cyan-500/40 text-cyan-200'
+      }`;
+
+      const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info';
+      toast.innerHTML = `
+        <div class="flex items-center gap-2">
+          <i class="fa-solid ${icon}"></i>
+          <span>${message}</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+      setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    function appendConsole(consoleId, text) {
+      const el = document.getElementById(consoleId);
+      if (!el) return;
+      const timeStr = new Date().toLocaleTimeString();
+      el.innerHTML += `\n<span class="text-slate-500">[${timeStr}]</span> ${text}`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function clearConsole(consoleId) {
+      const el = document.getElementById(consoleId);
+      if (el) el.innerHTML = `<span class="text-slate-500">> Console đã được xóa.</span>`;
+    }
+
+    // 8. CONFIRMATION MODAL LOGIC
+    let pendingAction = null;
+    function confirmAction(actionKey, title, desc) {
+      pendingAction = actionKey;
+      document.getElementById('confirm-modal-title').innerText = title;
+      document.getElementById('confirm-modal-desc').innerText = desc;
+      const btn = document.getElementById('confirm-modal-btn');
+      btn.onclick = () => {
+        closeConfirmModal();
+        if (pendingAction) runAdminAction(pendingAction);
+      };
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+    function closeConfirmModal() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      pendingAction = null;
+    }
+
+    // 9. API ADMIN CALLER
+    async function runAdminAction(actionName, data = {}) {
+      try {
+        appendConsole('overview-console', `Đang thực thi: ${actionName}...`);
+        appendConsole('advanced-console', `Executing admin action: ${actionName}...`);
+
+        const res = await fetch(`/admin/api/${actionName}/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+
+        if (json.status === 'success') {
+          showToast(json.message || "Thao tác thành công!", "success");
+          appendConsole('overview-console', `✔ ${json.message || 'Thành công'}`);
+          appendConsole('advanced-console', `✔ ${JSON.stringify(json, null, 2)}`);
+
+          if (json.db_size) {
+            const el = document.getElementById('stat-db-size');
+            if (el) el.innerText = json.db_size;
+            const h = document.getElementById('header-db-size');
+            if (h) h.innerText = json.db_size;
+          }
+          if (json.devices) {
+            if (document.getElementById('stat-device-total')) document.getElementById('stat-device-total').innerText = json.devices.total;
+          }
+        } else {
+          showToast(json.message || "Lỗi xử lý!", "error");
+          appendConsole('overview-console', `✖ Thất bại: ${json.message}`);
+          appendConsole('advanced-console', `✖ Error: ${json.message}`);
+        }
+        return json;
+      } catch (err) {
+        showToast("Lỗi kết nối tới server!", "error");
+        appendConsole('overview-console', `✖ Lỗi mạng: ${err.message}`);
+        appendConsole('advanced-console', `✖ Network error: ${err.message}`);
+      }
+    }
+
+    // 10. GỬI GÓI TIN GIẢ LẬP VÀO WEBHOOK
+    async function sendSimulatedWebhook() {
+      const rawText = document.getElementById('simulator-payload').value;
+      let payload;
+      try {
+        payload = JSON.parse(rawText);
+      } catch (e) {
+        return showToast("Cú pháp JSON chưa chính xác!", "error");
+      }
+
+      const btn = document.getElementById('btn-send-webhook');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi gói tin...`;
+
+      const t0 = performance.now();
+      try {
+        const res = await fetch('/admin/api/send_test_webhook/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload })
+        });
+        const latency = (performance.now() - t0).toFixed(1);
+        const data = await res.json();
+
+        document.getElementById('simulator-latency').innerText = `Độ trễ: ${latency} ms (HTTP ${res.status})`;
+        document.getElementById('simulator-response').innerText = JSON.stringify(data, null, 2);
+
+        if (data.status === 'success') {
+          showToast(`Đã gửi gói tin thành công (${latency} ms)!`, "success");
+        } else {
+          showToast(data.message || "Lỗi xử lý gói tin", "error");
+        }
+      } catch (err) {
+        showToast("Lỗi kết nối khi gửi gói tin!", "error");
+        document.getElementById('simulator-response').innerText = "// Lỗi: " + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Gửi Gói Tin Giả Lập Vào Webhook Ngay`;
+      }
+    }
+
+    // 11. ĐỒNG BỘ CLOUD & CẤU HÌNH
+    async function triggerCloudSync() {
+      const lookbackHours = document.getElementById('sync-lookback-hours').value;
+      const btn = document.getElementById('btn-sync-cloud');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...`;
+
+      try {
+        await runAdminAction('sync_cloud', { lookback_hours: parseInt(lookbackHours) });
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Đồng Bộ Ngay Từ Cloud`;
+      }
+    }
+
+    function applyCloudPreset() {
+      const preset = document.getElementById('cloud-env-preset').value;
+      const input = document.getElementById('cloud-base-url-input');
+      if (preset === 'staging') {
+        input.value = 'https://iot-staging.hctech.com.vn/api/public/v1';
+      } else if (preset === 'production') {
+        input.value = 'https://iot.hctech.com.vn/api/public/v1';
+      } else if (preset === 'mock') {
+        input.value = 'http://localhost:8000/api/public/v1';
+      }
+    }
+
+    async function saveCloudConfig() {
+      const baseUrl = document.getElementById('cloud-base-url-input').value.trim();
+      const token = document.getElementById('cloud-token-input').value.trim();
+      if (!baseUrl) {
+        return showToast("Vui lòng nhập Base URL!", "error");
+      }
+
+      const btn = document.getElementById('btn-save-cloud');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...`;
+
+      try {
+        await runAdminAction('save_cloud_config', { base_url: baseUrl, token: token });
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình Cloud`;
+      }
+    }
+
+    // 12. TELEMETRY EXPLORER (OPENAPI v1.2.0)
+    function toggleTelemetryIntervalVisibility() {
+      const qType = document.getElementById('telemetry-query-type').value;
+      const box = document.getElementById('box-telemetry-interval');
+      if (qType === 'detailed') {
+        box.classList.add('opacity-40', 'pointer-events-none');
+      } else {
+        box.classList.remove('opacity-40', 'pointer-events-none');
+      }
+    }
+
+    function switchTelemetryView(viewType) {
+      const tableView = document.getElementById('telemetry-view-table');
+      const jsonView = document.getElementById('telemetry-query-response');
+      const btnTable = document.getElementById('btn-telemetry-view-table');
+      const btnJson = document.getElementById('btn-telemetry-view-json');
+
+      if (viewType === 'table') {
+        tableView.classList.remove('hidden');
+        jsonView.classList.add('hidden');
+        btnTable.className = 'px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-semibold';
+        btnJson.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-slate-200 font-semibold';
+      } else {
+        tableView.classList.add('hidden');
+        jsonView.classList.remove('hidden');
+        btnJson.className = 'px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 font-semibold';
+        btnTable.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-slate-200 font-semibold';
+      }
+    }
+
+    async function queryCloudTelemetry() {
+      const deviceId = document.getElementById('telemetry-query-device').value;
+      const qType = document.getElementById('telemetry-query-type').value;
+      const metric = document.getElementById('telemetry-query-metric').value;
+      const interval = qType === 'aggregated' ? document.getElementById('telemetry-query-interval').value : null;
+      const days = document.getElementById('telemetry-query-days').value;
+
+      const btn = document.getElementById('btn-query-telemetry');
+      const statusLabel = document.getElementById('telemetry-query-status');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang truy vấn...`;
+      statusLabel.innerText = "Connecting...";
+
+      const t0 = performance.now();
+      try {
+        const res = await fetch('/admin/api/query_cloud_telemetry/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            device_id: deviceId || null,
+            interval: interval,
+            metrics: metric || null,
+            days: parseInt(days)
+          })
+        });
+
+        const latency = (performance.now() - t0).toFixed(0);
+        const data = await res.json();
+
+        statusLabel.innerText = `HTTP ${res.status} (${latency} ms) | Query-Tier: Standard`;
+        document.getElementById('telemetry-query-response').innerText = JSON.stringify(data, null, 2);
+
+        // Render Table Rows
+        renderTelemetryTable(data, qType);
+        showToast(`Truy vấn telemetry hoàn tất (${latency} ms)`, "success");
+      } catch (err) {
+        statusLabel.innerText = "Error: " + err.message;
+        showToast("Lỗi khi truy vấn telemetry: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-magnifying-glass"></i> Thực Hiện Truy Vấn Telemetry`;
+      }
+    }
+
+    function renderTelemetryTable(data, qType) {
+      const tbody = document.getElementById('telemetry-table-body');
+      tbody.innerHTML = '';
+
+      const items = data.data || data.results || (Array.isArray(data) ? data : []);
+      if (!items || items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-500">Không tìm thấy dữ liệu điểm đo phù hợp với tiêu chí lọc.</td></tr>`;
+        return;
+      }
+
+      items.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-900/60 transition';
+
+        const ts = row.timestamp || row.bucket || row.recorded_at || '-';
+        const dev = row.device_name || row.device_id || row.dev_eui || 'Device';
+        const metricName = row.metric || row.name || '-';
+        const val = row.value ?? (row.avg !== undefined ? Number(row.avg).toFixed(2) : '-');
+        const minVal = row.min !== undefined ? Number(row.min).toFixed(1) : '-';
+        const maxVal = row.max !== undefined ? Number(row.max).toFixed(1) : '-';
+        const samples = row.count ?? row.samples ?? 1;
+
+        // is_final indicator (OpenAPI v1.2.0 FR-11.13)
+        let isFinalBadge = '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-mono">Raw Point</span>';
+        if (row.is_final !== undefined) {
+          if (row.is_final) {
+            isFinalBadge = '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">✔ Đã Chốt</span>';
+          } else {
+            isFinalBadge = '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold" title="Trong khung 7 ngày tính toán lại">⏳ Chưa Chốt</span>';
+          }
+        }
+
+        tr.innerHTML = `
+          <td class="py-2.5 font-mono text-slate-300">${ts}</td>
+          <td class="py-2.5 font-semibold text-slate-200">${dev}</td>
+          <td class="py-2.5 font-mono text-cyan-400">${metricName}</td>
+          <td class="py-2.5 font-bold text-white">${val}</td>
+          <td class="py-2.5 text-slate-400 font-mono">${minVal} - ${maxVal}</td>
+          <td class="py-2.5 text-slate-300 font-mono">${samples}</td>
+          <td class="py-2.5 text-right">${isFinalBadge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // 13. LORAWAN DOWNLINK COMMAND CONTROLS (OPENAPI v1.2.0)
+    function switchDownlinkMode(mode) {
+      currentDownlinkMode = mode;
+      const cmdPanel = document.getElementById('panel-downlink-command');
+      const rawPanel = document.getElementById('panel-downlink-raw');
+      const btnCmd = document.getElementById('btn-mode-command');
+      const btnRaw = document.getElementById('btn-mode-raw');
+
+      if (mode === 'command') {
+        cmdPanel.classList.remove('hidden');
+        rawPanel.classList.add('hidden');
+        btnCmd.className = 'py-2.5 px-3 rounded-xl border border-cyan-500/50 bg-cyan-500/20 text-cyan-300 text-xs font-bold transition flex items-center justify-center gap-2';
+        btnRaw.className = 'py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-2';
+      } else {
+        rawPanel.classList.remove('hidden');
+        cmdPanel.classList.add('hidden');
+        btnRaw.className = 'py-2.5 px-3 rounded-xl border border-cyan-500/50 bg-cyan-500/20 text-cyan-300 text-xs font-bold transition flex items-center justify-center gap-2';
+        btnCmd.className = 'py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-2';
+      }
+    }
+
+    function applyDownlinkPreset(presetKey) {
+      const preset = DOWNLINK_PRESETS[presetKey];
+      if (!preset) return;
+      document.getElementById('downlink-cmd-name').value = preset.name;
+      document.getElementById('downlink-cmd-params').value = JSON.stringify(preset.params, null, 2);
+      switchDownlinkMode('command');
+      showToast(`Đã áp dụng mẫu lệnh: ${preset.name}`, "info");
+    }
+
+    async function sendDownlinkCommand() {
+      const devSelect = document.getElementById('downlink-device');
+      const deviceId = devSelect.value;
+      if (!deviceId) {
+        return showToast("Vui lòng chọn thiết bị nhận lệnh!", "error");
+      }
+
+      const confirmed = document.getElementById('downlink-confirmed').checked;
+      let postData = {
+        device_id: deviceId,
+        mode: currentDownlinkMode,
+        confirmed: confirmed
+      };
+
+      if (currentDownlinkMode === 'command') {
+        const cmdName = document.getElementById('downlink-cmd-name').value.trim();
+        if (!cmdName) {
+          return showToast("Tên lệnh không được để trống!", "error");
+        }
+        let params = {};
+        const paramText = document.getElementById('downlink-cmd-params').value.trim();
+        if (paramText) {
+          try {
+            params = JSON.parse(paramText);
+          } catch (e) {
+            return showToast("Tham số JSON của lệnh không hợp lệ!", "error");
+          }
+        }
+        postData.command_name = cmdName;
+        postData.command_parameters = params;
+      } else {
+        const fPort = parseInt(document.getElementById('downlink-raw-fport').value);
+        const payloadHex = document.getElementById('downlink-raw-payload').value.trim().toUpperCase();
+        if (!fPort || fPort < 1 || fPort > 223) {
+          return showToast("F-Port LoRaWAN phải nằm trong khoảng từ 1 đến 223!", "error");
+        }
+        if (!payloadHex || !/^[0-9A-F]+$/.test(payloadHex) || payloadHex.length % 2 !== 0) {
+          return showToast("Hex Payload không hợp lệ (phải là chuỗi hex chẵn ký tự, VD: 010A0064)!", "error");
+        }
+        postData.raw_f_port = fPort;
+        postData.raw_payload_hex = payloadHex;
+      }
+
+      const btn = document.getElementById('btn-send-downlink');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang phát lệnh...`;
+
+      try {
+        const res = await fetch('/admin/api/send_downlink_command/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(postData)
+        });
+        const data = await res.json();
+
+        const respBox = document.getElementById('downlink-response-box');
+        const respStatus = document.getElementById('downlink-response-status');
+        const respText = document.getElementById('downlink-response');
+        respBox.classList.remove('hidden');
+
+        if (data.status === 'success') {
+          respStatus.innerText = "HTTP 202 Accepted";
+          respStatus.className = "text-emerald-400 font-bold";
+          respText.innerText = JSON.stringify(data.command || data, null, 2);
+          showToast(data.message || "Đã đưa lệnh vào hàng đợi thành công!", "success");
+          loadDownlinkCommands();
+        } else {
+          respStatus.innerText = "Error (HTTP " + res.status + ")";
+          respStatus.className = "text-red-400 font-bold";
+          respText.innerText = data.message || "Lỗi xử lý";
+          showToast(data.message || "Lỗi khi phát lệnh", "error");
+        }
+      } catch (err) {
+        showToast("Lỗi kết nối khi phát lệnh downlink: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Phát Lệnh Xuống Thiết Bị (Send Command)`;
+      }
+    }
+
+    async function loadDownlinkCommands() {
+      const tbody = document.getElementById('downlink-commands-body');
+      try {
+        const res = await fetch('/admin/api/list_downlink_commands/');
+        const data = await res.json();
+
+        if (data.status === 'success' && Array.isArray(data.commands) && data.commands.length > 0) {
+          tbody.innerHTML = '';
+          data.commands.forEach(cmd => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-900/60 transition';
+
+            // Status Badge
+            let statusBadge = '';
+            const st = cmd.status || 'queued';
+            if (st === 'queued') {
+              statusBadge = `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold">Chờ gửi (queued)</span>`;
+            } else if (st === 'sent') {
+              statusBadge = `<span class="px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-bold">Đã phát (sent)</span>`;
+            } else if (st === 'delivered') {
+              statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Đã nhận (delivered)</span>`;
+            } else if (st === 'cancelled') {
+              statusBadge = `<span class="px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-400 text-[10px] font-bold">Đã hủy (cancelled)</span>`;
+            } else {
+              statusBadge = `<span class="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold">${st}</span>`;
+            }
+
+            const cmdIdShort = (cmd.id || '').length > 14 ? (cmd.id.slice(0, 10) + '...') : cmd.id;
+            const targetDev = cmd.device_name || cmd.dev_eui || cmd.device_id || '-';
+            const cmdName = cmd.command_name ? `<code>${cmd.command_name}</code>` : '<span class="text-slate-400 font-mono">Raw Hex</span>';
+            const details = cmd.source === 'raw' 
+              ? `<span class="font-mono text-cyan-400 text-[11px]">${cmd.payload || '-'}</span>`
+              : `<span class="font-mono text-slate-300 text-[10px]">${JSON.stringify(cmd.parameters || {})}</span>`;
+            
+            const confirmedBadge = cmd.confirmed 
+              ? '<span class="text-emerald-400 font-bold">Có (ACK)</span>' 
+              : '<span class="text-slate-500">Không</span>';
+
+            let actionHtml = '-';
+            if (st === 'queued') {
+              actionHtml = `<button onclick="cancelDownlinkCommand('${cmd.id}')" class="px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 text-[10px] font-bold transition flex items-center gap-1">
+                <i class="fa-solid fa-ban"></i> Hủy
+              </button>`;
+            }
+
+            const timeStr = cmd.created_at ? new Date(cmd.created_at).toLocaleTimeString() + ' ' + new Date(cmd.created_at).toLocaleDateString() : '-';
+
+            tr.innerHTML = `
+              <td class="py-2.5 font-mono text-slate-400 text-[11px]" title="${cmd.id}">${cmdIdShort}</td>
+              <td class="py-2.5 font-semibold text-slate-200">${targetDev}</td>
+              <td class="py-2.5">${cmdName}</td>
+              <td class="py-2.5 max-w-xs truncate">${details}</td>
+              <td class="py-2.5 font-mono text-slate-300">${cmd.f_port || 1}</td>
+              <td class="py-2.5 text-[11px]">${confirmedBadge}</td>
+              <td class="py-2.5">${statusBadge}</td>
+              <td class="py-2.5 text-slate-400 font-mono text-[11px]">${timeStr}</td>
+              <td class="py-2.5 text-right">${actionHtml}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-slate-500">Chưa có lệnh Downlink nào trong hàng đợi hoặc lịch sử.</td></tr>`;
+        }
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-red-400">Không thể tải danh sách lệnh Downlink: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function cancelDownlinkCommand(commandId) {
+      if (!confirm(`Bạn có chắc muốn hủy lệnh ${commandId}?`)) return;
+      try {
+        const res = await fetch('/admin/api/cancel_downlink_command/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command_id: commandId })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast(data.message || "Đã hủy lệnh thành công", "success");
+          loadDownlinkCommands();
+        } else {
+          showToast(data.message || "Không thể hủy lệnh", "error");
+        }
+      } catch (err) {
+        showToast("Lỗi khi hủy lệnh: " + err.message, "error");
+      }
+    }
+
+    // 14. DỌN DẸP DỮ LIỆU
+    function executeGpsCleanup() {
+      const days = document.getElementById('cleanup-gps-days').value;
+      const keepSos = document.getElementById('cleanup-gps-keep-sos').checked;
+      confirmAction(
+        'cleanup_gps',
+        `Dọn dẹp GPS cũ hơn ${days} ngày`,
+        `Thao tác này sẽ xóa vĩnh viễn các điểm GPS cũ hơn ${days} ngày (${keepSos ? 'giữ lại điểm SOS' : 'xóa toàn bộ'}). Bạn có chắc muốn tiếp tục?`
+      );
+      document.getElementById('confirm-modal-btn').onclick = () => {
+        closeConfirmModal();
+        runAdminAction('cleanup_gps', { days: parseInt(days), keep_sos: keepSos });
+      };
+    }
+
+    function executeAlertsCleanup() {
+      const days = document.getElementById('cleanup-alerts-days').value;
+      confirmAction(
+        'cleanup_alerts',
+        `Dọn dẹp sự cố cũ hơn ${days} ngày`,
+        `Thao tác này sẽ xóa các bản ghi cảnh báo đã hoàn tất hoặc báo động giả cũ hơn ${days} ngày. Bạn có chắc muốn tiếp tục?`
+      );
+      document.getElementById('confirm-modal-btn').onclick = () => {
+        closeConfirmModal();
+        runAdminAction('cleanup_alerts', { days: parseInt(days) });
+      };
+    }
+
+    // 15. GIẢ LẬP PHÁT CẢNH BÁO KHẨN CẤP
+    async function triggerSimulatedEmergency() {
+      const deviceId = document.getElementById('sim-emergency-device').value;
+      const alertType = document.getElementById('sim-emergency-type').value;
+      const notes = document.getElementById('sim-emergency-notes').value;
+
+      const btn = document.getElementById('btn-trigger-emergency');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang kích hoạt...`;
+
+      try {
+        await runAdminAction('simulate_emergency', {
+          device_id: parseInt(deviceId),
+          alert_type: alertType,
+          notes: notes
+        });
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-triangle-exclamation animate-pulse"></i> Kích Hoạt Phát Cảnh Báo Khẩn Cấp Thử Nghiệm Ngay`;
+      }
+    }
+
+    // 16. XUẤT TẢI DỮ LIỆU
+    function downloadDevicesJson() {
+      window.location.href = '/admin/api/export_devices_json/';
+    }
+
+    function downloadRouteExport() {
+      const firstDev = document.getElementById('sim-emergency-device')?.value || '1';
+      window.location.href = `/api/devices/${firstDev}/route/?range=30d`;
+    }
+
+    function copyWebhookUrl() {
+      const input = document.getElementById('webhook-url-input');
+      input.select();
+      navigator.clipboard.writeText(input.value);
+      showToast("Đã sao chép URL Webhook vào Clipboard!", "success");
+    }
+
+    function toggleTokenVisibility() {
+      const input = document.getElementById('cloud-token-input');
+      const icon = document.getElementById('token-eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye';
+      }
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const icon = document.getElementById('theme-icon');
+      const isDark = html.classList.contains('dark');
+      if (isDark) {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        if (icon) icon.className = 'fa-solid fa-moon text-amber-500';
+        localStorage.setItem('hc_admin_theme', 'light');
+        showToast("Đã chuyển sang giao diện Sáng", "info");
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        if (icon) icon.className = 'fa-solid fa-sun text-amber-400';
+        localStorage.setItem('hc_admin_theme', 'dark');
+        showToast("Đã chuyển sang giao diện Tối", "info");
+      }
+    }
+  </script>
+</body>
+</html>

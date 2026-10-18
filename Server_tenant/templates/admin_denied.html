@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>403 - Quyền Truy Cập Bị Từ Chối | HC TECH Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 text-center relative overflow-hidden">
+    <div class="absolute -top-24 -left-24 w-48 h-48 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-20 h-20 mx-auto rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 text-4xl mb-6 shadow-inner animate-pulse">
+      <i class="fa-solid fa-shield-halved"></i>
+    </div>
+
+    <span class="inline-block px-3 py-1 bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
+      Lỗi phân quyền (HTTP 403)
+    </span>
+
+    <h1 class="text-2xl font-black text-white mb-2">Quyền Truy Cập Bị Từ Chối</h1>
+    <p class="text-sm text-slate-400 mb-6 leading-relaxed">
+      Khu vực <strong>Trang Quản Trị Hệ Thống (/admin/)</strong> chứa các công cụ điều hành Webhook và can thiệp Cơ sở dữ liệu chuyên sâu. Chỉ tài khoản <strong>Tenant Admin</strong> hoặc <strong>System Admin</strong> mới có quyền truy cập.
+    </p>
+
+    <div class="bg-slate-950/80 rounded-xl p-4 border border-slate-800 mb-6 text-left text-xs space-y-1.5">
+      <div><span class="text-slate-500">Tài khoản hiện tại:</span> <strong class="text-white">{{ user.username }}</strong></div>
+      <div><span class="text-slate-500">Họ và tên:</span> <span class="text-slate-300">{{ user.first_name|default:"-" }}</span></div>
+      <div><span class="text-slate-500">Vai trò:</span> <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-semibold">{{ user.get_role_display }}</span></div>
+    </div>
+
+    <div class="space-y-3">
+      <a href="/" class="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm shadow-lg shadow-cyan-600/30 transition">
+        <i class="fa-solid fa-house"></i> Quay Về Bảng Điều Khiển (Dashboard)
+      </a>
+      <a href="/logout/" class="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất & Đổi tài khoản Admin
+      </a>
+    </div>
+  </div>
+</body>
+</html>
