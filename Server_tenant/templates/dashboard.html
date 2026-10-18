@@ -508,25 +508,32 @@
                 </button>
               </div>
 
-              <!-- prettier-ignore -->
               <div class="space-y-4 text-xs">
                 <div>
                   <div class="flex justify-between mb-1"><span>Mới</span><strong id="stat-alert-new">{{ alert_new }} vụ</strong></div>
-                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-new" class="bg-red-500 h-full transition-all duration-300" style="width: {{ pct_new }}%"></div></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-new" class="bg-red-500 h-full transition-all duration-300" data-width="{{ pct_new }}"></div></div>
                 </div>
                 <div>
                   <div class="flex justify-between mb-1"><span>Đang xử lý</span><strong id="stat-alert-proc">{{ alert_proc }} vụ</strong></div>
-                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-proc" class="bg-amber-500 h-full transition-all duration-300" style="width: {{ pct_proc }}%"></div></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-proc" class="bg-amber-500 h-full transition-all duration-300" data-width="{{ pct_proc }}"></div></div>
                 </div>
                 <div>
                   <div class="flex justify-between mb-1"><span>Đã xử lý</span><strong id="stat-alert-res">{{ alert_res }} vụ</strong></div>
-                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-res" class="bg-emerald-500 h-full transition-all duration-300" style="width: {{ pct_res }}%"></div></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-res" class="bg-emerald-500 h-full transition-all duration-300" data-width="{{ pct_res }}"></div></div>
                 </div>
                 <div>
                   <div class="flex justify-between mb-1"><span>Báo động giả</span><strong id="stat-alert-false">{{ alert_false }} vụ</strong></div>
-                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-false" class="bg-slate-400 h-full transition-all duration-300" style="width: {{ pct_false }}%"></div></div>
+                  <div class="w-full h-2.5 hc-input rounded-full overflow-hidden"><div id="stat-bar-false" class="bg-slate-400 h-full transition-all duration-300" data-width="{{ pct_false }}"></div></div>
                 </div>
               </div>
+              <script>
+                (function() {
+                  ['new', 'proc', 'res', 'false'].forEach(function(k) {
+                    var el = document.getElementById('stat-bar-' + k);
+                    if (el && el.dataset.width) el.style.width = el.dataset.width + '%';
+                  });
+                })();
+              </script>
             </div>
 
             <div
