@@ -78,9 +78,9 @@ Hệ thống được phát triển theo kiến trúc hướng sự kiện thờ
 ```mermaid
 flowchart TD
     subgraph LoRaWAN_Field ["Mạng Lưới Thiết Bị Ngoại Vi"]
-        DEV1["🚢 Tàu Cứu Hộ Hàng Hải (LW006 GPS)"]
-        DEV2["🚨 Nút Bấm Khẩn Cấp (WS101 SOS)"]
-        DEV3["📡 LoRaWAN Gateway Tiên Sa"]
+        DEV1["🚢 Tàu Cứu Hộ Hàng Hải"]
+        DEV2["🚨 Nút Bấm Khẩn Cấp"]
+        DEV3["📡 LoRaWAN Gateway"]
     end
 
     subgraph Cloud_Network ["Nền Tảng Đám Mây & Gateway"]
