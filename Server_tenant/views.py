@@ -182,18 +182,28 @@ def dashboard_view(request):
 def api_dashboard_state(request):
     gps_filter = request.GET.get('has_gps')
     status_filter = request.GET.get('status')
+    device_type_filter = request.GET.get('device_type')
 
     devices_qs = Device.objects.filter(is_active=True)
     if gps_filter in ['true', 'false']:
         devices_qs = devices_qs.filter(has_gps=(gps_filter == 'true'))
     if status_filter:
         devices_qs = devices_qs.filter(connection_status=status_filter)
+    if device_type_filter:
+        if device_type_filter == 'SHIP':
+            devices_qs = devices_qs.filter(has_gps=True)
+        elif device_type_filter == 'NUT_NHAN':
+            devices_qs = devices_qs.filter(device_type='NUT_NHAN', has_gps=False)
+        else:
+            devices_qs = devices_qs.filter(device_type=device_type_filter)
 
     devices_data = [{
         'id': d.id,
         'dev_eui': d.dev_eui,
         'device_name': d.device_name,
         'device_type': d.get_device_type_display(),
+        'device_type_raw': d.device_type,
+        'category_type': d.category_type,
         'has_gps': d.has_gps,
         'customer_name': d.customer_name,
         'emergency_phone': d.emergency_phone,

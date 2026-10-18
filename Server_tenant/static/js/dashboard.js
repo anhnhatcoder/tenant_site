@@ -192,10 +192,67 @@ function fitMapToDevices(animate = true, duration = 1.6) {
 }
 window.fitMapToDevices = fitMapToDevices;
 
+function getDeviceVisual(d) {
+    const rawType = (d.device_type_raw || '').toUpperCase();
+    const typeDisplay = (d.device_type || '').toLowerCase();
+    const isGateway = rawType === 'GATEWAY' || typeDisplay.includes('gateway');
+    const isCamera = rawType === 'CAMERA' || typeDisplay.includes('camera');
+    const isShip = !isGateway && !isCamera && Boolean(d.has_gps);
+
+    if (isGateway) {
+        return {
+            categoryKey: 'gateway',
+            typeName: 'Trạm Gateway LoRaWAN',
+            iconClass: 'fa-tower-broadcast',
+            shapeClass: 'pin-gateway',
+            prefixIcon: '📡'
+        };
+    }
+    if (isShip) {
+        return {
+            categoryKey: 'ship',
+            typeName: 'Cứu hộ tàu thuyền (GPS)',
+            iconClass: 'fa-ship',
+            shapeClass: 'pin-ship',
+            prefixIcon: '🚢'
+        };
+    }
+    if (isCamera) {
+        return {
+            categoryKey: 'camera',
+            typeName: 'Camera giám sát',
+            iconClass: 'fa-video',
+            shapeClass: 'pin-camera',
+            prefixIcon: '📹'
+        };
+    }
+    // Nút nhấn khẩn cấp
+    let icon = 'fa-bell';
+    let typeName = 'Nút nhấn khẩn cấp';
+    if (d.category_type === 'CHAY') {
+        icon = 'fa-fire';
+        typeName = 'Nút Báo Cháy (Đất liền)';
+    } else if (d.category_type === 'AN_NINH') {
+        icon = 'fa-shield-halved';
+        typeName = 'Nút An Ninh (Đất liền)';
+    } else if (d.category_type === 'CAP_CUU_Y_TE') {
+        icon = 'fa-heart-pulse';
+        typeName = 'Nút Cấp Cứu Y Tế';
+    }
+    return {
+        categoryKey: 'button',
+        typeName: typeName,
+        iconClass: icon,
+        shapeClass: 'pin-button',
+        prefixIcon: '🔔'
+    };
+}
+
 async function refreshMapMarkers(forceFit = false) {
     const gpsFilter = document.getElementById('filter-gps')?.value || '';
+    const typeFilter = document.getElementById('filter-type')?.value || '';
     const statusFilter = document.getElementById('filter-status')?.value || '';
-    const res = await fetch(`/api/state/?has_gps=${gpsFilter}&status=${statusFilter}`);
+    const res = await fetch(`/api/state/?has_gps=${gpsFilter}&status=${statusFilter}&device_type=${typeFilter}`);
     const data = await res.json();
 
     const activeIds = new Set();
@@ -212,8 +269,9 @@ async function refreshMapMarkers(forceFit = false) {
         else if (d.connection_status === 'PROCESSING') statusClass = 'marker-processing';
         else if (d.connection_status === 'OFFLINE') statusClass = 'marker-offline';
 
-        const iconHtml = `<div class="custom-pin ${statusClass}">
-            <i class="fa-solid ${d.has_gps ? 'fa-ship' : 'fa-house-medical'}"></i>
+        const visual = getDeviceVisual(d);
+        const iconHtml = `<div class="custom-pin ${visual.shapeClass} ${statusClass}" title="${d.device_name} (${visual.typeName})">
+            <i class="fa-solid ${visual.iconClass}"></i>
         </div>`;
 
         let alertBtnHtml = '';
@@ -233,13 +291,13 @@ async function refreshMapMarkers(forceFit = false) {
         }
 
         const popupHtml = `
-            <div class="text-slate-900 text-xs space-y-1 min-w-[215px]">
+            <div class="text-slate-900 text-xs space-y-1.5 min-w-[225px]">
                 <div class="font-bold text-sm border-b pb-1 flex items-center justify-between">
-                    <span>${d.device_name}</span>
+                    <span>${visual.prefixIcon} ${d.device_name}</span>
                     ${(d.connection_status === 'SOS' || d.connection_status === 'PROCESSING') ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">SOS</span>' : ''}
                 </div>
-                <div><strong>DevEUI:</strong> <span class="font-mono">${d.dev_eui}</span></div>
-                <div><strong>Phân loại:</strong> ${d.has_gps ? 'Cứu hộ Biển (GPS)' : 'Cứu hộ Đất liền'}</div>
+                <div><strong>DevEUI:</strong> <span class="font-mono text-slate-700">${d.dev_eui}</span></div>
+                <div><strong>Phân loại:</strong> <span class="font-semibold text-cyan-700">${visual.typeName}</span></div>
                 <div><strong>Chủ hộ/SĐT:</strong> ${d.customer_name} - ${d.emergency_phone}</div>
                 <div><strong>Tọa độ/Vị trí:</strong> ${d.has_gps ? d.latitude + ', ' + d.longitude : d.address}</div>
                 <div><strong>Dung lượng Pin:</strong> <span class="text-emerald-600 font-bold">${d.battery_level}%</span></div>
@@ -249,25 +307,35 @@ async function refreshMapMarkers(forceFit = false) {
         `;
 
         if (deviceMarkersMap[d.id]) {
-            // Nếu Marker đã tồn tại: Chỉ cập nhật vị trí và nội dung, KHÔNG xóa để giữ nguyên Popup đang mở
+            // Nếu Marker đã tồn tại: Cập nhật vị trí, hình dáng, icon và nội dung
             const existing = deviceMarkersMap[d.id];
             existing.marker.setLatLng([d.latitude, d.longitude]);
 
-            if (existing.status !== d.connection_status || existing.has_gps !== d.has_gps) {
-                const newIcon = L.divIcon({ className: '', html: iconHtml, iconSize: [34, 34], iconAnchor: [17, 17] });
+            if (existing.status !== d.connection_status || existing.shapeClass !== visual.shapeClass || existing.iconClass !== visual.iconClass) {
+                const newIcon = L.divIcon({ className: '', html: iconHtml, iconSize: [36, 36], iconAnchor: [18, 18] });
                 existing.marker.setIcon(newIcon);
                 existing.status = d.connection_status;
-                existing.has_gps = d.has_gps;
+                existing.shapeClass = visual.shapeClass;
+                existing.iconClass = visual.iconClass;
             }
             existing.marker.getPopup().setContent(popupHtml);
+            if (typeof existing.marker.setTooltipContent === 'function') {
+                existing.marker.setTooltipContent(`${visual.prefixIcon} ${d.device_name} (${visual.typeName})`);
+            }
         } else {
-            // Tạo mới Marker với thuộc tính giữ cố định Popup khi click
-            const customIcon = L.divIcon({ className: '', html: iconHtml, iconSize: [34, 34], iconAnchor: [17, 17] });
+            // Tạo mới Marker với thuộc tính giữ cố định Popup khi click và Tooltip khi hover
+            const customIcon = L.divIcon({ className: '', html: iconHtml, iconSize: [36, 36], iconAnchor: [18, 18] });
             const marker = L.marker([d.latitude, d.longitude], { icon: customIcon }).addTo(markersLayer);
 
             marker.bindPopup(popupHtml, {
                 autoClose: true,
                 closeOnClick: true
+            });
+
+            marker.bindTooltip(`${visual.prefixIcon} ${d.device_name} (${visual.typeName})`, {
+                className: 'hc-map-tooltip',
+                direction: 'top',
+                offset: [0, -18]
             });
 
             marker.on('click', function (e) {
@@ -281,7 +349,8 @@ async function refreshMapMarkers(forceFit = false) {
             deviceMarkersMap[d.id] = {
                 marker: marker,
                 status: d.connection_status,
-                has_gps: d.has_gps
+                shapeClass: visual.shapeClass,
+                iconClass: visual.iconClass
             };
         }
     });

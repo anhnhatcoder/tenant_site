@@ -333,10 +333,10 @@
           <div class="relative w-full">
             <div id="gis-map"></div>
 
-            <!-- Hộp lọc nhỏ gọn (w-52 = 208px) đè nổi ở góc dưới bên phải bên trong bản đồ -->
+            <!-- Hộp lọc nhỏ gọn đè nổi ở góc dưới bên phải bên trong bản đồ kèm chú thích biểu tượng -->
             <div
               id="map-filter-box"
-              class="absolute bottom-7 right-3 z-[400] w-52 hc-surface border rounded-xl p-2.5 shadow-2xl backdrop-blur-md"
+              class="absolute bottom-7 right-3 z-[400] w-64 hc-surface border rounded-xl p-3 shadow-2xl backdrop-blur-md"
             >
               <div
                 onclick="toggleFilterBody()"
@@ -346,7 +346,7 @@
                   class="text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5"
                   style="color: var(--hc-cyan)"
                 >
-                  <i class="fa-solid fa-filter"></i> Bộ lọc GIS
+                  <i class="fa-solid fa-layer-group"></i> Bộ lọc & Chú thích GIS
                 </span>
                 <i
                   id="floating-filter-icon"
@@ -356,39 +356,72 @@
 
               <div
                 id="floating-filter-body"
-                class="space-y-2 mt-2 pt-2 border-t"
+                class="space-y-2.5 mt-2 pt-2 border-t"
                 style="border-color: var(--border-color)"
               >
+                <!-- CHÚ THÍCH BIỂU TƯỢNG THIẾT BỊ -->
+                <div class="space-y-1.5 pb-2 border-b" style="border-color: var(--border-color)">
+                  <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Chú thích biểu tượng
+                  </div>
+                  <div class="space-y-1.5 text-[11px]">
+                    <div class="flex items-center gap-2">
+                      <span class="w-5 h-5 rounded-full bg-cyan-600 text-white flex items-center justify-center text-[10px] shadow-sm flex-shrink-0">
+                        <i class="fa-solid fa-ship"></i>
+                      </span>
+                      <span class="font-medium">Cứu hộ tàu thuyền (GPS)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-5 h-5 rounded-[8px] bg-purple-600 text-white flex items-center justify-center text-[10px] shadow-sm flex-shrink-0">
+                        <i class="fa-solid fa-tower-broadcast"></i>
+                      </span>
+                      <span class="font-medium">Trạm Gateway LoRaWAN</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] shadow-sm flex-shrink-0">
+                        <i class="fa-solid fa-bell"></i>
+                      </span>
+                      <span class="font-medium">Nút nhấn khẩn cấp (SOS)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- BỘ LỌC PHÂN LOẠI THIẾT BỊ -->
                 <div>
-                  <label class="text-[10px] hc-text-muted block mb-0.5"
-                    >Loại hình cứu hộ</label
+                  <label class="text-[10px] hc-text-muted block mb-0.5 font-semibold"
+                    >Phân loại thiết bị</label
                   >
                   <select
-                    id="filter-gps"
+                    id="filter-type"
                     onchange="refreshMapMarkers(true)"
-                    class="w-full hc-input rounded-lg px-2 py-1 text-[11px]"
+                    class="w-full hc-input rounded-lg px-2 py-1.5 text-[11px]"
                   >
-                    <option value="">Tất cả (Biển & Đất liền)</option>
-                    <option value="true">🚢 Cứu hộ Biển (GPS)</option>
-                    <option value="false">🏠 Cứu hộ Đất liền</option>
+                    <option value="">Tất cả thiết bị</option>
+                    <option value="SHIP">🚢 Cứu hộ tàu thuyền (GPS)</option>
+                    <option value="GATEWAY">📡 Trạm Gateway LoRaWAN</option>
+                    <option value="NUT_NHAN">🔔 Nút nhấn khẩn cấp</option>
+                    <option value="CAMERA">📹 Camera giám sát</option>
                   </select>
                 </div>
+
+                <!-- BỘ LỌC TRẠNG THÁI -->
                 <div>
-                  <label class="text-[10px] hc-text-muted block mb-0.5"
+                  <label class="text-[10px] hc-text-muted block mb-0.5 font-semibold"
                     >Trạng thái kết nối</label
                   >
                   <select
                     id="filter-status"
                     onchange="refreshMapMarkers(true)"
-                    class="w-full hc-input rounded-lg px-2 py-1 text-[11px]"
+                    class="w-full hc-input rounded-lg px-2 py-1.5 text-[11px]"
                   >
                     <option value="">Tất cả trạng thái</option>
                     <option value="ONLINE">🟢 Bình thường</option>
                     <option value="SOS">🔴 Đang phát SOS</option>
                     <option value="PROCESSING">🟡 Đang xử lý</option>
-                    <option value="OFFLINE">⚪ Offline</option>
+                    <option value="OFFLINE">⚪ Mất kết nối</option>
                   </select>
                 </div>
+
                 <div class="pt-1">
                   <button
                     type="button"
