@@ -47,16 +47,7 @@ from Server_tenant.models import Device
 from django.core.management import call_command
 
 ensure_default_accounts()
-print("✔ Tài khoản quản trị mặc định (admin / pass: 1) đã sẵn sàng.")
-
-# Nếu DB hoàn toàn mới (chưa có thiết bị nào), tự động nạp dữ liệu mẫu ban đầu
-if Device.objects.count() == 0:
-    print("✨ Cơ sở dữ liệu mới tinh, đang nạp dữ liệu thiết bị và hành trình mẫu...")
-    try:
-        call_command('seed_data')
-        print("✔ Đã nạp thành công bộ dữ liệu mẫu!")
-    except Exception as e:
-        print(f"⚠ Lỗi nạp seed_data: {e}")
+print("✔ Tài khoản quản trị mặc định (admin & tenant) đã sẵn sàng.")
 EOF
 
 echo "=========================================================="
