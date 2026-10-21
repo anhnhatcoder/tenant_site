@@ -1,206 +1,173 @@
 {% load static %}
 <!doctype html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>
-      Đăng Nhập - Trung Tâm Quản Lý Sự Cố & Báo Động Khẩn Cấp HC TECH
-    </title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-    />
-    <style>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>
+    Đăng Nhập - Trung Tâm Quản Lý Sự Cố & Báo Động Khẩn Cấp HC TECH
+  </title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    .login-card {
+      width: 440px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      transform-origin: center center;
+      transition: transform 0.1s ease-out;
+      will-change: transform;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 1rem !important;
+        overflow-y: auto !important;
+      }
+
       .login-card {
-        width: 440px;
-        box-sizing: border-box;
-        flex-shrink: 0;
-        transform-origin: center center;
-        transition: transform 0.1s ease-out;
-        will-change: transform;
+        width: 100% !important;
+        max-width: 390px !important;
+        padding: 1.5rem 1.25rem !important;
+        transform: none !important;
+        margin: auto !important;
       }
-      @media (max-width: 640px) {
-        body {
-          padding: 1rem !important;
-          overflow-y: auto !important;
-        }
-        .login-card {
-          width: 100% !important;
-          max-width: 390px !important;
-          padding: 1.5rem 1.25rem !important;
-          transform: none !important;
-          margin: auto !important;
-        }
-        .login-card h1 {
-          font-size: 1.05rem !important;
-        }
-        .login-card input {
-          font-size: 16px !important; /* Ngăn iOS Safari tự zoom khi focus */
-          padding-top: 0.75rem !important;
-          padding-bottom: 0.75rem !important;
-        }
-        .login-card button[type="submit"] {
-          padding-top: 0.85rem !important;
-          padding-bottom: 0.85rem !important;
-          font-size: 0.9rem !important;
-        }
+
+      .login-card h1 {
+        font-size: 1.05rem !important;
       }
-    </style>
-  </head>
-  <body
-    class="min-h-screen bg-[#041523] text-slate-100 flex items-center justify-center p-4 relative overflow-hidden"
-  >
-    <div
-      class="absolute -top-32 -left-32 w-96 h-96 bg-cyan-400/15 rounded-full blur-3xl pointer-events-none"
-    ></div>
-    <div
-      class="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"
-    ></div>
 
-    <div
-      class="login-card bg-[#072238] border border-[#114264] rounded-2xl shadow-2xl p-8 space-y-6 z-10"
-    >
-      <div class="text-center space-y-2">
-        <img
-          src="{% static 'images/logo.jpg' %}"
-          alt="HC Logo"
-          class="w-20 h-20 mx-auto rounded-2xl border-2 border-[#22ece9] shadow-lg object-cover bg-white p-1"
-        />
-        <h1
-          class="text-lg font-extrabold uppercase tracking-wider text-white pt-2"
-        >
-          Trung Tâm Quản Lý Sự Cố
-        </h1>
-        <p class="text-xs text-cyan-300 font-medium">
-          HOLDING HC Technology Solutions • IoT LoRaWAN GIS
-        </p>
-      </div>
+      .login-card input {
+        font-size: 16px !important;
+        /* Ngăn iOS Safari tự zoom khi focus */
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+      }
 
-      {% if error_msg %}
-      <div
-        class="bg-red-500/20 border border-red-500 text-red-300 text-xs px-4 py-3 rounded-xl flex items-center space-x-2"
-      >
-        <i class="fa-solid fa-circle-exclamation text-base"></i>
-        <span>{{ error_msg }}</span>
-      </div>
-      {% endif %}
+      .login-card button[type="submit"] {
+        padding-top: 0.85rem !important;
+        padding-bottom: 0.85rem !important;
+        font-size: 0.9rem !important;
+      }
+    }
+  </style>
+</head>
 
-      <form method="POST" action="/login/" class="space-y-4">
-        {% csrf_token %}
-        <div>
-          <label class="block text-xs text-slate-300 font-semibold mb-1.5"
-            >Tài khoản đăng nhập</label
-          >
-          <div class="relative">
-            <i
-              class="fa-solid fa-user absolute left-3.5 top-3 text-slate-400 text-xs"
-            ></i>
-            <input
-              name="username"
-              type="text"
-              required
-              placeholder="Nhập tài khoản..."
-              class="w-full bg-[#041829] border border-[#114264] focus:border-[#22ece9] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white outline-none"
-            />
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs text-slate-300 font-semibold mb-1.5"
-            >Mật khẩu</label
-          >
-          <div class="relative">
-            <i
-              class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-400 text-xs pointer-events-none"
-            ></i>
-            <input
-              id="password-input"
-              name="password"
-              type="password"
-              required
-              placeholder="Nhập mật khẩu..."
-              class="w-full bg-[#041829] border border-[#114264] focus:border-[#22ece9] rounded-xl pl-9 pr-11 py-2.5 text-sm text-white outline-none transition"
-            />
-            <button
-              type="button"
-              id="toggle-password-btn"
-              onclick="togglePasswordVisibility()"
-              class="absolute right-3 top-2 text-slate-400 hover:text-[#22ece9] transition p-1 text-sm focus:outline-none"
-              title="Bật/Tắt hiển thị mật khẩu"
-            >
-              <i id="toggle-password-icon" class="fa-solid fa-eye-slash"></i>
-            </button>
-          </div>
-        </div>
-        <button
-          type="submit"
-          class="w-full py-3 rounded-xl font-extrabold text-sm uppercase tracking-wider transition shadow-lg hover:brightness-110"
-          style="
-            background: linear-gradient(135deg, #22ece9 0%, #06b6d4 100%);
-            color: #062338;
-          "
-        >
-          <i class="fa-solid fa-right-to-bracket mr-1.5"></i> Đăng Nhập Hệ Thống
-        </button>
-      </form>
+<body class="min-h-screen bg-[#041523] text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
+  <div class="absolute -top-32 -left-32 w-96 h-96 bg-cyan-400/15 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+  <div class="login-card bg-[#072238] border border-[#114264] rounded-2xl shadow-2xl p-8 space-y-6 z-10">
+    <div class="text-center space-y-2">
+      <img src="{% static 'images/logo.jpg' %}" alt="HC Logo"
+        class="w-20 h-20 mx-auto rounded-2xl border-2 border-[#22ece9] shadow-lg object-cover bg-white p-1" />
+      <h1 class="text-lg font-extrabold uppercase tracking-wider text-white pt-2">
+        Trung Tâm Quản Lý Sự Cố
+      </h1>
+      <p class="text-xs text-cyan-300 font-medium">
+        HCECH • IoT LoRaWAN GIS
+      </p>
     </div>
 
-    <script>
-      function togglePasswordVisibility() {
-        const input = document.getElementById('password-input');
-        const icon = document.getElementById('toggle-password-icon');
-        if (input.type === 'password') {
-          input.type = 'text';
-          icon.classList.remove('fa-eye-slash');
-          icon.classList.add('fa-eye');
-          icon.classList.add('text-[#22ece9]');
-        } else {
-          input.type = 'password';
-          icon.classList.remove('fa-eye');
-          icon.classList.remove('text-[#22ece9]');
-          icon.classList.add('fa-eye-slash');
-        }
+    {% if error_msg %}
+    <div
+      class="bg-red-500/20 border border-red-500 text-red-300 text-xs px-4 py-3 rounded-xl flex items-center space-x-2">
+      <i class="fa-solid fa-circle-exclamation text-base"></i>
+      <span>{{ error_msg }}</span>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/login/" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs text-slate-300 font-semibold mb-1.5">Tài khoản đăng nhập</label>
+        <div class="relative">
+          <i class="fa-solid fa-user absolute left-3.5 top-3.5 text-slate-400 text-xs pointer-events-none"></i>
+          <input name="username" type="text" required placeholder="Tên tài khoản..."
+            class="w-full bg-[#051a2d] border border-[#143d5f] hover:border-[#1f5682] focus:border-[#22ece9] focus:ring-2 focus:ring-[#22ece9]/15 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-[#5c7f99] outline-none transition shadow-inner" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-slate-300 font-semibold mb-1.5">Mật khẩu</label>
+        <div class="relative">
+          <i class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-400 text-xs pointer-events-none"></i>
+          <input id="password-input" name="password" type="password" required placeholder="Mật khẩu của bạn..."
+            class="w-full bg-[#051a2d] border border-[#143d5f] hover:border-[#1f5682] focus:border-[#22ece9] focus:ring-2 focus:ring-[#22ece9]/15 rounded-lg pl-9 pr-11 py-2.5 text-sm text-white placeholder:text-[#5c7f99] outline-none transition shadow-inner" />
+          <button type="button" id="toggle-password-btn" onclick="togglePasswordVisibility()"
+            class="absolute right-3 top-2.5 text-slate-400 hover:text-[#22ece9] transition p-1 text-sm focus:outline-none"
+            title="Bật/Tắt hiển thị mật khẩu">
+            <i id="toggle-password-icon" class="fa-solid fa-eye-slash"></i>
+          </button>
+        </div>
+      </div>
+      <button type="submit"
+        class="w-full py-2.5 rounded-lg font-bold text-sm tracking-wide transition shadow-md hover:brightness-105 active:scale-[0.99]"
+        style="
+            background: linear-gradient(135deg, #22ece9 0%, #06b6d4 100%);
+            color: #062338;
+          ">
+        <i class="fa-solid fa-right-to-bracket mr-1.5"></i> Đăng Nhập Hệ Thống
+      </button>
+    </form>
+  </div>
+
+  <script>
+    function togglePasswordVisibility() {
+      const input = document.getElementById('password-input');
+      const icon = document.getElementById('toggle-password-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+        icon.classList.add('text-[#22ece9]');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye');
+        icon.classList.remove('text-[#22ece9]');
+        icon.classList.add('fa-eye-slash');
+      }
+    }
+
+    function adjustZoom() {
+      const card = document.querySelector('.login-card');
+      if (!card) return;
+
+      // Trên màn hình điện thoại (<= 640px), không áp dụng scale để chữ rõ ràng và không nhảy giao diện khi bật bàn phím ảo
+      if (window.innerWidth <= 640) {
+        card.style.transform = 'none';
+        return;
       }
 
-      function adjustZoom() {
-        const card = document.querySelector('.login-card');
-        if (!card) return;
-
-        // Trên màn hình điện thoại (<= 640px), không áp dụng scale để chữ rõ ràng và không nhảy giao diện khi bật bàn phím ảo
-        if (window.innerWidth <= 640) {
-          card.style.transform = 'none';
-          return;
-        }
-
-        // Tự động phát hiện tỷ lệ zoom của trình duyệt (outerWidth / innerWidth)
-        let zoom = 1;
-        if (window.outerWidth && window.innerWidth) {
-          zoom = window.outerWidth / window.innerWidth;
-        }
-
-        // Tỷ lệ nghịch (1 / zoom) để bù trừ hoàn toàn kích thước khi người dùng zoom trình duyệt
-        let scale = 1 / zoom;
-
-        // Giới hạn an toàn để không bị tràn khung nhìn nếu màn hình quá nhỏ
-        const maxScaleW = (window.innerWidth * 0.94) / 440;
-        const maxScaleH = (window.innerHeight * 0.94) / 540;
-        const maxAllowed = Math.min(maxScaleW, maxScaleH);
-
-        scale = Math.min(scale, maxAllowed);
-        scale = Math.max(0.5, scale);
-
-        card.style.transform = `scale(${scale})`;
+      // Tự động phát hiện tỷ lệ zoom của trình duyệt (outerWidth / innerWidth)
+      let zoom = 1;
+      if (window.outerWidth && window.innerWidth) {
+        zoom = window.outerWidth / window.innerWidth;
       }
 
-      window.addEventListener('resize', adjustZoom);
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', adjustZoom);
-      }
-      document.addEventListener('DOMContentLoaded', adjustZoom);
-      adjustZoom();
-      setTimeout(adjustZoom, 100);
-      setTimeout(adjustZoom, 400);
-    </script>
-  </body>
+      // Tỷ lệ nghịch (1 / zoom) để bù trừ hoàn toàn kích thước khi người dùng zoom trình duyệt
+      let scale = 1 / zoom;
+
+      // Giới hạn an toàn để không bị tràn khung nhìn nếu màn hình quá nhỏ
+      const maxScaleW = (window.innerWidth * 0.94) / 440;
+      const maxScaleH = (window.innerHeight * 0.94) / 540;
+      const maxAllowed = Math.min(maxScaleW, maxScaleH);
+
+      scale = Math.min(scale, maxAllowed);
+      scale = Math.max(0.5, scale);
+
+      card.style.transform = `scale(${scale})`;
+    }
+
+    window.addEventListener('resize', adjustZoom);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', adjustZoom);
+    }
+    document.addEventListener('DOMContentLoaded', adjustZoom);
+    adjustZoom();
+    setTimeout(adjustZoom, 100);
+    setTimeout(adjustZoom, 400);
+  </script>
+</body>
+
 </html>

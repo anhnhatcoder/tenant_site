@@ -58,25 +58,27 @@
           <i class="fa-solid fa-bars text-sm text-cyan-400"></i>
         </button>
 
-        <!-- BẤM VÀO LOGO ĐỂ ĐÓNG / MỞ SIDEBAR TRÊN PC HOẶC MỞ DRAWER TRÊN MOBILE -->
+        <!-- BẤM VÀO LOGO ĐỂ ĐÓNG / MỞ SIDEBAR (DI CHUỘT VÀO SẼ CHUYỂN THÀNH BIỂU TƯỢNG TASKBAR) -->
         <button
           type="button"
+          id="btn-toggle-sidebar"
           onclick="toggleSidebarByLogo()"
-          class="group relative flex items-center justify-center rounded-xl focus:outline-none shrink-0"
-          title="Nhấn vào Logo để Đóng / Mở thanh Menu"
+          class="hc-logo-toggle-btn shrink-0 focus:outline-none"
+          title="Đóng / Mở Menu Điều Hướng"
+          aria-label="Đóng hoặc mở menu điều hướng"
         >
           <img
             src="{% static 'images/logo.jpg' %}"
             alt="HC Logo"
-            class="h-9 w-9 sm:h-11 sm:w-11 rounded-xl object-cover hc-logo-box bg-white p-0.5 cursor-pointer group-hover:scale-105 active:scale-95 transition transform"
+            class="hc-logo-img"
           />
+          <div class="hc-taskbar-icon">
+            <i class="fa-solid fa-bars"></i>
+          </div>
         </button>
 
-        <div
-          class="truncate cursor-pointer select-none"
-          onclick="toggleSidebarByLogo()"
-          title="Nhấn để Đóng / Mở Menu"
-        >
+        <!-- TIÊU ĐỀ HỆ THỐNG (CHỈ HIỂN THỊ THÔNG TIN, KHÔNG KÍCH HOẠT ĐÓNG/MỞ SIDEBAR) -->
+        <div class="truncate select-none">
           <div class="flex items-center space-x-1.5 sm:space-x-2">
             <span
               class="px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-extrabold shrink-0"
@@ -156,20 +158,73 @@
           <span id="text-theme" class="hidden sm:inline">Nền: TỐI</span>
         </button>
 
-        <!-- prettier-ignore -->
-        <div class="hidden md:inline-flex hc-input hc-header-pill space-x-2">
-          <i class="fa-solid fa-circle-user text-cyan-400 text-sm"></i>
-          <span>Xin chào <strong>{{ current_user_display }}</strong></span>
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold {{ role_badge_cls }}">{{ user_role_label }}</span>
-        </div>
+        <!-- THÀNH PHẦN TÀI KHOẢN THU GỌN VÀ MENU MỞ RỘNG (DROPDOWN) -->
+        <div id="user-menu-container" class="relative inline-block text-left shrink-0">
+          <button
+            type="button"
+            id="user-menu-btn"
+            onclick="toggleUserMenu(event)"
+            class="hc-user-menu-btn focus:outline-none"
+            title="Tài khoản: {{ current_user_display }} (Nhấn để mở menu)"
+            aria-expanded="false"
+            aria-haspopup="true"
+          >
+            <span class="hc-user-avatar">
+              <i class="fa-solid fa-user"></i>
+            </span>
+            <span class="hc-user-name">
+              {{ current_user_display }}
+            </span>
+            <i id="user-menu-chevron" class="hc-user-chevron fa-solid fa-chevron-down"></i>
+          </button>
 
-        <a
-          href="/logout/"
-          class="hidden md:inline-flex hc-input hc-header-pill hover:bg-red-500/20 hover:text-red-400"
-          title="Đăng xuất"
-        >
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </a>
+          <!-- Menu xổ xuống khi mở rộng: Chứa thông tin chi tiết, Quản trị, Đổi mật khẩu & Nút Đăng xuất -->
+          <div
+            id="user-dropdown-menu"
+            class="hidden hc-user-dropdown-menu"
+          >
+            <!-- Thông tin người dùng chi tiết -->
+            <div class="hc-user-dropdown-header">
+              <div class="flex items-center justify-between gap-1 mb-1">
+                <span class="user-title truncate">{{ current_user_display }}</span>
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 {{ role_badge_cls }}">{{ user_role_label }}</span>
+              </div>
+              <div class="user-subtitle font-mono truncate">@{{ current_username }}</div>
+            </div>
+
+            <!-- Tác vụ Trang Quản Trị (Superuser) -->
+            {% if is_superuser %}
+            <a
+              href="/admin/"
+              class="hc-user-dropdown-item"
+            >
+              <i class="fa-solid fa-gauge-high text-cyan-500 text-xs w-4 text-center"></i>
+              <span>Trang Quản Trị Hệ Thống</span>
+            </a>
+            {% endif %}
+
+            <!-- Tác vụ Đổi Mật Khẩu (Mở modal đổi mật khẩu) -->
+            <button
+              type="button"
+              onclick="closeUserMenu(); openChangePasswordModal();"
+              class="hc-user-dropdown-item"
+            >
+              <i class="fa-solid fa-key text-amber-500 text-xs w-4 text-center"></i>
+              <span>Đổi mật khẩu</span>
+            </button>
+
+            <div class="my-1 border-t" style="border-color: var(--border-color)"></div>
+
+            <!-- Tác vụ ĐĂNG XUẤT -->
+            <a
+              href="/logout/"
+              class="hc-user-dropdown-item danger"
+            >
+              <i class="fa-solid fa-right-from-bracket text-rose-500 text-xs w-4 text-center"></i>
+              <span>Đăng xuất</span>
+            </a>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -281,17 +336,6 @@
             <span>Quản lý tài khoản</span>
           </button>
           {% endif %}
-          {% if is_superuser %}
-          <a
-            href="/admin/"
-            target="_blank"
-            class="hc-nav-btn w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-purple-400 hover:text-purple-300 transition"
-            title="Dành riêng cho Superuser"
-          >
-            <i class="fa-solid fa-shield-halved w-5 text-center text-purple-400"></i>
-            <span>Trang Admin (Superuser)</span>
-          </a>
-          {% endif %}
           <div
             class="pt-2 border-t my-1"
             style="border-color: var(--border-color)"
@@ -336,7 +380,7 @@
               </span>
               <!-- prettier-ignore -->
               <select id="playback-device" class="hc-input rounded-lg px-3 py-1.5 text-xs font-medium w-full sm:w-auto min-w-[210px]">
-                <option value="">-- Chọn tàu/thiết bị có GPS --</option>
+                <option value="">-- Chọn thiết bị có GPS --</option>
                 {% for d in devices %}
                 {% if d.has_gps %}
                 <option value="{{ d.id }}">{{ d.device_name }} ({{ d.dev_eui }})</option>
@@ -424,9 +468,9 @@
                   <div class="space-y-1.5 text-[11px]">
                     <div class="flex items-center gap-2">
                       <span class="w-5 h-5 rounded-full bg-cyan-600 text-white flex items-center justify-center text-[10px] shadow-sm flex-shrink-0">
-                        <i class="fa-solid fa-ship"></i>
+                        <i class="fa-solid fa-location-dot"></i>
                       </span>
-                      <span class="font-medium">Cứu hộ tàu thuyền (GPS)</span>
+                      <span class="font-medium">Thiết bị GPS</span>
                     </div>
                     <div class="flex items-center gap-2">
                       <span class="w-5 h-5 rounded-[8px] bg-purple-600 text-white flex items-center justify-center text-[10px] shadow-sm flex-shrink-0">
@@ -454,7 +498,7 @@
                     class="w-full hc-input rounded-lg px-2 py-1.5 text-[11px]"
                   >
                     <option value="">Tất cả thiết bị</option>
-                    <option value="SHIP">🚢 Cứu hộ tàu thuyền (GPS)</option>
+                    <option value="SHIP">📍 Thiết bị GPS</option>
                     <option value="GATEWAY">📡 Trạm Gateway LoRaWAN</option>
                     <option value="NUT_NHAN">🔔 Nút nhấn khẩn cấp</option>
                     <option value="CAMERA">📹 Camera giám sát</option>
@@ -644,7 +688,7 @@
                 <!-- prettier-ignore -->
                 <div class="space-y-3">
                   <div class="text-2xl font-extrabold"><span id="stat-count-chay">{{ chay_count }}</span> <span class="text-xs font-normal text-slate-300">Cháy</span></div>
-                  <div class="text-2xl font-extrabold"><span id="stat-count-yte">{{ yte_count }}</span> <span class="text-xs font-normal text-slate-300">Cấp Cứu/Y tế & Biển</span></div>
+                  <div class="text-2xl font-extrabold"><span id="stat-count-yte">{{ yte_count }}</span> <span class="text-xs font-normal text-slate-300">Cấp Cứu / Y tế</span></div>
                   <div class="text-2xl font-extrabold"><span id="stat-count-anninh">{{ anninh_count }}</span> <span class="text-xs font-normal text-slate-300">An Ninh</span></div>
                 </div>
               </div>
@@ -814,15 +858,18 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5 sm:gap-3 text-xs">
             <div>
               <label class="block font-semibold mb-1 hc-text-muted"
-                >Tìm kiếm</label
+                >Tìm kiếm thiết bị</label
               >
-              <input
-                id="dev-search-input"
-                oninput="filterDeviceTable()"
-                type="text"
-                placeholder="🔍 Nhập tên / DevEUI để tìm..."
-                class="w-full hc-input rounded-lg px-3 py-2"
-              />
+              <div class="hc-search-wrapper">
+                <i class="fa-solid fa-magnifying-glass hc-search-icon"></i>
+                <input
+                  id="dev-search-input"
+                  oninput="filterDeviceTable()"
+                  type="text"
+                  placeholder="Tìm theo tên, DevEUI..."
+                  class="w-full hc-input"
+                />
+              </div>
             </div>
             <div>
               <label class="block font-semibold mb-1 hc-text-muted"
@@ -831,7 +878,7 @@
               <select
                 id="dev-type-filter"
                 onchange="filterDeviceTable()"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                class="w-full hc-input"
               >
                 <option value="">Tất cả loại thiết bị</option>
                 <option value="CAMERA">Camera</option>
@@ -846,7 +893,7 @@
               <select
                 id="dev-conn-filter"
                 onchange="filterDeviceTable()"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                class="w-full hc-input"
               >
                 <option value="">Tất cả trạng thái</option>
                 <option value="ONLINE">Đang kết nối</option>
@@ -856,16 +903,16 @@
             </div>
             <div>
               <label class="block font-semibold mb-1 hc-text-muted"
-                >Loại hình cứu hộ</label
+                >Phân loại GPS / Vị trí</label
               >
               <select
                 id="dev-gps-filter"
                 onchange="filterDeviceTable()"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                class="w-full hc-input"
               >
-                <option value="">Tất cả (Biển & Đất liền)</option>
-                <option value="GPS">Có GPS (Cứu hộ biển)</option>
-                <option value="STATIC">Không GPS (Đất liền)</option>
+                <option value="">Tất cả thiết bị</option>
+                <option value="GPS">Thiết bị GPS</option>
+                <option value="STATIC">Thiết bị cố định</option>
               </select>
             </div>
             <div>
@@ -873,7 +920,7 @@
               <select
                 id="dev-group-filter"
                 onchange="filterDeviceTable()"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                class="w-full hc-input"
               >
                 <option value="">Tất cả thiết bị</option>
                 <option value="PAIRED">Đã gán nhóm / Cùng nhà</option>
@@ -925,7 +972,7 @@
                     <th class="p-3.5">Tên thiết bị</th>
                     <th class="p-3.5">ID / DevEUI</th>
                     <th class="p-3.5">Nhóm / Cùng nhà</th>
-                    <th class="p-3.5">Chủ hộ / SĐT</th>
+                    <th class="p-3.5">Chủ sở hữu / SĐT</th>
                     <th class="p-3.5">Vị trí / Tọa độ</th>
                     <th class="p-3.5">Trạng thái</th>
                   </tr>
@@ -1011,6 +1058,7 @@
                         <div class="hc-text-muted text-[11px]">{{ d.emergency_phone|default:'-' }}</div>
                       {% endif %}
                     </td>
+                    <td class="p-3.5 row-loc">{{ d.loc_display }}</td>
                     <td class="p-3.5 whitespace-nowrap row-status">
                       {% if d.connection_status == 'ONLINE' %}
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
@@ -1165,54 +1213,54 @@
                 Tài Khoản Mới
               </h3>
               <div>
-                <label class="block hc-text-muted mb-1"
-                  >Tên đăng nhập (Username) *</label
+                <label class="block font-semibold mb-1 hc-text-muted"
+                  >Tên đăng nhập <span class="text-rose-400">*</span></label
                 >
                 <input
                   id="usr-username"
                   type="text"
-                  placeholder="VD: vanhanh01"
-                  class="w-full hc-input rounded-lg px-3 py-2"
+                  placeholder="Tên tài khoản (viết liền không dấu)"
+                  class="w-full hc-input"
                 />
               </div>
               <div>
-                <label class="block hc-text-muted mb-1"
-                  >Họ và tên người dùng *</label
+                <label class="block font-semibold mb-1 hc-text-muted"
+                  >Họ và tên người dùng <span class="text-rose-400">*</span></label
                 >
                 <input
                   id="usr-fullname"
                   type="text"
-                  placeholder="VD: Trần Văn An"
-                  class="w-full hc-input rounded-lg px-3 py-2"
+                  placeholder="Họ và tên đầy đủ"
+                  class="w-full hc-input"
                 />
               </div>
               <div>
-                <label class="block hc-text-muted mb-1">Số điện thoại</label>
+                <label class="block font-semibold mb-1 hc-text-muted">Số điện thoại liên hệ</label>
                 <input
                   id="usr-phone"
-                  type="text"
-                  placeholder="VD: 0905123456"
-                  class="w-full hc-input rounded-lg px-3 py-2"
+                  type="tel"
+                  placeholder="09xx xxx xxx"
+                  class="w-full hc-input"
                 />
               </div>
               <div>
-                <label class="block hc-text-muted mb-1"
-                  >Mật khẩu khởi tạo *</label
+                <label class="block font-semibold mb-1 hc-text-muted"
+                  >Mật khẩu khởi tạo <span class="text-rose-400">*</span></label
                 >
                 <input
                   id="usr-password"
                   type="password"
-                  placeholder="Nhập mật khẩu..."
-                  class="w-full hc-input rounded-lg px-3 py-2"
+                  placeholder="Tối thiểu 6 ký tự"
+                  class="w-full hc-input"
                 />
               </div>
               <div>
-                <label class="block hc-text-muted mb-1"
-                  >Phân quyền hệ thống (Role) *</label
+                <label class="block font-semibold mb-1 hc-text-muted"
+                  >Phân quyền hệ thống <span class="text-rose-400">*</span></label
                 >
                 <select
                   id="usr-role"
-                  class="w-full hc-input rounded-lg px-3 py-2"
+                  class="w-full hc-input"
                 >
                   <option value="VIEWER">
                     Viewer (Chỉ xem & Tiếp nhận SOS)
@@ -1277,135 +1325,229 @@
         </section>
         {% endif %}
 
-        <!-- 6. TRANG THÔNG TIN CÁ NHÂN & ĐỔI MẬT KHẨU -->
+        <!-- 6. TRANG THÔNG TIN CÁ NHÂN -->
         <section id="section-settings" class="hidden max-w-xl space-y-4">
           <h2 class="text-xl font-extrabold flex items-center gap-2">
             <i class="fa-solid fa-id-badge text-cyan-400"></i>
-            Thông tin cá nhân & Cài đặt tài khoản
+            Thông Tin Cá Nhân
           </h2>
 
-          <!-- THẺ THÔNG TIN TÀI KHOẢN -->
-          <!-- prettier-ignore -->
-          <div class="hc-surface p-6 rounded-xl border space-y-3 text-xs shadow-lg">
-            <div class="flex justify-between py-2.5 border-b" style="border-color: var(--border-color)">
-              <span class="hc-text-muted">Tài khoản đang đăng nhập:</span>
-              <strong class="font-mono text-cyan-400 text-sm">{{ current_username }}</strong>
-            </div>
-            <div class="flex justify-between py-2.5 border-b" style="border-color: var(--border-color)">
-              <span class="hc-text-muted">Họ và tên người vận hành:</span>
-              <strong>{{ current_user_display }}</strong>
-            </div>
-            <div class="flex justify-between py-2.5 border-b" style="border-color: var(--border-color)">
-              <span class="hc-text-muted">Cấp độ phân quyền (Role):</span>
-              <strong class="text-cyan-500 font-bold">{{ user_role_label }}</strong>
-            </div>
-            <div class="pt-2 flex items-center justify-between">
-              <span class="hc-text-muted italic text-[11px]">Phiên làm việc bảo mật (AES/Bcrypt)</span>
-              <a href="/logout/" class="inline-flex items-center gap-1.5 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 font-bold px-3.5 py-1.5 rounded-lg transition text-xs">
-                <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
-              </a>
-            </div>
-          </div>
-
-          <!-- THẺ THAY ĐỔI MẬT KHẨU -->
+          <!-- THẺ CẬP NHẬT THÔNG TIN CÁ NHÂN -->
           <div class="hc-surface p-6 rounded-xl border space-y-4 text-xs shadow-lg">
             <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--border-color)">
               <div class="flex items-center gap-2.5">
-                <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm shadow-sm">
-                  <i class="fa-solid fa-key"></i>
+                <span class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shadow-sm">
+                  <i class="fa-solid fa-user-pen"></i>
                 </span>
                 <div>
-                  <h3 class="font-bold text-sm">Thay Đổi Mật Khẩu</h3>
-                  <p class="text-[11px] hc-text-muted">Đổi mật khẩu định kỳ để nâng cao tính an toàn cho hệ thống</p>
+                  <h3 class="font-bold text-sm">Hồ Sơ Người Vận Hành</h3>
+                  <p class="text-[11px] hc-text-muted">Cập nhật thông tin liên hệ và danh tính trên hệ thống</p>
                 </div>
               </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold {{ role_badge_cls }}">{{ user_role_label }}</span>
             </div>
 
-            <form id="form-change-password" onsubmit="event.preventDefault(); submitChangePassword();" class="space-y-3.5">
-              <div>
-                <label class="block font-semibold mb-1 hc-text-muted">
-                  Mật khẩu hiện tại <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
+            <form id="form-user-profile" onsubmit="event.preventDefault(); submitUpdateProfile();" class="space-y-3.5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-semibold mb-1 hc-text-muted">Tên tài khoản (Username)</label>
                   <input
-                    type="password"
-                    id="pwd-current"
-                    placeholder="Nhập mật khẩu đang sử dụng..."
-                    class="w-full hc-input rounded-lg px-3 py-2 pr-10 outline-none"
-                    required
+                    type="text"
+                    value="{{ current_username }}"
+                    class="w-full hc-input opacity-80 cursor-not-allowed font-mono text-cyan-400"
+                    readonly
+                    disabled
                   />
-                  <button
-                    type="button"
-                    onclick="togglePasswordVisibility('pwd-current', this)"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
-                    title="Hiện/Ẩn mật khẩu"
-                  >
-                    <i class="fa-solid fa-eye text-xs"></i>
-                  </button>
+                  <span class="text-[10px] hc-text-muted mt-0.5 block">Tên đăng nhập cố định của hệ thống</span>
+                </div>
+                <div>
+                  <label class="block font-semibold mb-1 hc-text-muted">Vai trò hệ thống</label>
+                  <input
+                    type="text"
+                    value="{{ user_role_label }}"
+                    class="w-full hc-input opacity-80 cursor-not-allowed font-semibold"
+                    readonly
+                    disabled
+                  />
+                  <span class="text-[10px] hc-text-muted mt-0.5 block">Quyền hạn truy cập các chức năng</span>
                 </div>
               </div>
 
               <div>
                 <label class="block font-semibold mb-1 hc-text-muted">
-                  Mật khẩu mới <span class="text-red-500">*</span>
+                  Họ và tên hiển thị <span class="text-rose-400">*</span>
                 </label>
-                <div class="relative">
+                <input
+                  type="text"
+                  id="profile-fullname"
+                  value="{{ current_user_fullname|default:current_user_display }}"
+                  placeholder="Nhập họ và tên đầy đủ"
+                  class="w-full hc-input outline-none"
+                  required
+                />
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-semibold mb-1 hc-text-muted">Số điện thoại liên hệ</label>
                   <input
-                    type="password"
-                    id="pwd-new"
-                    placeholder="Nhập mật khẩu mới..."
-                    class="w-full hc-input rounded-lg px-3 py-2 pr-10 outline-none"
-                    required
+                    type="text"
+                    id="profile-phone"
+                    value="{{ current_user_phone }}"
+                    placeholder="Ví dụ: 0912345678"
+                    class="w-full hc-input outline-none"
                   />
-                  <button
-                    type="button"
-                    onclick="togglePasswordVisibility('pwd-new', this)"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
-                    title="Hiện/Ẩn mật khẩu"
-                  >
-                    <i class="fa-solid fa-eye text-xs"></i>
-                  </button>
+                </div>
+                <div>
+                  <label class="block font-semibold mb-1 hc-text-muted">Địa chỉ Email</label>
+                  <input
+                    type="email"
+                    id="profile-email"
+                    value="{{ current_user_email }}"
+                    placeholder="Ví dụ: user@example.com"
+                    class="w-full hc-input outline-none"
+                  />
                 </div>
               </div>
 
-              <div>
-                <label class="block font-semibold mb-1 hc-text-muted">
-                  Xác nhận mật khẩu mới <span class="text-red-500">*</span>
-                </label>
-                <div class="relative">
-                  <input
-                    type="password"
-                    id="pwd-confirm"
-                    placeholder="Nhập lại mật khẩu mới để xác nhận..."
-                    class="w-full hc-input rounded-lg px-3 py-2 pr-10 outline-none"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onclick="togglePasswordVisibility('pwd-confirm', this)"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
-                    title="Hiện/Ẩn mật khẩu"
-                  >
-                    <i class="fa-solid fa-eye text-xs"></i>
-                  </button>
-                </div>
-              </div>
+              <div id="profile-status-msg" class="hidden text-xs py-2 px-3 rounded-lg font-medium"></div>
 
-              <div id="pwd-status-msg" class="hidden text-xs py-2 px-3 rounded-lg font-medium"></div>
-
-              <div class="pt-2 flex justify-end">
+              <div class="pt-2 flex items-center justify-between border-t" style="border-color: var(--border-color)">
+                <span class="hc-text-muted italic text-[11px]">Phiên làm việc bảo mật (AES/Bcrypt)</span>
                 <button
                   type="submit"
-                  id="btn-submit-pwd"
+                  id="btn-save-profile"
                   class="hc-btn-primary font-bold py-2.5 px-5 rounded-lg text-xs flex items-center gap-2 shadow-md hover:scale-[1.02] active:scale-95 transition cursor-pointer"
                 >
-                  <i class="fa-solid fa-lock"></i> Lưu Mật Khẩu Mới
+                  <i class="fa-solid fa-floppy-disk"></i> Lưu Thông Tin
                 </button>
               </div>
             </form>
           </div>
         </section>
       </main>
+    </div>
+
+    <!-- MODAL THAY ĐỔI MẬT KHẨU TÀI KHOẢN (TÁCH RIÊNG TẠI MENU NÚT ADMIN/TÀI KHOẢN) -->
+    <div
+      id="change-password-modal"
+      class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-[1100] flex items-center justify-center p-4"
+      onclick="if (event.target === this) closeChangePasswordModal();"
+    >
+      <div
+        class="hc-surface border rounded-2xl max-w-md w-full p-5 sm:p-6 space-y-4 text-xs shadow-2xl relative"
+      >
+        <div class="flex items-center justify-between border-b pb-3 shrink-0" style="border-color: var(--border-color)">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center text-sm shadow-sm">
+              <i class="fa-solid fa-key"></i>
+            </span>
+            <div>
+              <h3 class="font-bold text-sm" style="color: var(--text-primary)">Thay Đổi Mật Khẩu</h3>
+              <p class="text-[11px] hc-text-muted">Đổi mật khẩu định kỳ để nâng cao tính bảo mật</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onclick="closeChangePasswordModal()"
+            class="text-slate-400 hover:text-rose-500 text-lg p-1 transition cursor-pointer"
+            title="Đóng cửa sổ"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <form id="form-modal-change-password" onsubmit="event.preventDefault(); submitChangePasswordModal();" class="space-y-3.5">
+          <div>
+            <label class="block font-semibold mb-1 hc-text-muted">
+              Mật khẩu hiện tại <span class="text-rose-400">*</span>
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                id="modal-pwd-current"
+                placeholder="Nhập mật khẩu đang sử dụng"
+                class="w-full hc-input pr-10 outline-none"
+                required
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('modal-pwd-current', this)"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
+                title="Hiện/Ẩn mật khẩu"
+              >
+                <i class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold mb-1 hc-text-muted">
+              Mật khẩu mới <span class="text-rose-400">*</span>
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                id="modal-pwd-new"
+                placeholder="Tối thiểu 6 ký tự"
+                class="w-full hc-input pr-10 outline-none"
+                required
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('modal-pwd-new', this)"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
+                title="Hiện/Ẩn mật khẩu"
+              >
+                <i class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold mb-1 hc-text-muted">
+              Xác nhận mật khẩu mới <span class="text-rose-400">*</span>
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                id="modal-pwd-confirm"
+                placeholder="Nhập lại mật khẩu mới"
+                class="w-full hc-input pr-10 outline-none"
+                required
+              />
+              <button
+                type="button"
+                onclick="togglePasswordVisibility('modal-pwd-confirm', this)"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 transition"
+                title="Hiện/Ẩn mật khẩu"
+              >
+                <i class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="modal-pwd-status-msg" class="hidden text-xs py-2 px-3 rounded-lg font-medium"></div>
+
+          <div class="pt-2 flex justify-end gap-2 border-t" style="border-color: var(--border-color)">
+            <button
+              type="button"
+              onclick="closeChangePasswordModal()"
+              class="px-4 py-2 rounded-lg border text-xs font-semibold hover:bg-slate-500/10 transition cursor-pointer"
+              style="border-color: var(--border-color); color: var(--text-secondary);"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="submit"
+              id="modal-btn-submit-pwd"
+              class="hc-btn-primary font-bold py-2 px-4 rounded-lg text-xs flex items-center gap-1.5 shadow-md hover:scale-[1.02] active:scale-95 transition cursor-pointer"
+            >
+              <i class="fa-solid fa-lock"></i> Lưu Mật Khẩu
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- MODAL THÊM MỚI THIẾT BỊ -->
@@ -1445,12 +1587,12 @@
               </select>
             </div>
             <div>
-              <label class="block hc-text-muted mb-1">Lĩnh vực cảnh báo *</label>
+              <label class="block font-semibold mb-1 hc-text-muted">Lĩnh vực cảnh báo <span class="text-rose-400">*</span></label>
               <select
                 id="reg-category-type"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                class="w-full hc-input"
               >
-                <option value="CAP_CUU_Y_TE">Cấp Cứu / Y tế / Biển</option>
+                <option value="CAP_CUU_Y_TE">Cấp Cứu / Y tế</option>
                 <option value="AN_NINH">An Ninh</option>
                 <option value="CHAY">Báo Cháy</option>
               </select>
@@ -1458,67 +1600,70 @@
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             <div>
-              <label class="block hc-text-muted mb-1">Tên thiết bị *</label>
+              <label class="block font-semibold mb-1 hc-text-muted">Tên thiết bị <span class="text-rose-400">*</span></label>
               <input
                 id="reg-name"
                 type="text"
-                placeholder="VD: Nút nhấn cấp cứu 01"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                placeholder="Tên phương tiện hoặc vị trí..."
+                class="w-full hc-input"
               />
             </div>
             <div>
-              <label class="block hc-text-muted mb-1">Mã ID / DevEUI *</label>
+              <label class="block font-semibold mb-1 hc-text-muted">Mã ID / DevEUI <span class="text-rose-400">*</span></label>
               <input
                 id="reg-deveui"
                 type="text"
-                placeholder="VD: cf8b03ffff6430c5"
-                class="w-full hc-input rounded-lg px-3 py-2 font-mono"
+                placeholder="16 ký tự Hex (vd: cf8b03ffff6430c5)"
+                class="w-full hc-input font-mono"
               />
             </div>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             <div>
-              <label class="block hc-text-muted mb-1"
-                >Chủ sở hữu / Đơn vị *</label
+              <label class="block font-semibold mb-1 hc-text-muted"
+                >Chủ sở hữu / Đơn vị <span class="text-rose-400">*</span></label
               >
               <input
                 id="reg-owner"
                 type="text"
-                placeholder="Nguyễn Văn A"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                placeholder="Họ và tên người phụ trách"
+                class="w-full hc-input"
               />
             </div>
             <div>
-              <label class="block hc-text-muted mb-1">SĐT Khẩn cấp *</label>
+              <label class="block font-semibold mb-1 hc-text-muted">SĐT Khẩn cấp <span class="text-rose-400">*</span></label>
               <input
                 id="reg-phone"
-                type="text"
-                placeholder="0905123456"
-                class="w-full hc-input rounded-lg px-3 py-2"
+                type="tel"
+                placeholder="09xx xxx xxx"
+                class="w-full hc-input"
               />
             </div>
           </div>
           <div>
-            <label class="block hc-text-muted mb-1 flex items-center justify-between">
-              <span><i class="fa-solid fa-heart-pulse text-rose-400 mr-1"></i> Chu kỳ Heartbeat / Uplink (giây) *</span>
+            <label class="block font-semibold mb-1 hc-text-muted flex items-center justify-between">
+              <span><i class="fa-solid fa-heart-pulse text-rose-400 mr-1"></i> Chu kỳ Heartbeat / Uplink: <span class="text-rose-400">*</span></span>
               <span class="text-[10px] text-cyan-400">Kiểm tra Online/Offline</span>
             </label>
             <div class="flex gap-2">
-              <input
-                id="reg-heartbeat-interval"
-                type="number"
-                min="5"
-                step="1"
-                value="300"
-                placeholder="300"
-                class="w-full hc-input rounded-lg px-3 py-2 font-mono"
-              />
+              <div class="relative flex-1">
+                <input
+                  id="reg-heartbeat-interval"
+                  type="number"
+                  min="5"
+                  step="1"
+                  value="300"
+                  placeholder="300"
+                  class="w-full hc-input font-mono pr-12"
+                />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[11px] font-mono pointer-events-none">giây</span>
+              </div>
               <select
                 onchange="if(this.value){ document.getElementById('reg-heartbeat-interval').value = this.value; }"
-                class="hc-input rounded-lg px-2 py-2 text-xs text-slate-300 shrink-0 cursor-pointer"
+                class="hc-input text-xs text-slate-300 shrink-0 cursor-pointer w-32"
                 title="Chọn nhanh chu kỳ heartbeat"
               >
-                <option value="">Gợi ý</option>
+                <option value="">Chọn nhanh</option>
                 <option value="60">1 phút (60s)</option>
                 <option value="120">2 phút (120s)</option>
                 <option value="300" selected>5 phút (300s)</option>
@@ -1527,68 +1672,74 @@
                 <option value="3600">1 giờ (3600s)</option>
               </select>
             </div>
-            <p class="text-[10px] hc-text-muted mt-0.5">Nếu quá thời gian này không nhận được bản tin uplink, server sẽ chuyển sang Mất kết nối (Offline).</p>
+            <p class="text-[10px] hc-text-muted mt-1">Quá thời gian này không nhận được uplink, server sẽ đánh dấu thiết bị Offline.</p>
           </div>
           <div>
-            <label class="block hc-text-muted mb-1">Chế độ định vị GPS</label>
+            <label class="block font-semibold mb-1 hc-text-muted">Chế độ định vị</label>
             <select
               id="reg-has-gps"
               onchange="toggleStaticAddressField()"
-              class="w-full hc-input rounded-lg px-3 py-2"
+              class="w-full hc-input"
             >
-              <option value="false">Cố định trên đất liền (Không GPS)</option>
+              <option value="false">Thiết bị cố định (Không GPS - Nhà ở, cơ sở)</option>
               <option value="true">
-                Tàu thuyền di chuyển trên biển (Có GPS)
+                Thiết bị GPS (Phương tiện di chuyển / Di động)
               </option>
             </select>
           </div>
-          <div id="reg-pairing-container" class="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-950/20 space-y-1.5">
-            <label class="block font-bold text-cyan-300 text-[11px]">
+          <div id="reg-pairing-container" class="p-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 space-y-2">
+            <label class="block font-semibold text-cyan-300 text-xs">
               <i class="fa-solid fa-link mr-1"></i> Gán cùng nhà / Thiết bị liên kết:
             </label>
-            <select id="reg-parent-id" class="w-full hc-input rounded-lg px-3 py-2 text-xs">
+            <select id="reg-parent-id" class="w-full hc-input text-xs">
               <option value="">-- Hoạt động độc lập (Không gán) --</option>
               {% for other in devices %}
               <option value="{{ other.id }}">
                 {% if other.device_type == 'GATEWAY' %}📡 Trạm Gateway:
                 {% elif other.device_type == 'CAMERA' %}📹 Camera:
-                {% elif other.has_gps %}🚢 Tàu GPS:
+                {% elif other.has_gps %}📍 Thiết bị GPS:
                 {% else %}🔔 Nút nhấn:{% endif %}
                 {{ other.device_name }} ({{ other.dev_eui }})
               </option>
               {% endfor %}
             </select>
-            <input type="text" id="reg-group-name" placeholder="Tên nhà / Hộ gia đình / Nhóm (Tùy chọn)" class="w-full hc-input rounded-lg px-3 py-1.5 text-xs" />
+            <input type="text" id="reg-group-name" placeholder="Tên nhà hoặc vị trí nhóm lắp đặt (Tùy chọn)" class="w-full hc-input text-xs" />
           </div>
           <div id="address-only-field">
-            <label class="block hc-text-muted mb-1">Địa chỉ tĩnh</label>
+            <label class="block font-semibold mb-1 hc-text-muted">Địa chỉ lắp đặt</label>
             <input
               id="reg-address"
               type="text"
-              placeholder="Số 12 Trần Phú, Hải Châu, Đà Nẵng"
-              class="w-full hc-input rounded-lg px-3 py-2"
+              placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
+              class="w-full hc-input"
             />
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             <div>
-              <label class="block hc-text-muted mb-1">Vĩ độ (Latitude)</label>
-              <input
-                id="reg-lat"
-                type="number"
-                step="any"
-                value="16.054407"
-                class="w-full hc-input rounded-lg px-3 py-2"
-              />
+              <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Vĩ độ (Lat)</label>
+              <div class="relative">
+                <input
+                  id="reg-lat"
+                  type="number"
+                  step="any"
+                  value="16.054407"
+                  class="w-full hc-input font-mono text-xs pr-7"
+                />
+                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°N</span>
+              </div>
             </div>
             <div>
-              <label class="block hc-text-muted mb-1">Kinh độ (Longitude)</label>
-              <input
-                id="reg-lng"
-                type="number"
-                step="any"
-                value="108.202167"
-                class="w-full hc-input rounded-lg px-3 py-2"
-              />
+              <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Kinh độ (Lng)</label>
+              <div class="relative">
+                <input
+                  id="reg-lng"
+                  type="number"
+                  step="any"
+                  value="108.202167"
+                  class="w-full hc-input font-mono text-xs pr-7"
+                />
+                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°E</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1670,9 +1821,9 @@
                 data-gps="{% if d.has_gps %}true{% else %}false{% endif %}"
                 data-lat="{{ d.latitude|default:'16.054407' }}"
                 data-lng="{{ d.longitude|default:'108.202167' }}"
-                data-address="{{ d.address|default:'Vùng biển Đà Nẵng' }}"
+                data-address="{{ d.address|default:'Chưa có địa chỉ' }}"
               >
-                {{ d.device_name }} ({{ d.dev_eui }}) - {{ d.customer_name|default:"Ngư dân" }}
+                {{ d.device_name }} ({{ d.dev_eui }}){% if d.customer_name %} - {{ d.customer_name }}{% endif %}
               </option>
               {% empty %}
               <option value="" disabled>Không có thiết bị khả dụng trong hệ thống</option>
@@ -1708,10 +1859,10 @@
               id="manual-sos-type"
               class="w-full hc-input rounded-xl px-3 py-2.5 text-xs font-semibold cursor-pointer border shadow-sm"
             >
-              <option value="CUU_HO_BIEN">🌊 Cứu hộ biển khẩn cấp (Sóng to, chìm tàu, chết máy)</option>
-              <option value="CAP_CUU_Y_TE">🚑 Cấp cứu y tế / Tai nạn thuyền viên</option>
-              <option value="CHAY">🔥 Báo cháy / Hỏa hoạn phương tiện</option>
-              <option value="AN_NINH">🚨 An ninh trật tự / Tranh chấp lãnh hải</option>
+              <option value="CUU_HO_BIEN">🆘 Cứu nạn / Cứu hộ khẩn cấp (Sự cố phương tiện, tai nạn)</option>
+              <option value="CAP_CUU_Y_TE">🚑 Cấp cứu y tế / Tai nạn thương tích</option>
+              <option value="CHAY">🔥 Báo cháy / Hỏa hoạn phương tiện & công trình</option>
+              <option value="AN_NINH">🚨 An ninh trật tự / Khẩn cấp an toàn</option>
             </select>
           </div>
 
@@ -1736,8 +1887,8 @@
               <textarea
                 id="manual-sos-notes"
                 rows="3"
-                placeholder="Nhập ghi chú chi tiết (VD: Tàu hỏng chân vịt cách bờ 12 hải lý, có 4 thuyền viên, nước đang rò rỉ, cần tàu cứu hộ gần nhất tiếp cận gấp)..."
-                class="w-full hc-input rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-cyan-500"
+                placeholder="Mô tả chi tiết tình huống sự cố, số người liên quan, địa điểm cần hỗ trợ..."
+                class="w-full hc-input text-xs"
               ></textarea>
             </div>
           </div>
@@ -1748,7 +1899,7 @@
           <button
             type="button"
             onclick="closeManualSOSModal()"
-            class="hc-input px-5 py-2.5 rounded-xl font-bold hover:brightness-95 transition text-xs"
+            class="px-4 py-2 rounded-lg font-semibold border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition text-xs"
           >
             Hủy bỏ
           </button>
@@ -1756,7 +1907,7 @@
             id="btn-submit-manual-sos"
             type="button"
             onclick="submitManualSOS()"
-            class="bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-red-600/30 flex items-center gap-2 transition"
+            class="bg-red-600 hover:bg-red-500 active:scale-95 text-white font-bold px-5 py-2 rounded-lg shadow-md shadow-red-600/30 flex items-center gap-2 transition text-xs"
           >
             <i class="fa-solid fa-bolt"></i>
             <span>Phát Cảnh Báo Ngay</span>
@@ -1916,32 +2067,45 @@
 
           <!-- DevEUI -->
           <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Mã định danh ID / DevEUI (Cố định):</label>
-            <input type="text" id="assign-dev-eui" readonly class="w-full hc-input rounded-xl px-3 py-2 font-mono text-cyan-400 bg-slate-900/80 cursor-not-allowed font-bold" />
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-semibold hc-text-muted">Mã định danh DevEUI (Cố định):</label>
+              <span class="text-[10px] text-slate-500 font-mono"><i class="fa-solid fa-lock mr-1"></i>Chỉ đọc</span>
+            </div>
+            <div class="relative">
+              <input type="text" id="assign-dev-eui" readonly class="w-full hc-input font-mono text-cyan-400 font-bold pr-9 select-all cursor-not-allowed" />
+              <button
+                type="button"
+                onclick="navigator.clipboard.writeText(document.getElementById('assign-dev-eui').value); alert('Đã sao chép DevEUI');"
+                class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-cyan-400 transition"
+                title="Sao chép DevEUI"
+              >
+                <i class="fa-regular fa-copy text-xs"></i>
+              </button>
+            </div>
           </div>
 
           <!-- Device Name -->
           <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Tên thiết bị hiển thị: <span class="text-red-400">*</span></label>
-            <input type="text" id="assign-dev-name" required placeholder="Ví dụ: Tàu cá ĐNa 90123 / Nút nhấn phòng 102..." class="w-full hc-input rounded-xl px-3 py-2" />
+            <label class="block font-semibold mb-1 hc-text-muted">Tên thiết bị hiển thị: <span class="text-rose-400">*</span></label>
+            <input type="text" id="assign-dev-name" required placeholder="Tên phương tiện hoặc vị trí phòng, cơ sở..." class="w-full hc-input" />
           </div>
 
           <!-- Owner / Customer Name -->
           <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Tên chủ hộ / Người quản lý / Thuyền trưởng: <span class="text-red-400">*</span></label>
-            <input type="text" id="assign-cust-name" required placeholder="Ví dụ: Nguyễn Văn A..." class="w-full hc-input rounded-xl px-3 py-2" />
+            <label class="block font-semibold mb-1 hc-text-muted">Tên chủ sở hữu / Người quản lý: <span class="text-rose-400">*</span></label>
+            <input type="text" id="assign-cust-name" required placeholder="Họ và tên người phụ trách / chủ hộ" class="w-full hc-input" />
           </div>
 
           <!-- Phone -->
           <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Số điện thoại khẩn cấp: <span class="text-red-400">*</span></label>
-            <input type="tel" id="assign-phone" required placeholder="Ví dụ: 0905123456..." class="w-full hc-input rounded-xl px-3 py-2" />
+            <label class="block font-semibold mb-1 hc-text-muted">Số điện thoại khẩn cấp: <span class="text-rose-400">*</span></label>
+            <input type="tel" id="assign-phone" required placeholder="09xx xxx xxx" class="w-full hc-input" />
           </div>
 
           <!-- Category -->
           <div>
             <label class="block font-semibold mb-1 hc-text-muted">Lĩnh vực cứu hộ:</label>
-            <select id="assign-category" class="w-full hc-input rounded-xl px-3 py-2">
+            <select id="assign-category" class="w-full hc-input">
               <option value="CAP_CUU_Y_TE">Cấp Cứu / Y tế</option>
               <option value="CHAY">Báo Cháy</option>
               <option value="AN_NINH">An Ninh</option>
@@ -1950,35 +2114,38 @@
 
           <!-- Location Environment: Land vs GPS -->
           <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Môi trường hoạt động / Phân loại vị trí: <span class="text-red-400">*</span></label>
-            <select id="assign-has-gps" onchange="toggleAssignGpsFields()" class="w-full hc-input rounded-xl px-3 py-2 font-medium">
-              <option value="false">🏢 Nút nhấn Đất liền (Cố định, nhà ở, cơ sở)</option>
-              <option value="true">🚢 Tàu thuyền / Thiết bị di động (Tích hợp GPS)</option>
+            <label class="block font-semibold mb-1 hc-text-muted">Môi trường hoạt động / Phân loại vị trí: <span class="text-rose-400">*</span></label>
+            <select id="assign-has-gps" onchange="toggleAssignGpsFields()" class="w-full hc-input font-medium">
+              <option value="false">🏢 Thiết bị cố định (Không GPS - Nhà ở, cơ sở, văn phòng)</option>
+              <option value="true">📍 Thiết bị GPS (Phương tiện di chuyển, xe, thiết bị di động)</option>
             </select>
           </div>
 
           <!-- Heartbeat / Uplink interval -->
           <div>
             <label class="block font-semibold mb-1 hc-text-muted flex items-center justify-between">
-              <span><i class="fa-solid fa-heart-pulse text-rose-400 mr-1"></i> Chu kỳ Heartbeat / Uplink (giây): <span class="text-red-400">*</span></span>
+              <span><i class="fa-solid fa-heart-pulse text-rose-400 mr-1"></i> Chu kỳ Heartbeat / Uplink: <span class="text-rose-400">*</span></span>
               <span class="text-[10px] text-cyan-400">Kiểm tra Online / Offline</span>
             </label>
             <div class="flex gap-2">
-              <input
-                type="number"
-                id="assign-heartbeat-interval"
-                min="5"
-                step="1"
-                value="300"
-                placeholder="300"
-                class="w-full hc-input rounded-xl px-3 py-2 font-mono text-xs"
-              />
+              <div class="relative flex-1">
+                <input
+                  type="number"
+                  id="assign-heartbeat-interval"
+                  min="5"
+                  step="1"
+                  value="300"
+                  placeholder="300"
+                  class="w-full hc-input font-mono text-xs pr-12"
+                />
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[11px] font-mono pointer-events-none">giây</span>
+              </div>
               <select
                 onchange="if(this.value){ document.getElementById('assign-heartbeat-interval').value = this.value; }"
-                class="hc-input rounded-xl px-2.5 py-2 text-xs text-slate-300 shrink-0 cursor-pointer"
+                class="hc-input text-xs text-slate-300 shrink-0 cursor-pointer w-32"
                 title="Chọn nhanh chu kỳ heartbeat"
               >
-                <option value="">Gợi ý</option>
+                <option value="">Chọn nhanh</option>
                 <option value="60">1 phút (60s)</option>
                 <option value="120">2 phút (120s)</option>
                 <option value="300">5 phút (300s)</option>
@@ -1991,9 +2158,9 @@
           </div>
 
           <!-- Nhóm thiết bị & Gán với nhau (Cùng nhà) -->
-          <div id="assign-pairing-container" class="p-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 space-y-2">
+          <div id="assign-pairing-container" class="p-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 space-y-2">
             <div class="flex items-center justify-between">
-              <label class="block font-bold text-cyan-300 text-xs">
+              <label class="block font-semibold text-cyan-300 text-xs">
                 <i class="fa-solid fa-link mr-1"></i> Gán cùng nhà / Thiết bị liên kết:
               </label>
               <span class="text-[10px] text-cyan-400 bg-cyan-900/60 px-2 py-0.5 rounded-full border border-cyan-500/30 font-semibold">Cùng nhà / Nhóm</span>
@@ -2003,13 +2170,13 @@
             </p>
             <div>
               <label class="block text-[11px] font-semibold mb-1 text-slate-300">Chọn thiết bị liên kết (Thiết bị chính / Cùng nhà):</label>
-              <select id="assign-parent-id" class="w-full hc-input rounded-xl px-3 py-2 text-xs font-medium cursor-pointer">
+              <select id="assign-parent-id" class="w-full hc-input text-xs font-medium cursor-pointer">
                 <option value="">-- Hoạt động độc lập (Không gán) --</option>
                 {% for other in devices %}
                 <option value="{{ other.id }}">
                   {% if other.device_type == 'GATEWAY' %}📡 Trạm Gateway:
                   {% elif other.device_type == 'CAMERA' %}📹 Camera:
-                  {% elif other.has_gps %}🚢 Tàu GPS:
+                  {% elif other.has_gps %}📍 Thiết bị GPS:
                   {% else %}🔔 Nút nhấn:{% endif %}
                   {{ other.device_name }} ({{ other.dev_eui }})
                 </option>
@@ -2018,31 +2185,37 @@
             </div>
             <div>
               <label class="block text-[11px] font-semibold mb-1 text-slate-300">Tên nhà / Hộ gia đình / Nhóm:</label>
-              <input type="text" id="assign-group-name" placeholder="Ví dụ: Nhà số 12 Lê Lợi, Hộ gia đình ông Bùi Anh Nhật..." class="w-full hc-input rounded-xl px-3 py-2 text-xs" />
+              <input type="text" id="assign-group-name" placeholder="Tên nhà hoặc vị trí nhóm lắp đặt" class="w-full hc-input text-xs" />
             </div>
           </div>
 
           <!-- Address -->
           <div id="assign-address-group">
-            <label id="assign-address-label" class="block font-semibold mb-1 hc-text-muted">Địa chỉ lắp đặt / Cảng neo đậu:</label>
-            <input type="text" id="assign-address" placeholder="Ví dụ: Cảng cá Thọ Quang, Sơn Trà, Đà Nẵng..." class="w-full hc-input rounded-xl px-3 py-2" />
+            <label id="assign-address-label" class="block font-semibold mb-1 hc-text-muted">Địa chỉ lắp đặt / Khu vực hoạt động:</label>
+            <input type="text" id="assign-address" placeholder="Số nhà, tên đường, phường/xã, quận/huyện..." class="w-full hc-input" />
           </div>
 
           <!-- Coordinates (Lat / Lng) -->
           <div id="assign-coords-group" class="grid grid-cols-2 gap-2.5">
             <div>
               <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Vĩ độ (Lat):</label>
-              <input type="number" step="any" id="assign-lat" placeholder="16.054407" class="w-full hc-input rounded-xl px-3 py-2 font-mono text-xs" />
+              <div class="relative">
+                <input type="number" step="any" id="assign-lat" placeholder="16.054407" class="w-full hc-input font-mono text-xs pr-7" />
+                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°N</span>
+              </div>
             </div>
             <div>
               <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Kinh độ (Lng):</label>
-              <input type="number" step="any" id="assign-lng" placeholder="108.202167" class="w-full hc-input rounded-xl px-3 py-2 font-mono text-xs" />
+              <div class="relative">
+                <input type="number" step="any" id="assign-lng" placeholder="108.202167" class="w-full hc-input font-mono text-xs pr-7" />
+                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°E</span>
+              </div>
             </div>
           </div>
 
           <div class="flex items-center justify-end gap-2.5 pt-3 border-t" style="border-color: var(--border-color)">
-            <button type="button" onclick="closeAssignDeviceModal()" class="hc-input px-4 py-2 rounded-xl font-semibold hover:bg-slate-800 transition">Hủy bỏ</button>
-            <button type="submit" id="btn-save-assign" class="hc-btn-primary px-5 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-md">
+            <button type="button" onclick="closeAssignDeviceModal()" class="px-4 py-2 rounded-lg font-semibold border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">Hủy bỏ</button>
+            <button type="submit" id="btn-save-assign" class="hc-btn-primary px-5 py-2 rounded-lg font-bold flex items-center gap-1.5 shadow-md">
               <i class="fa-solid fa-check"></i>
               <span>Lưu thông tin</span>
             </button>
@@ -2055,10 +2228,10 @@
     <!-- MODAL GÁN THIẾT BỊ VỚI NHAU (CÙNG NHÀ / NHÓM) -->
     <!-- ======================================================================= -->
     <div id="quick-pair-modal" onclick="if(event.target === this) closeQuickPairModal()" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
-      <div class="max-w-md w-full hc-surface border rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4">
+      <div class="max-w-md w-full hc-surface border rounded-xl shadow-2xl p-5 sm:p-6 space-y-4">
         <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--border-color)">
           <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-base border border-cyan-500/30">
+            <div class="w-9 h-9 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-base border border-cyan-500/30">
               <i class="fa-solid fa-house-user"></i>
             </div>
             <div>
@@ -2074,7 +2247,7 @@
         <form id="quick-pair-form" onsubmit="submitQuickPair(event)" class="space-y-3.5 text-xs">
           <input type="hidden" id="quick-pair-dev-id" />
 
-          <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 space-y-1">
+          <div class="p-3 rounded-lg bg-slate-900/60 border border-slate-700/60 space-y-1">
             <div class="text-[10px] text-slate-400 uppercase font-semibold">Thiết bị đang thao tác:</div>
             <div id="quick-pair-dev-name" class="font-bold text-cyan-300 text-sm">--</div>
           </div>
@@ -2083,13 +2256,13 @@
             <label class="block font-semibold mb-1 hc-text-muted">
               Chọn Thiết bị liên kết (Thiết bị chính / Cùng nhà):
             </label>
-            <select id="quick-pair-parent-id" onchange="handleQuickPairParentChange()" class="w-full hc-input rounded-xl px-3 py-2.5 text-xs font-semibold cursor-pointer border shadow-sm">
+            <select id="quick-pair-parent-id" onchange="handleQuickPairParentChange()" class="w-full hc-input text-xs font-semibold cursor-pointer border shadow-sm">
               <option value="">-- Hoạt động độc lập (Không gán với thiết bị nào) --</option>
               {% for other in devices %}
               <option value="{{ other.id }}" data-group="{{ other.group_name|default:'' }}" data-owner="{{ other.customer_name|default:'' }}" data-addr="{{ other.address|default:'' }}">
                 {% if other.device_type == 'GATEWAY' %}📡 Trạm Gateway:
                 {% elif other.device_type == 'CAMERA' %}📹 Camera:
-                {% elif other.has_gps %}🚢 Tàu thuyền (GPS):
+                {% elif other.has_gps %}📍 Thiết bị GPS:
                 {% else %}🔔 Nút nhấn:{% endif %}
                 {{ other.device_name }} ({{ other.dev_eui }}){% if other.customer_name %} - {{ other.customer_name }}{% endif %}
               </option>
@@ -2104,10 +2277,10 @@
 
           <div>
             <label class="block font-semibold mb-1 hc-text-muted">Tên nhà / Hộ gia đình / Nhóm thiết bị:</label>
-            <input type="text" id="quick-pair-group-name" placeholder="Ví dụ: Nhà số 12 Lê Lợi, Hộ gia đình ông Bùi Anh Nhật..." class="w-full hc-input rounded-xl px-3 py-2 text-xs" />
+            <input type="text" id="quick-pair-group-name" placeholder="Tên nhà hoặc vị trí nhóm lắp đặt" class="w-full hc-input text-xs" />
           </div>
 
-          <div class="p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-start gap-2">
+          <div class="p-2.5 rounded-lg bg-slate-800/40 border border-slate-700/50 flex items-start gap-2">
             <input type="checkbox" id="quick-pair-sync-info" class="mt-0.5 accent-cyan-400 rounded cursor-pointer" checked />
             <label for="quick-pair-sync-info" class="text-[11px] text-slate-300 cursor-pointer select-none">
               Đồng bộ tên chủ hộ, SĐT và địa chỉ từ thiết bị liên kết (nếu thiết bị này chưa có thông tin)
@@ -2115,8 +2288,8 @@
           </div>
 
           <div class="flex items-center justify-end gap-2.5 pt-3 border-t" style="border-color: var(--border-color)">
-            <button type="button" onclick="closeQuickPairModal()" class="hc-input px-4 py-2 rounded-xl font-semibold hover:bg-slate-800 transition">Hủy bỏ</button>
-            <button type="submit" id="btn-save-quick-pair" class="hc-btn-primary px-5 py-2 rounded-xl font-bold flex items-center gap-1.5 shadow-md">
+            <button type="button" onclick="closeQuickPairModal()" class="px-4 py-2 rounded-lg font-semibold border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">Hủy bỏ</button>
+            <button type="submit" id="btn-save-quick-pair" class="hc-btn-primary px-5 py-2 rounded-lg font-bold flex items-center gap-1.5 shadow-md">
               <i class="fa-solid fa-check"></i>
               <span>Lưu Liên Kết</span>
             </button>
@@ -2338,18 +2511,39 @@
         }
       }
 
-      async function submitChangePassword() {
-        const current_password = document.getElementById("pwd-current").value;
-        const new_password = document.getElementById("pwd-new").value;
-        const confirm_password = document.getElementById("pwd-confirm").value;
-        const msgBox = document.getElementById("pwd-status-msg");
-        const submitBtn = document.getElementById("btn-submit-pwd");
+      // --- XỬ LÝ MODAL THAY ĐỔI MẬT KHẨU (NẰM RIÊNG TẠI MENU TÀI KHOẢN / ADMIN) ---
+      function openChangePasswordModal() {
+        const modal = document.getElementById("change-password-modal");
+        if (!modal) return;
+        const form = document.getElementById("form-modal-change-password");
+        if (form) form.reset();
+        const msgBox = document.getElementById("modal-pwd-status-msg");
+        if (msgBox) {
+          msgBox.className = "hidden text-xs py-2 px-3 rounded-lg font-medium";
+          msgBox.innerHTML = "";
+        }
+        modal.classList.remove("hidden");
+        const curInput = document.getElementById("modal-pwd-current");
+        if (curInput) setTimeout(() => curInput.focus(), 80);
+      }
+
+      function closeChangePasswordModal() {
+        const modal = document.getElementById("change-password-modal");
+        if (modal) modal.classList.add("hidden");
+      }
+
+      async function submitChangePasswordModal() {
+        const current_password = document.getElementById("modal-pwd-current").value;
+        const new_password = document.getElementById("modal-pwd-new").value;
+        const confirm_password = document.getElementById("modal-pwd-confirm").value;
+        const msgBox = document.getElementById("modal-pwd-status-msg");
+        const submitBtn = document.getElementById("modal-btn-submit-pwd");
 
         const showMsg = (text, isSuccess) => {
           if (!msgBox) return alert((isSuccess ? "✅ " : "❌ ") + text);
           msgBox.className = isSuccess
-            ? "text-xs py-2.5 px-3 rounded-lg font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-            : "text-xs py-2.5 px-3 rounded-lg font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
+            ? "text-xs py-2 px-3 rounded-lg font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+            : "text-xs py-2 px-3 rounded-lg font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
           msgBox.innerHTML = (isSuccess ? "✅ " : "❌ ") + text;
           msgBox.classList.remove("hidden");
         };
@@ -2380,7 +2574,11 @@
           const result = await res.json();
           if (res.ok && result.status === "success") {
             showMsg(result.message || "Đổi mật khẩu thành công!", true);
-            document.getElementById("form-change-password").reset();
+            const form = document.getElementById("form-modal-change-password");
+            if (form) form.reset();
+            setTimeout(() => {
+              closeChangePasswordModal();
+            }, 1800);
           } else {
             showMsg(result.message || "Không thể đổi mật khẩu. Vui lòng kiểm tra lại!", false);
           }
@@ -2389,10 +2587,111 @@
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Lưu Mật Khẩu Mới';
+            submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Lưu Mật Khẩu';
           }
         }
       }
+
+      // --- XỬ LÝ CẬP NHẬT THÔNG TIN CÁ NHÂN (TAB THÔNG TIN CÁ NHÂN Ở SIDEBAR) ---
+      async function submitUpdateProfile() {
+        const full_name = (document.getElementById("profile-fullname")?.value || "").trim();
+        const phone_number = (document.getElementById("profile-phone")?.value || "").trim();
+        const email = (document.getElementById("profile-email")?.value || "").trim();
+        const msgBox = document.getElementById("profile-status-msg");
+        const submitBtn = document.getElementById("btn-save-profile");
+
+        const showMsg = (text, isSuccess) => {
+          if (!msgBox) return alert((isSuccess ? "✅ " : "❌ ") + text);
+          msgBox.className = isSuccess
+            ? "text-xs py-2.5 px-3 rounded-lg font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+            : "text-xs py-2.5 px-3 rounded-lg font-semibold bg-red-500/20 text-red-400 border border-red-500/30";
+          msgBox.innerHTML = (isSuccess ? "✅ " : "❌ ") + text;
+          msgBox.classList.remove("hidden");
+        };
+
+        if (!full_name) {
+          return showMsg("Vui lòng nhập họ và tên hiển thị!", false);
+        }
+
+        try {
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...';
+          }
+
+          const res = await fetch("/api/users/profile/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              full_name,
+              phone_number,
+              email,
+            }),
+          });
+          const result = await res.json();
+          if (res.ok && result.status === "success") {
+            showMsg(result.message || "Cập nhật thông tin thành công!", true);
+            // Cập nhật tên hiển thị ở header và dropdown
+            const headerUserName = document.querySelector("#user-menu-btn .hc-user-name");
+            if (headerUserName) headerUserName.textContent = full_name;
+            const dropdownUserName = document.querySelector("#user-dropdown-menu .user-title");
+            if (dropdownUserName) dropdownUserName.textContent = full_name;
+          } else {
+            showMsg(result.message || "Không thể cập nhật thông tin. Vui lòng thử lại!", false);
+          }
+        } catch (err) {
+          showMsg("Lỗi kết nối máy chủ: " + err.message, false);
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu Thông Tin';
+          }
+        }
+      }
+
+      // 4. Xử lý Menu Tài Khoản Thu Gọn & Mở Rộng Đăng Xuất (User Menu Dropdown)
+      function toggleUserMenu(event) {
+        if (event) event.stopPropagation();
+        const menu = document.getElementById("user-dropdown-menu");
+        const btn = document.getElementById("user-menu-btn");
+        const chevron = document.getElementById("user-menu-chevron");
+        if (!menu) return;
+        const isHidden = menu.classList.contains("hidden");
+        if (isHidden) {
+          menu.classList.remove("hidden");
+          if (btn) btn.setAttribute("aria-expanded", "true");
+          if (chevron) chevron.classList.add("rotate-180");
+        } else {
+          menu.classList.add("hidden");
+          if (btn) btn.setAttribute("aria-expanded", "false");
+          if (chevron) chevron.classList.remove("rotate-180");
+        }
+      }
+
+      function closeUserMenu() {
+        const menu = document.getElementById("user-dropdown-menu");
+        const btn = document.getElementById("user-menu-btn");
+        const chevron = document.getElementById("user-menu-chevron");
+        if (menu && !menu.classList.contains("hidden")) {
+          menu.classList.add("hidden");
+          if (btn) btn.setAttribute("aria-expanded", "false");
+          if (chevron) chevron.classList.remove("rotate-180");
+        }
+      }
+
+      document.addEventListener("click", function(e) {
+        const container = document.getElementById("user-menu-container");
+        if (container && !container.contains(e.target)) {
+          closeUserMenu();
+        }
+      });
+
+      document.addEventListener("keydown", function(e) {
+        if (e.key === "Escape") {
+          closeUserMenu();
+          closeChangePasswordModal();
+        }
+      });
 
       window.addEventListener("load", () => {
         const savedTab = sessionStorage.getItem("active_hc_tab");

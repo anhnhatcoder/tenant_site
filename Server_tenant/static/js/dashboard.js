@@ -52,7 +52,8 @@ const map = L.map('gis-map', {
     maxBoundsViscosity: 0.9,
     layers: [mapvinaStreetLayer],
     closePopupOnClick: true,
-    worldCopyJump: false
+    worldCopyJump: false,
+    attributionControl: false
 });
 window.map = map;
 
@@ -271,10 +272,10 @@ function getDeviceVisual(d) {
     if (isShip) {
         return {
             categoryKey: 'ship',
-            typeName: 'Tàu thuyền / Di động (GPS)',
-            iconClass: 'fa-ship',
+            typeName: 'Thiết bị GPS',
+            iconClass: 'fa-location-dot',
             shapeClass: 'pin-ship',
-            prefixIcon: '🚢'
+            prefixIcon: '📍'
         };
     }
     if (isCamera) {
@@ -755,7 +756,7 @@ let movingMarker = null;
 async function loadRouteHistory() {
     const devId = document.getElementById('playback-device').value;
     const range = document.getElementById('playback-range').value;
-    if (!devId) return alert("Vui lòng chọn một thiết bị cứu hộ biển (có GPS)!");
+    if (!devId) return alert("Vui lòng chọn một thiết bị có GPS!");
 
     const res = await fetch(`/api/devices/${devId}/route/?range=${range}`);
     const data = await res.json();
@@ -818,42 +819,42 @@ async function loadRouteHistory() {
                     <div class="space-y-1 mb-2.5">
                         <div><strong>Thời điểm gửi SOS:</strong> <span class="text-red-700 font-semibold">${pt.time}</span></div>
                         ${pt.button_name ? `<div><strong>Nguồn phát SOS:</strong> <span class="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded text-[11px]"><i class="fa-solid fa-hand-pointer mr-1"></i>${pt.button_name}</span></div>` : ''}
-                        <div><strong>Tình trạng tàu:</strong> <span class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold text-[11px]">⚠️ BÁO ĐỘNG KHẨN CẤP!</span></div>
+                        <div><strong>Tình trạng:</strong> <span class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold text-[11px]">⚠️ BÁO ĐỘNG KHẨN CẤP!</span></div>
                         <div><strong>Vận tốc lúc đó:</strong> <span class="font-bold text-sky-700">${pt.speed} km/h</span></div>
                         <div><strong>Dung lượng Pin:</strong> <span class="font-bold text-emerald-600">${pt.battery}%</span></div>
                         <div><strong>Tọa độ GPS:</strong> <span class="font-mono text-slate-700">${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}</span></div>
-                        ${isEnd ? '<div class="text-[11px] text-sky-700 font-semibold mt-1">⚓ Đây cũng là vị trí ghi nhận cuối cùng</div>' : ''}
-                        ${isStart ? '<div class="text-[11px] text-emerald-700 font-semibold mt-1">🏁 Đây cũng là điểm xuất phát</div>' : ''}
+                        ${isEnd ? '<div class="text-[11px] text-sky-700 font-semibold mt-1">🏁 Đây cũng là vị trí ghi nhận cuối cùng</div>' : ''}
+                        ${isStart ? '<div class="text-[11px] text-emerald-700 font-semibold mt-1">🚩 Đây cũng là điểm xuất phát</div>' : ''}
                     </div>
                     <button onclick="window.seekRoute(${idx})" class="w-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded shadow transition flex items-center justify-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-ship"></i> Tua tàu đến điểm SOS này
+                        <i class="fa-solid fa-location-dot"></i> Tua đến điểm SOS này
                     </button>
                 </div>
             `;
             const m = L.marker([pt.lat, pt.lng], { icon: sosIcon, zIndexOffset: 1500 }).addTo(routeLayer).bindPopup(sosPopup, { autoClose: true, closeOnClick: true });
             m.on('click', () => { seekRoute(idx, false); });
         } else if (isStart) {
-            // 🏁 ĐIỂM XUẤT PHÁT
+            // 🚩 ĐIỂM XUẤT PHÁT
             const startIcon = L.divIcon({
                 className: '',
-                html: `<div class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded shadow-md border border-white whitespace-nowrap cursor-pointer transition">🏁 Xuất phát</div>`,
+                html: `<div class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded shadow-md border border-white whitespace-nowrap cursor-pointer transition">🚩 Xuất phát</div>`,
                 iconSize: [68, 20],
                 iconAnchor: [34, 20]
             });
             const startPopup = `
                 <div class="text-xs text-slate-900 font-sans p-1 min-w-[210px]">
                     <div class="font-bold text-sm text-emerald-700 border-b border-emerald-200 pb-1 mb-1.5 flex items-center gap-1.5">
-                        <span>🏁</span> <span>ĐIỂM XUẤT PHÁT</span>
+                        <span>🚩</span> <span>ĐIỂM XUẤT PHÁT</span>
                     </div>
                     <div class="space-y-1 mb-2.5">
-                        <div><strong>Thời gian xuất bến:</strong> ${pt.time}</div>
+                        <div><strong>Thời gian xuất phát:</strong> ${pt.time}</div>
                         <div><strong>Tình trạng:</strong> Bắt đầu hành trình</div>
                         <div><strong>Vận tốc ban đầu:</strong> <span class="font-bold text-sky-700">${pt.speed} km/h</span></div>
                         <div><strong>Dung lượng Pin:</strong> <span class="font-bold text-emerald-600">${pt.battery}%</span></div>
                         <div><strong>Tọa độ GPS:</strong> <span class="font-mono text-slate-700">${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}</span></div>
                     </div>
                     <button onclick="window.seekRoute(0)" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow transition flex items-center justify-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-ship"></i> Tua tàu về điểm xuất phát
+                        <i class="fa-solid fa-location-dot"></i> Tua về điểm xuất phát
                     </button>
                 </div>
             `;
@@ -870,7 +871,7 @@ async function loadRouteHistory() {
             const endPopup = `
                 <div class="text-xs text-slate-900 font-sans p-1 min-w-[210px]">
                     <div class="font-bold text-sm text-sky-800 border-b border-sky-200 pb-1 mb-1.5 flex items-center gap-1.5">
-                        <i class="fa-solid fa-anchor text-sky-600"></i> <span>ĐIỂM HIỆN TẠI / KẾT THÚC</span>
+                        <i class="fa-solid fa-flag-checkered text-sky-600"></i> <span>ĐIỂM HIỆN TẠI / KẾT THÚC</span>
                     </div>
                     <div class="space-y-1 mb-2.5">
                         <div><strong>Thời gian:</strong> ${pt.time}</div>
@@ -880,33 +881,33 @@ async function loadRouteHistory() {
                         <div><strong>Tọa độ GPS:</strong> <span class="font-mono text-slate-700">${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}</span></div>
                     </div>
                     <button onclick="window.seekRoute(${idx})" class="w-full py-1.5 bg-sky-700 hover:bg-sky-800 text-white text-xs font-bold rounded shadow transition flex items-center justify-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-ship"></i> Tua tàu đến điểm cuối
+                        <i class="fa-solid fa-location-dot"></i> Tua đến điểm cuối
                     </button>
                 </div>
             `;
             const m = L.marker([pt.lat, pt.lng], { icon: endIcon, zIndexOffset: 1000 }).addTo(routeLayer).bindPopup(endPopup, { autoClose: true, closeOnClick: true });
             m.on('click', () => { seekRoute(idx, false); });
         } else if (pt.speed === 0 || pt.is_drifting) {
-            // ⚓ ĐIỂM TÀU DỪNG HOẶC TRÔI DẠT
+            // ⏸ ĐIỂM DỪNG HOẶC ĐỖ
             const stopIcon = L.divIcon({
                 className: '',
-                html: `<div class="w-5 h-5 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white text-[9px] shadow-md hover:scale-150 transition cursor-pointer" title="Điểm tàu dừng / neo đậu #${idx + 1}"><i class="fa-solid fa-anchor"></i></div>`,
+                html: `<div class="w-5 h-5 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white text-[9px] shadow-md hover:scale-150 transition cursor-pointer" title="Điểm dừng / đỗ #${idx + 1}"><i class="fa-solid fa-pause"></i></div>`,
                 iconSize: [20, 20],
                 iconAnchor: [10, 10]
             });
             const stopPopup = `
                 <div class="text-xs text-slate-900 font-sans p-1 min-w-[210px]">
                     <div class="font-bold text-sm text-amber-600 border-b border-amber-200 pb-1 mb-1.5 flex items-center gap-1.5">
-                        <i class="fa-solid fa-anchor text-amber-600"></i> <span>ĐIỂM TÀU DỪNG / NEO ĐẬU #${idx + 1}</span>
+                        <i class="fa-solid fa-pause text-amber-600"></i> <span>ĐIỂM DỪNG / ĐỖ #${idx + 1}</span>
                     </div>
                     <div class="space-y-1 mb-2.5">
                         <div><strong>Thời gian ghi nhận:</strong> ${pt.time}</div>
-                        <div><strong>Tình trạng:</strong> <span class="text-amber-600 font-bold">${pt.is_drifting ? 'Trôi dạt tự do' : 'Đang neo đậu (0 km/h)'}</span></div>
+                        <div><strong>Tình trạng:</strong> <span class="text-amber-600 font-bold">${pt.is_drifting ? 'Đang trôi / không di chuyển' : 'Đang dừng / đỗ (0 km/h)'}</span></div>
                         <div><strong>Dung lượng Pin:</strong> <span class="font-bold text-emerald-600">${pt.battery}%</span></div>
                         <div><strong>Tọa độ GPS:</strong> <span class="font-mono text-slate-700">${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}</span></div>
                     </div>
                     <button onclick="window.seekRoute(${idx})" class="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded shadow transition flex items-center justify-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-ship"></i> Tua tàu đến điểm này
+                        <i class="fa-solid fa-location-dot"></i> Tua đến điểm này
                     </button>
                 </div>
             `;
@@ -934,7 +935,7 @@ async function loadRouteHistory() {
                         <div><strong>Tọa độ GPS:</strong> <span class="font-mono text-slate-700">${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}</span></div>
                     </div>
                     <button onclick="window.seekRoute(${idx})" class="w-full py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded shadow transition flex items-center justify-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-ship"></i> Tua tàu đến điểm này
+                        <i class="fa-solid fa-location-dot"></i> Tua đến điểm này
                     </button>
                 </div>
             `;
@@ -956,13 +957,13 @@ async function loadRouteHistory() {
                     </div>
                     <div class="space-y-1 mb-2.5">
                         <div><strong>Thời gian:</strong> ⏱ ${pt.time}</div>
-                        <div><strong>Tình trạng:</strong> <span class="text-emerald-600 font-medium">Đang hành trình trên biển</span></div>
+                        <div><strong>Tình trạng:</strong> <span class="text-emerald-600 font-medium">Đang di chuyển</span></div>
                         <div><strong>Vận tốc:</strong> <span class="font-bold text-sky-700">${pt.speed} km/h</span></div>
                         <div><strong>Dung lượng Pin:</strong> <span class="font-bold text-emerald-600">${pt.battery}%</span></div>
                         <div><strong>Tọa độ GPS:</strong> <span class="font-mono text-slate-700">${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}</span></div>
                     </div>
                     <button onclick="window.seekRoute(${idx})" class="w-full py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded shadow transition flex items-center justify-center gap-1 cursor-pointer">
-                        <i class="fa-solid fa-ship"></i> Tua tàu đến điểm này
+                        <i class="fa-solid fa-location-dot"></i> Tua đến điểm này
                     </button>
                 </div>
             `;
@@ -971,16 +972,16 @@ async function loadRouteHistory() {
         }
     });
 
-    // 3. MARKER TÀU DI CHUYỂN TRÊN HÀNH TRÌNH
-    const movingShipIcon = L.divIcon({
+    // 3. MARKER PHƯƠNG TIỆN / THIẾT BỊ DI CHUYỂN TRÊN HÀNH TRÌNH
+    const movingMarkerIcon = L.divIcon({
         className: '',
         html: `<div class="w-8 h-8 rounded-full bg-orange-600 border-2 border-white flex items-center justify-center text-white text-xs shadow-xl ring-4 ring-orange-300">
-            <i class="fa-solid fa-ship"></i>
+            <i class="fa-solid fa-location-dot"></i>
         </div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 16]
     });
-    movingMarker = L.marker(latlngs[0], { icon: movingShipIcon, zIndexOffset: 2000 }).addTo(routeLayer);
+    movingMarker = L.marker(latlngs[0], { icon: movingMarkerIcon, zIndexOffset: 2000 }).addTo(routeLayer);
     movingMarker.bindPopup('', { autoClose: true, closeOnClick: true });
 
     document.getElementById('route-slider').max = routePoints.length - 1;
@@ -1023,20 +1024,20 @@ function seekRoute(idx, openShipPopup = true) {
 
     movingMarker.setLatLng([pt.lat, pt.lng]);
 
-    let statusText = '<span class="text-emerald-600 font-semibold">Đang hành trình trên biển</span>';
-    let badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 text-[11px]"><i class="fa-solid fa-ship mr-1"></i>Hành trình</span>';
+    let statusText = '<span class="text-emerald-600 font-semibold">Đang di chuyển</span>';
+    let badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 text-[11px]"><i class="fa-solid fa-location-dot mr-1"></i>Di chuyển</span>';
     if (pt.is_sos) {
         statusText = '<span class="text-red-600 font-bold uppercase">🚨 Báo động SOS khẩn cấp!</span>';
         badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-red-600/20 text-red-400 font-bold border border-red-500/30 text-[11px] animate-pulse"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Báo động SOS</span>';
     } else if (pt.speed === 0 || pt.is_drifting) {
-        statusText = '<span class="text-amber-600 font-bold">⚓ Tàu đang dừng / neo đậu</span>';
-        badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 text-[11px]"><i class="fa-solid fa-anchor mr-1"></i>Neo đậu</span>';
+        statusText = '<span class="text-amber-600 font-bold">⏸ Đang dừng / đỗ</span>';
+        badgeHtml = '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 text-[11px]"><i class="fa-solid fa-pause mr-1"></i>Dừng / Đỗ</span>';
     }
 
     const popupHtml = `
         <div class="text-xs text-slate-900 font-sans p-1 min-w-[210px]">
             <div class="font-bold text-sm text-orange-600 border-b pb-1 mb-1 flex items-center gap-1.5">
-                <i class="fa-solid fa-ship"></i> <span>VỊ TRÍ HÀNH TRÌNH TÀU</span>
+                <i class="fa-solid fa-location-dot text-orange-600"></i> <span>VỊ TRÍ HÀNH TRÌNH GPS</span>
             </div>
             <div class="space-y-1">
                 <div><strong>Thời gian:</strong> ⏱ ${pt.time}</div>
@@ -2343,8 +2344,9 @@ function updateDeviceTableRealtime(devices) {
             newTr.setAttribute('onclick', `handleDeviceRowClick(event, '${d.id}')`);
             newTr.setAttribute('title', 'Nhấn vào hàng để chuyển sang Bản đồ và phóng to vị trí thiết bị này');
 
-            const typeBg = d.type_bg || (d.device_type_raw === 'CAMERA' ? 'bg-blue-600' : (d.device_type_raw === 'NUT_NHAN' ? 'bg-cyan-600' : 'bg-emerald-600'));
-            const typeLabel = d.type_label || d.device_type || 'Nút nhấn';
+            const isGpsDev = Boolean(d.has_gps);
+            const typeBg = d.type_bg || (d.device_type_raw === 'CAMERA' ? 'bg-blue-600' : (d.device_type_raw === 'GATEWAY' ? 'bg-purple-600' : (isGpsDev ? 'bg-sky-600' : 'bg-cyan-600')));
+            const typeLabel = d.type_label || (isGpsDev ? 'Thiết bị GPS' : (d.device_type || 'Nút nhấn'));
             const catCls = d.cat_cls || 'border-emerald-500 text-emerald-400 bg-emerald-500/10';
             const catLabel = d.cat_label || d.category_type_display || 'Cấp Cứu/Y tế';
 

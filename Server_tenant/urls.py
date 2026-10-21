@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/devices/delete/', views.api_delete_devices, name='api_delete_devices'),
     path('api/users/create/', views.api_create_user, name='api_create_user'),
     path('api/users/change-password/', views.api_change_password, name='api_change_password'),
+    path('api/users/profile/', views.api_update_profile, name='api_update_profile'),
     path('api/users/delete/', views.api_delete_user, name='api_delete_user'),
     path('api/users/<int:user_id>/delete/', views.api_delete_user, name='api_delete_user_by_id'),
 

@@ -56,8 +56,8 @@ class Device(models.Model):
     device_type = models.CharField(max_length=50, choices=DeviceType.choices, default=DeviceType.NUT_NHAN)
     category_type = models.CharField(max_length=50, choices=CategoryType.choices, blank=True, null=True)
     
-    # Phân loại cứu hộ (Mục 2.1 & 2.2: Có GPS = Cứu hộ biển, Không GPS = Cứu hộ đất liền cố định)
-    has_gps = models.BooleanField(default=False, verbose_name="Có tích hợp GPS (Cứu hộ biển)")
+    # Phân loại thiết bị: Có GPS = Thiết bị GPS (phương tiện, xe, di động), Không GPS = Thiết bị cố định
+    has_gps = models.BooleanField(default=False, verbose_name="Có tích hợp GPS (Thiết bị GPS / Phương tiện)")
     
     # Nhóm thiết bị / Thiết bị GPS liên kết (Gán nút nhấn cho thiết bị GPS)
     parent_device = models.ForeignKey(
@@ -66,9 +66,9 @@ class Device(models.Model):
         null=True, 
         blank=True, 
         related_name="paired_devices",
-        verbose_name="Thiết bị GPS liên kết / Nhóm cha"
+        verbose_name="Thiết bị liên kết (Cùng nhà / Phương tiện chính)"
     )
-    group_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Tên nhóm / Đội thiết bị")
+    group_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Tên nhóm / Cùng nhà")
 
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, related_name="devices")
     customer_name = models.CharField(max_length=255, verbose_name="Tên người/đơn vị sở hữu")
@@ -105,8 +105,8 @@ class AlertLog(models.Model):
     class AlertType(models.TextChoices):
         CHAY = 'CHAY', 'Cháy'
         AN_NINH = 'AN_NINH', 'An ninh'
-        CAP_CUU_Y_TE = 'CAP_CUU_Y_TE', 'Cấp cứu/Y tế'
-        CUU_HO_BIEN = 'CUU_HO_BIEN', 'Cứu hộ biển khẩn cấp'
+        CAP_CUU_Y_TE = 'CAP_CUU_Y_TE', 'Cấp cứu / Y tế'
+        CUU_HO_BIEN = 'CUU_HO_BIEN', 'Cứu nạn / Cứu hộ khẩn cấp'
 
     class AlertStatus(models.TextChoices):
         NEW = 'NEW', 'Chưa xử lý (Mới)'

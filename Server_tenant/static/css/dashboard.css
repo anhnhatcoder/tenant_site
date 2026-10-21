@@ -42,16 +42,139 @@ body.hc-body {
   box-shadow: var(--shadow-card);
 }
 
+/* ================= HỆ THỐNG FORM & TEXTBOX CHUYÊN NGHIỆP (ENTERPRISE GRADE) ================= */
 .hc-input {
-  background-color: var(--bg-input);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+  background-color: #051a2d;
+  border: 1px solid #143d5f;
+  color: #f0fdfa;
+  border-radius: 8px;
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.25rem;
+  padding: 0.45rem 0.75rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
 }
 
+body.theme-light .hc-input {
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Hover mượt, tăng độ tương phản tinh tế thay vì đổi màu giật cục */
+.hc-input:hover:not(:disabled):not([readonly]) {
+  border-color: #1f5682;
+  background-color: #072138;
+}
+
+body.theme-light .hc-input:hover:not(:disabled):not([readonly]) {
+  border-color: #94a3b8;
+  background-color: #ffffff;
+}
+
+/* Focus sắc nét công thái học: viền chuẩn xác + ring đổ bóng mềm tinh tế, KHÔNG chói lóa như mẫu AI */
 .hc-input:focus {
   outline: none;
   border-color: #22ece9;
-  box-shadow: 0 0 0 2px rgba(34, 236, 233, 0.25);
+  background-color: #061e33;
+  box-shadow: 0 0 0 1px #22ece9, 0 1px 3px rgba(0, 0, 0, 0.25), 0 0 0 3px rgba(34, 236, 233, 0.15);
+}
+
+body.theme-light .hc-input:focus {
+  outline: none;
+  border-color: #0891b2;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 1px #0891b2, 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 3px rgba(8, 145, 178, 0.15);
+}
+
+/* Placeholder thanh lịch, dễ đọc, không dùng icon cảm xúc ngô nghê */
+.hc-input::placeholder {
+  color: #5c7f99;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  opacity: 1;
+}
+
+body.theme-light .hc-input::placeholder {
+  color: #94a3b8;
+}
+
+/* Trạng thái Readonly & Disabled: Tự nhiên, rõ ràng, không lẫn lộn */
+.hc-input:disabled,
+.hc-input[readonly] {
+  background-color: rgba(4, 18, 29, 0.65) !important;
+  border-color: #0e2d45 !important;
+  color: #82a5be !important;
+  cursor: not-allowed;
+  box-shadow: none;
+  user-select: text;
+}
+
+body.theme-light .hc-input:disabled,
+body.theme-light .hc-input[readonly] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+/* Tùy biến Select Dropdown chuẩn giao diện chuyên nghiệp: Mũi tên SVG tùy biến, không dùng mũi tên mặc định của trình duyệt */
+select.hc-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238ab4cc'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.25rem !important;
+  cursor: pointer;
+}
+
+body.theme-light select.hc-input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+}
+
+select.hc-input:hover {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2322ece9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+}
+
+select.hc-input option {
+  background-color: #072238;
+  color: #f0fdfa;
+  padding: 8px 12px;
+}
+
+body.theme-light select.hc-input option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+/* Ô tìm kiếm chuyên nghiệp với Icon nhúng */
+.hc-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.hc-search-wrapper .hc-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #5c7f99;
+  font-size: 0.8125rem;
+  pointer-events: none;
+  transition: color 0.18s ease;
+}
+
+.hc-search-wrapper:focus-within .hc-search-icon {
+  color: #22ece9;
+}
+
+.hc-search-wrapper .hc-input {
+  padding-left: 2.25rem !important;
 }
 
 .hc-text-muted {
@@ -114,6 +237,88 @@ body.hc-body {
 .hc-logo-box {
   border: 2px solid #22ece9;
 }
+
+/* Nút Logo kiêm Taskbar toggle: di chuột vào đổi thành biểu tượng Menu / Taskbar */
+.hc-logo-toggle-btn {
+  width: 2.5rem; /* 40px */
+  height: 2.5rem;
+  padding: 2px;
+  border-radius: 0.75rem; /* rounded-xl */
+  border: 2px solid var(--hc-cyan, #22ece9);
+  background-color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+@media (min-width: 640px) {
+  .hc-logo-toggle-btn {
+    width: 2.75rem; /* 44px */
+    height: 2.75rem;
+  }
+}
+
+.hc-logo-toggle-btn:hover {
+  border-color: #22ece9;
+  box-shadow: 0 0 14px rgba(34, 236, 233, 0.5);
+  transform: scale(1.05);
+}
+
+.hc-logo-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+/* Logo hiển thị ở trạng thái bình thường */
+.hc-logo-toggle-btn .hc-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Khi di chuột vào logo: ẩn logo đi */
+.hc-logo-toggle-btn:hover .hc-logo-img {
+  opacity: 0;
+  transform: scale(0.65);
+}
+
+/* Biểu tượng Taskbar / Menu xuất hiện khi hover */
+.hc-logo-toggle-btn .hc-taskbar-icon {
+  position: absolute;
+  inset: 2px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #072238 0%, #041523 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hc-cyan, #22ece9);
+  font-size: 1.05rem;
+  opacity: 0;
+  transform: scale(0.65);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .hc-logo-toggle-btn .hc-taskbar-icon {
+    font-size: 1.25rem;
+  }
+}
+
+/* Khi di chuột vào: hiện biểu tượng taskbar */
+.hc-logo-toggle-btn:hover .hc-taskbar-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
 
 @keyframes pulse-red {
   0% {
@@ -251,6 +456,11 @@ body.hc-body {
   min-height: 250px;
   border-radius: 0.75rem;
   z-index: 10;
+}
+
+/* Ẩn hoàn toàn thanh bản quyền / attribution của Leaflet */
+.leaflet-control-attribution {
+  display: none !important;
 }
 
 /* ================= THANH HÀNH TRÌNH GPS PLAYBACK ================= */
@@ -514,4 +724,177 @@ body.hc-body {
     height: calc(56px + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* ================= NÚT TÀI KHOẢN & DROPDOWN MENU CHUYỂN MÀU THEO GIAO DIỆN SÁNG / TỐI ================= */
+.hc-user-menu-btn {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border-radius: 0.6rem;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary) !important;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hc-user-menu-btn:hover {
+  border-color: var(--hc-cyan);
+}
+
+body.theme-light .hc-user-menu-btn {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a !important;
+}
+
+body.theme-light .hc-user-menu-btn:hover {
+  background-color: #ffffff;
+  border-color: #0891b2;
+}
+
+.hc-user-menu-btn .hc-user-avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background-color: var(--hc-cyan-soft);
+  color: var(--hc-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid rgba(34, 236, 233, 0.3);
+  flex-shrink: 0;
+}
+
+body.theme-light .hc-user-menu-btn .hc-user-avatar {
+  background-color: rgba(8, 145, 178, 0.12);
+  color: #0891b2;
+  border-color: rgba(8, 145, 178, 0.3);
+}
+
+.hc-user-menu-btn .hc-user-name {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--text-primary) !important;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.theme-light .hc-user-menu-btn .hc-user-name {
+  color: #0f172a !important;
+}
+
+.hc-user-menu-btn .hc-user-chevron {
+  font-size: 0.625rem;
+  color: var(--text-secondary) !important;
+  transition: transform 0.2s ease;
+}
+
+body.theme-light .hc-user-menu-btn .hc-user-chevron {
+  color: #64748b !important;
+}
+
+/* Dropdown menu tài khoản */
+.hc-user-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  width: 16rem; /* 256px */
+  border-radius: 0.75rem;
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+  padding: 0.5rem;
+  z-index: 1050;
+  color: var(--text-primary) !important;
+}
+
+body.theme-light .hc-user-dropdown-menu {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 14px 32px rgba(6, 35, 56, 0.14);
+}
+
+.hc-user-dropdown-header {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.375rem;
+}
+
+body.theme-light .hc-user-dropdown-header {
+  border-bottom-color: #e2e8f0;
+}
+
+.hc-user-dropdown-header .user-title {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: var(--text-primary) !important;
+}
+
+body.theme-light .hc-user-dropdown-header .user-title {
+  color: #0f172a !important;
+}
+
+.hc-user-dropdown-header .user-subtitle {
+  font-size: 0.6875rem;
+  color: var(--text-secondary) !important;
+}
+
+body.theme-light .hc-user-dropdown-header .user-subtitle {
+  color: #64748b !important;
+}
+
+.hc-user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  color: var(--text-primary) !important;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+body.theme-light .hc-user-dropdown-item {
+  color: #1e293b !important;
+}
+
+.hc-user-dropdown-item i {
+  width: 1.1rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.hc-user-dropdown-item:hover {
+  background-color: var(--hc-cyan-soft);
+  color: var(--hc-cyan) !important;
+}
+
+body.theme-light .hc-user-dropdown-item:hover {
+  background-color: rgba(8, 145, 178, 0.1);
+  color: #0891b2 !important;
+}
+
+.hc-user-dropdown-item.danger {
+  color: #f43f5e !important;
+}
+
+.hc-user-dropdown-item.danger:hover {
+  background-color: rgba(244, 63, 94, 0.12);
+  color: #e11d48 !important;
 }

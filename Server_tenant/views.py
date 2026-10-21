@@ -158,9 +158,11 @@ def dashboard_view(request):
         d.paired_sub_devices = d.paired_buttons
         d.paired_sub_count = d.paired_buttons_count
         if d.device_type == 'CAMERA':
-            d.type_label, d.type_bg = 'Camera', 'bg-emerald-600'
+            d.type_label, d.type_bg = 'Camera', 'bg-blue-600'
         elif d.device_type == 'GATEWAY':
             d.type_label, d.type_bg = 'Gateway', 'bg-purple-600'
+        elif d.has_gps:
+            d.type_label, d.type_bg = 'Thiết bị GPS', 'bg-sky-600'
         else:
             d.type_label, d.type_bg = 'Nút nhấn', 'bg-cyan-600'
 
@@ -172,7 +174,7 @@ def dashboard_view(request):
             d.cat_label, d.cat_cls = 'Cấp Cứu/Y tế', 'border-emerald-500 text-emerald-500'
 
     for log in alerts:
-        log.loc_display = f"Tọa độ biển: {log.latitude}, {log.longitude}" if log.device.has_gps else (log.address or '-')
+        log.loc_display = f"Tọa độ GPS: {log.latitude}, {log.longitude}" if (log.device and log.device.has_gps) else (log.address or '-')
         log.notes_display = log.notes if log.notes else '-'
         log.report_display = log.resolution_report if log.resolution_report else '-'
         log.is_open = (log.status != 'RESOLVED')
@@ -226,6 +228,9 @@ def dashboard_view(request):
         'role_badge_cls': role_badge_cls,
         'current_user_display': current_user_display,
         'current_username': request.user.username,
+        'current_user_fullname': request.user.first_name or '',
+        'current_user_phone': getattr(request.user, 'phone_number', '') or '',
+        'current_user_email': getattr(request.user, 'email', '') or '',
         'user_role_label': user_role_label,
         'total_devices': all_devs.count(),
         'online_count': online_count,
@@ -278,8 +283,14 @@ def api_dashboard_state(request):
     devices_data = []
     for d in devices_qs:
         loc_display = f"{round(float(d.latitude), 6)}, {round(float(d.longitude), 6)}" if (d.has_gps and d.latitude and d.longitude) else (d.address or "-")
-        type_bg = "bg-blue-600" if d.device_type == Device.DeviceType.CAMERA else ("bg-cyan-600" if d.device_type == Device.DeviceType.NUT_NHAN else "bg-emerald-600")
-        type_label = d.get_device_type_display()
+        if d.device_type == Device.DeviceType.CAMERA:
+            type_bg, type_label = "bg-blue-600", "Camera"
+        elif d.device_type == Device.DeviceType.GATEWAY:
+            type_bg, type_label = "bg-purple-600", "Gateway"
+        elif d.has_gps:
+            type_bg, type_label = "bg-sky-600", "Thiết bị GPS"
+        else:
+            type_bg, type_label = "bg-cyan-600", "Nút nhấn"
         cat_cls = "border-red-500 text-red-400 bg-red-500/10" if d.category_type == Device.CategoryType.CHAY else ("border-amber-500 text-amber-400 bg-amber-500/10" if d.category_type == Device.CategoryType.AN_NINH else "border-emerald-500 text-emerald-400 bg-emerald-500/10")
         cat_label = d.get_category_type_display() if d.category_type else "Cấp Cứu/Y tế"
         gps_code = "GPS" if d.has_gps else "STATIC"
@@ -302,7 +313,7 @@ def api_dashboard_state(request):
             'customer_name': d.customer_name or "",
             'emergency_phone': d.emergency_phone or "",
             'is_pending_assignment': not bool(d.customer_name and d.customer_name.strip()),
-            'address': d.address or 'Đang cập nhật GPS trên biển',
+            'address': d.address or ('Đang cập nhật tọa độ GPS' if d.has_gps else 'Chưa có địa chỉ'),
             'loc_display': loc_display,
             'latitude': float(d.latitude) if d.latitude else 16.054407,
             'longitude': float(d.longitude) if d.longitude else 108.202167,
@@ -343,7 +354,7 @@ def api_dashboard_state(request):
     alerts_data = []
     for log in alerts_qs:
         local_created = timezone.localtime(log.created_at) if log.created_at else None
-        loc_display = f"Tọa độ biển: {log.latitude}, {log.longitude}" if (log.device and log.device.has_gps) else (log.address or (log.device.address if log.device else '-') or '-')
+        loc_display = f"Tọa độ GPS: {log.latitude}, {log.longitude}" if (log.device and log.device.has_gps) else (log.address or (log.device.address if log.device else '-') or '-')
         device_name = log.device.device_name if log.device else 'Không xác định'
         dev_eui = log.device.dev_eui if log.device else ''
         alerts_data.append({
@@ -731,6 +742,45 @@ def api_change_password(request):
     return JsonResponse({
         'status': 'success',
         'message': 'Đổi mật khẩu thành công! Mật khẩu mới đã được cập nhật.'
+    })
+
+
+@csrf_exempt
+def api_update_profile(request):
+    """
+    Cập nhật thông tin cá nhân của người dùng hiện tại (Họ và tên, SĐT, Email).
+    Phần mật khẩu được tách riêng qua modal đổi mật khẩu.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Phương thức không được hỗ trợ!'}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Bạn chưa đăng nhập!'}, status=401)
+
+    try:
+        data = json.loads(request.body or '{}')
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Dữ liệu JSON không hợp lệ!'}, status=400)
+
+    full_name = data.get('full_name', '').strip()
+    phone_number = data.get('phone_number', '').strip()
+    email = data.get('email', '').strip()
+
+    if not full_name:
+        return JsonResponse({'status': 'error', 'message': 'Họ và tên không được để trống!'}, status=400)
+
+    request.user.first_name = full_name
+    request.user.phone_number = phone_number
+    if email:
+        request.user.email = email
+    request.user.save()
+
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Cập nhật thông tin cá nhân thành công!',
+        'full_name': request.user.first_name,
+        'phone_number': request.user.phone_number or '',
+        'email': request.user.email or ''
     })
 
 
@@ -1212,7 +1262,7 @@ def export_alerts_csv(request):
     for log in AlertLog.objects.select_related('device').all():
         writer.writerow([
             f"SOS-{log.id}", log.device.dev_eui, log.device.device_name,
-            "Cứu hộ Biển (GPS)" if log.device.has_gps else "Cứu hộ Đất liền",
+            "Thiết bị GPS" if log.device.has_gps else "Thiết bị cố định",
             log.get_status_display(),
             log.created_at.strftime('%d/%m/%Y %H:%M:%S'),
             log.acknowledged_at.strftime('%d/%m/%Y %H:%M:%S') if log.acknowledged_at else '-',
