@@ -160,5 +160,5 @@ HCTECH_IOT_BASE_URL = "https://iot-staging.hctech.com.vn/api/public/v1"
 
 HCTECH_IOT_API_TOKEN = "iot_RmsRJUHfZHzHk8d1mCWwSKK5kbstP9mgD1HCaUiWXCk"
 
-# Khóa bí mật xác thực Authorization: Bearer cho Inbound Webhook Uplink
+
 HCTECH_WEBHOOK_SECRET = os.environ.get('HCTECH_WEBHOOK_SECRET', '')

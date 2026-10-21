@@ -85,6 +85,7 @@ class Device(models.Model):
     )
     is_active = models.BooleanField(default=True, verbose_name="Đang theo dõi (Mục 2.3)")
     battery_level = models.IntegerField(default=100, verbose_name="Phần trăm pin (%)")
+    heartbeat_interval = models.IntegerField(default=300, verbose_name="Chu kỳ Heartbeat / Uplink (giây)")
     last_seen = models.DateTimeField(null=True, blank=True, verbose_name="Lần phản hồi cuối")
     description = models.TextField(blank=True, null=True, verbose_name="Ghi chú thiết bị")
     created_at = models.DateTimeField(auto_now_add=True)

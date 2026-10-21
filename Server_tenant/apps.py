@@ -32,6 +32,10 @@ class ServerTenantConfig(AppConfig):
                             ALTER TABLE {tbl} 
                             ADD COLUMN IF NOT EXISTS group_name varchar(255);
                         ''')
+                        cursor.execute(f'''
+                            ALTER TABLE {tbl} 
+                            ADD COLUMN IF NOT EXISTS heartbeat_interval integer DEFAULT 300;
+                        ''')
                         break
                     except Exception:
                         pass
@@ -78,3 +82,28 @@ class ServerTenantConfig(AppConfig):
             logger.info("[ServerTenantConfig] Database schema & cleanup check passed.")
         except Exception as e:
             logger.warning(f"[ServerTenantConfig] ready init error: {e}")
+
+        # 4. Kích hoạt luồng chạy ngầm kiểm tra Heartbeat định kỳ (mỗi 5 giây)
+        try:
+            import sys
+            if not any(arg in sys.argv for arg in ('makemigrations', 'migrate', 'collectstatic', 'dbshell')):
+                if not getattr(ServerTenantConfig, '_heartbeat_worker_started', False):
+                    ServerTenantConfig._heartbeat_worker_started = True
+                    import threading
+                    import time
+
+                    def _heartbeat_worker():
+                        time.sleep(3)
+                        while True:
+                            try:
+                                from .hctech_webhook import evaluate_device_connection_statuses
+                                evaluate_device_connection_statuses(broadcast=True)
+                            except Exception as ex:
+                                logger.debug(f"[HeartbeatWorker] Error: {ex}")
+                            time.sleep(5)
+
+                    t = threading.Thread(target=_heartbeat_worker, daemon=True, name="HeartbeatMonitorWorker")
+                    t.start()
+                    logger.info("[ServerTenantConfig] Luồng Heartbeat Monitor ngầm đã khởi động thành công.")
+        except Exception as e:
+            logger.warning(f"[ServerTenantConfig] Không thể khởi động Heartbeat Worker: {e}")

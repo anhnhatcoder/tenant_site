@@ -321,16 +321,21 @@
       </aside>
 
       <!-- MAIN WORKSPACE -->
-      <main class="flex-1 p-4 overflow-y-auto">
+      <main class="flex-1 p-2 sm:p-3 md:p-3.5 overflow-y-auto flex flex-col min-h-0 h-full">
         <!-- 1. TRANG CHỦ BẢN ĐỒ GIS & PLAYBACK -->
-        <section id="section-map" class="space-y-3">
+        <section id="section-map" class="h-full flex flex-col min-h-0 gap-2">
+          <!-- THANH ĐIỀU KHIỂN TRÊN: CHỌN THIẾT BỊ, THỜI GIAN & THÔNG SỐ (CHỈ HIỆN KHI Ở TAB HÀNH TRÌNH) -->
           <div
             id="playback-toolbar"
-            class="hidden hc-surface p-3 sm:p-3.5 rounded-xl border flex flex-col lg:flex-row flex-wrap items-stretch lg:items-center justify-between gap-3 text-xs"
+            class="hidden hc-surface px-3 py-2 sm:px-4 sm:py-2 rounded-xl border flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 text-xs shrink-0 shadow-sm"
           >
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <!-- Khối bên trái: Chọn thiết bị GPS & Khoảng thời gian -->
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-bold text-xs shrink-0 border border-cyan-500/20">
+                <i class="fa-solid fa-route"></i> Tua lại hành trình
+              </span>
               <!-- prettier-ignore -->
-              <select id="playback-device" class="hc-input rounded-lg px-3 py-1.5 text-xs w-full sm:w-auto">
+              <select id="playback-device" class="hc-input rounded-lg px-3 py-1.5 text-xs font-medium w-full sm:w-auto min-w-[210px]">
                 <option value="">-- Chọn tàu/thiết bị có GPS --</option>
                 {% for d in devices %}
                 {% if d.has_gps %}
@@ -341,7 +346,7 @@
               <div class="flex items-center gap-2">
                 <select
                   id="playback-range"
-                  class="hc-input rounded-lg px-3 py-1.5 text-xs flex-1 sm:flex-none"
+                  class="hc-input rounded-lg px-3 py-1.5 text-xs font-medium flex-1 sm:flex-none"
                 >
                   <option value="today">Hôm nay</option>
                   <option value="24h" selected>24 giờ qua</option>
@@ -349,63 +354,46 @@
                   <option value="30d">30 ngày qua</option>
                 </select>
                 <button
+                  type="button"
                   onclick="loadRouteHistory()"
-                  class="hc-btn-primary px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap"
+                  class="hc-btn-primary px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 shadow-sm active:scale-95 transition"
                 >
-                  <i class="fa-solid fa-magnifying-glass mr-1"></i> Tải hành trình
+                  <i class="fa-solid fa-magnifying-glass"></i> Tải hành trình
                 </button>
               </div>
             </div>
 
-            <div class="flex items-center space-x-2.5 sm:space-x-3 flex-1 max-w-full lg:max-w-md py-1">
+            <!-- Khối bên phải: Quãng đường, Vận tốc & Xuất KML -->
+            <div class="flex items-center justify-between md:justify-end gap-2.5 sm:gap-3 text-xs pt-1 md:pt-0 border-t md:border-t-0" style="border-color: var(--border-color)">
+              <div class="flex items-center gap-2 sm:gap-3">
+                <div class="flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                  <span class="hc-text-muted text-[11px]">Quãng đường:</span>
+                  <strong id="route-distance" class="text-emerald-400 font-mono font-bold">0.0 km</strong>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                  <span class="hc-text-muted text-[11px]">Vận tốc:</span>
+                  <strong id="route-speed" class="text-cyan-400 font-mono font-bold">0 km/h</strong>
+                </div>
+              </div>
               <button
-                onclick="togglePlayRoute()"
-                id="btn-play"
-                class="hc-btn-primary w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-              >
-                <i class="fa-solid fa-play"></i>
-              </button>
-              <input
-                type="range"
-                id="route-slider"
-                min="0"
-                max="100"
-                value="0"
-                oninput="seekRoute(this.value)"
-                class="w-full accent-cyan-400"
-              />
-              <select
-                id="playback-speed"
-                onchange="changeSpeed(this.value)"
-                class="hc-input rounded-lg px-2 py-1 text-xs font-bold shrink-0"
-              >
-                <option value="1">1x</option>
-                <option value="2">2x</option>
-                <option value="4">4x</option>
-                <option value="8">8x</option>
-              </select>
-            </div>
-
-            <div class="flex items-center justify-between sm:justify-start space-x-2 sm:space-x-4 text-xs pt-1 sm:pt-0 border-t sm:border-t-0" style="border-color: var(--border-color)">
-              <span>Quãng đường: <strong id="route-distance" class="text-emerald-500">0.0 km</strong></span>
-              <span>Tốc độ: <strong id="route-speed" class="text-cyan-400">0 km/h</strong></span>
-              <button
+                type="button"
                 onclick="exportRouteKML()"
-                class="hc-input px-3 py-1.5 rounded-lg font-semibold shrink-0"
+                class="hc-input px-3 py-1.5 rounded-lg font-semibold shrink-0 hover:bg-slate-700/50 transition active:scale-95 text-xs flex items-center gap-1.5"
+                title="Xuất file KML cho Google Earth"
               >
-                <i class="fa-solid fa-download mr-1"></i> Xuất KML
+                <i class="fa-solid fa-download text-cyan-400"></i> <span class="hidden sm:inline">Xuất</span> KML
               </button>
             </div>
           </div>
 
-          <!-- KHUNG BẢN ĐỒ + HỘP LỌC NHỎ NẰM GỌN TRÊN GÓC DƯỚI BÊN PHẢI BẢN ĐỒ -->
-          <div class="relative w-full">
-            <div id="gis-map"></div>
+          <!-- KHUNG BẢN ĐỒ GIS CHIẾM TRỌN DIỆN TÍCH Ở GIỮA -->
+          <div class="relative w-full flex-1 min-h-0 rounded-xl overflow-hidden border" style="border-color: var(--border-color)">
+            <div id="gis-map" class="w-full h-full"></div>
 
             <!-- Hộp lọc nhỏ gọn đè nổi ở góc dưới bên phải bên trong bản đồ kèm chú thích biểu tượng -->
             <div
               id="map-filter-box"
-              class="absolute bottom-7 right-3 z-[400] w-64 hc-surface border rounded-xl p-3 shadow-2xl backdrop-blur-md"
+              class="absolute bottom-5 right-3 z-[400] w-64 hc-surface border rounded-xl p-3 shadow-2xl backdrop-blur-md"
             >
               <div
                 onclick="toggleFilterBody()"
@@ -501,6 +489,101 @@
                     <i class="fa-solid fa-expand text-cyan-400"></i> Zoom bao quát thiết bị
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- THANH HÀNH TRÌNH VÀ BỘ ĐIỀU KHIỂN PHÁT LẠI PLAYBACK (CHỈ HIỆN KHI Ở TAB HÀNH TRÌNH) -->
+          <div
+            id="playback-player-bar"
+            class="hidden hc-surface px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border flex flex-col gap-1.5 shrink-0 shadow-lg"
+          >
+            <!-- Dòng 1: Thời điểm GPS, Trạng thái điểm tọa độ, Bộ đếm vị trí -->
+            <div class="flex items-center justify-between text-xs px-1">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 font-semibold text-[11px]">
+                  <i class="fa-regular fa-clock"></i> Thời điểm:
+                </span>
+                <span id="route-current-time" class="font-mono font-bold text-slate-100">Chưa tải hành trình</span>
+              </div>
+              <div class="flex items-center gap-2.5 text-[11px]">
+                <span id="route-point-status" class="inline-block font-medium"></span>
+                <span class="hc-text-muted font-mono" id="route-step-indicator">Điểm: 0 / 0</span>
+              </div>
+            </div>
+
+            <!-- Dòng 2: Thanh trượt hành trình toàn dải (Full Width Timeline Slider) -->
+            <div class="w-full px-1 flex items-center">
+              <input
+                type="range"
+                id="route-slider"
+                min="0"
+                max="100"
+                value="0"
+                oninput="seekRoute(this.value)"
+                class="w-full accent-cyan-400 cursor-pointer h-2 bg-slate-700/80 rounded-lg transition-all"
+              />
+            </div>
+
+            <!-- Dòng 3: Nút điều khiển phát lại (Đầu, Lùi 1 điểm, Phát/Tạm dừng, Tiến 1 điểm, Cuối) & Tốc độ tua -->
+            <div class="flex items-center justify-between gap-2 pt-0.5">
+              <div class="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onclick="seekRoute(0)"
+                  class="hc-input w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/10 transition active:scale-95"
+                  title="Về điểm xuất phát (Đầu hành trình)"
+                >
+                  <i class="fa-solid fa-backward-step"></i>
+                </button>
+                <button
+                  type="button"
+                  onclick="stepRoute(-1)"
+                  class="hc-input w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/10 transition active:scale-95"
+                  title="Lùi 1 điểm tọa độ"
+                >
+                  <i class="fa-solid fa-backward"></i>
+                </button>
+                <button
+                  type="button"
+                  onclick="togglePlayRoute()"
+                  id="btn-play"
+                  class="hc-btn-primary w-10 h-8 sm:w-11 sm:h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shadow-md hover:shadow-cyan-500/30 transition active:scale-95"
+                  title="Phát / Tạm dừng"
+                >
+                  <i class="fa-solid fa-play"></i>
+                </button>
+                <button
+                  type="button"
+                  onclick="stepRoute(1)"
+                  class="hc-input w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/10 transition active:scale-95"
+                  title="Tiến 1 điểm tọa độ"
+                >
+                  <i class="fa-solid fa-forward"></i>
+                </button>
+                <button
+                  type="button"
+                  onclick="seekRoute(routePoints.length ? routePoints.length - 1 : 0)"
+                  class="hc-input w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-cyan-500/10 transition active:scale-95"
+                  title="Đến điểm cuối hành trình"
+                >
+                  <i class="fa-solid fa-forward-step"></i>
+                </button>
+              </div>
+
+              <!-- Chọn tốc độ phát -->
+              <div class="flex items-center gap-1.5 text-xs">
+                <span class="hc-text-muted text-[11px] hidden xs:inline">Tốc độ tua:</span>
+                <select
+                  id="playback-speed"
+                  onchange="changeSpeed(this.value)"
+                  class="hc-input rounded-lg px-2.5 py-1 text-xs font-bold text-cyan-400 cursor-pointer"
+                >
+                  <option value="1">1x</option>
+                  <option value="2">2x</option>
+                  <option value="4">4x</option>
+                  <option value="8">8x</option>
+                </select>
               </div>
             </div>
           </div>
@@ -786,14 +869,14 @@
               </select>
             </div>
             <div>
-              <label class="block font-semibold mb-1 hc-text-muted">Nhóm thiết bị</label>
+              <label class="block font-semibold mb-1 hc-text-muted">Nhóm / Cùng nhà</label>
               <select
                 id="dev-group-filter"
                 onchange="filterDeviceTable()"
                 class="w-full hc-input rounded-lg px-3 py-2"
               >
-                <option value="">Tất cả liên kết nhóm</option>
-                <option value="PAIRED">Đã gán vào GPS / Có nút gán</option>
+                <option value="">Tất cả thiết bị</option>
+                <option value="PAIRED">Đã gán nhóm / Cùng nhà</option>
                 <option value="UNPAIRED">Chưa gán nhóm (Độc lập)</option>
               </select>
             </div>
@@ -841,7 +924,7 @@
                     <th class="p-3.5">Lĩnh vực</th>
                     <th class="p-3.5">Tên thiết bị</th>
                     <th class="p-3.5">ID / DevEUI</th>
-                    <th class="p-3.5">Nhóm / GPS liên kết</th>
+                    <th class="p-3.5">Nhóm / Cùng nhà</th>
                     <th class="p-3.5">Chủ hộ / SĐT</th>
                     <th class="p-3.5">Vị trí / Tọa độ</th>
                     <th class="p-3.5">Trạng thái</th>
@@ -850,7 +933,7 @@
                 <!-- prettier-ignore -->
                 <tbody id="device-table-body" class="divide-y" style="border-color: var(--border-color)">
                   {% for d in devices %}
-                  <tr class="device-row hover:bg-cyan-500/10 transition cursor-pointer" data-id="{{ d.id }}" data-deveui="{{ d.dev_eui }}" data-type="{{ d.device_type }}" data-conn="{{ d.connection_status }}" data-gps="{{ d.gps_code }}" data-has-parent="{% if d.parent_id %}true{% else %}false{% endif %}" data-sub-count="{{ d.paired_buttons_count|default:0 }}" onclick="handleDeviceRowClick(event, '{{ d.id }}')" title="Nhấn vào hàng để chuyển sang Bản đồ và phóng to vị trí thiết bị này">
+                  <tr class="device-row hover:bg-cyan-500/10 transition cursor-pointer" data-id="{{ d.id }}" data-deveui="{{ d.dev_eui }}" data-type="{{ d.device_type }}" data-conn="{{ d.connection_status }}" data-gps="{{ d.gps_code }}" data-has-parent="{% if d.parent_id %}true{% else %}false{% endif %}" data-sub-count="{{ d.paired_sub_count|default:0 }}" data-group="{{ d.group_name_display }}" onclick="handleDeviceRowClick(event, '{{ d.id }}')" title="Nhấn vào hàng để chuyển sang Bản đồ và phóng to vị trí thiết bị này">
                     <td class="p-3.5"><input type="checkbox" class="dev-check" value="{{ d.id }}" onclick="event.stopPropagation()" /></td>
                     <td class="p-3.5 whitespace-nowrap row-type">
                       <span class="inline-block whitespace-nowrap {{ d.type_bg }} text-white px-3 py-1 rounded-full text-[11px] font-bold">{{ d.type_label }}</span>
@@ -866,36 +949,49 @@
                     </td>
                     <td class="p-3.5 font-mono hc-text-muted row-deveui">{{ d.dev_eui }}</td>
                     <td class="p-3.5 row-group whitespace-nowrap">
-                      {% if d.has_gps %}
-                        {% if d.paired_buttons_count > 0 %}
-                          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-bold" title="Các nút liên kết: {% for b in d.paired_buttons %}{{ b.device_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
-                            <i class="fa-solid fa-circle-dot text-purple-400"></i>
-                            <span>{{ d.paired_buttons_count }} nút nhấn</span>
+                      {% if d.parent_name %}
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold" title="Cùng nhà với: {{ d.parent_name }}{% if d.group_name_display %} • Nhóm: {{ d.group_name_display }}{% endif %}">
+                            <i class="fa-solid fa-house-user text-cyan-400"></i>
+                            <span class="truncate max-w-[130px]">{% if d.group_name_display %}{{ d.group_name_display }}{% else %}Cùng: {{ d.parent_name }}{% endif %}</span>
                           </span>
-                        {% else %}
-                          <span class="text-slate-500 text-[11px] italic">Chưa có nút gán</span>
-                        {% endif %}
-                      {% else %}
-                        {% if d.parent_name %}
-                          <div class="flex items-center gap-1.5">
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold" title="Gán vào GPS: {{ d.parent_name }}">
-                              <i class="fa-solid fa-link text-cyan-400"></i>
-                              <span class="truncate max-w-[130px]">{{ d.parent_name }}</span>
-                            </span>
-                            {% if is_admin %}
-                            <button type="button" onclick="event.stopPropagation(); openQuickPairModal('{{ d.id }}', '{{ d.device_name|escapejs }}', '{{ d.parent_id|default:'' }}', '{{ d.group_name_display|escapejs }}')" class="text-cyan-400 hover:text-white p-1 text-[11px]" title="Đổi nhóm / GPS liên kết">
-                              <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                            {% endif %}
-                          </div>
-                        {% else %}
                           {% if is_admin %}
-                          <button type="button" onclick="event.stopPropagation(); openQuickPairModal('{{ d.id }}', '{{ d.device_name|escapejs }}', '', '')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-cyan-600/30 text-slate-300 hover:text-cyan-300 text-[11px] font-semibold border border-dashed border-slate-600 transition flex items-center gap-1 shadow-sm">
-                            <i class="fa-solid fa-link text-[10px] text-cyan-400"></i> Gán GPS
+                          <button type="button" onclick="event.stopPropagation(); openQuickPairModal('{{ d.id }}', '{{ d.device_name|escapejs }}', '{{ d.parent_id|default:'' }}', '{{ d.group_name_display|escapejs }}')" class="text-cyan-400 hover:text-white p-1 text-[11px]" title="Đổi nhóm / Thiết bị liên kết">
+                            <i class="fa-solid fa-pen-to-square"></i>
                           </button>
-                          {% else %}
-                          <span class="text-slate-500 text-[11px]">-</span>
                           {% endif %}
+                        </div>
+                      {% elif d.paired_sub_count > 0 %}
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-bold" title="Thiết bị cùng nhà: {% for b in d.paired_sub_devices %}{{ b.device_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                            <i class="fa-solid fa-house text-purple-400"></i>
+                            <span>{% if d.group_name_display %}{{ d.group_name_display }} • {% endif %}{{ d.paired_sub_count }} thiết bị cùng nhà</span>
+                          </span>
+                          {% if is_admin %}
+                          <button type="button" onclick="event.stopPropagation(); openQuickPairModal('{{ d.id }}', '{{ d.device_name|escapejs }}', '', '{{ d.group_name_display|escapejs }}')" class="text-purple-400 hover:text-white p-1 text-[11px]" title="Chỉnh sửa nhóm">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                          </button>
+                          {% endif %}
+                        </div>
+                      {% elif d.group_name_display %}
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold" title="Nhóm: {{ d.group_name_display }}">
+                            <i class="fa-solid fa-users-rectangle text-emerald-400"></i>
+                            <span class="truncate max-w-[130px]">{{ d.group_name_display }}</span>
+                          </span>
+                          {% if is_admin %}
+                          <button type="button" onclick="event.stopPropagation(); openQuickPairModal('{{ d.id }}', '{{ d.device_name|escapejs }}', '', '{{ d.group_name_display|escapejs }}')" class="text-emerald-400 hover:text-white p-1 text-[11px]" title="Đổi nhóm">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                          </button>
+                          {% endif %}
+                        </div>
+                      {% else %}
+                        {% if is_admin %}
+                        <button type="button" onclick="event.stopPropagation(); openQuickPairModal('{{ d.id }}', '{{ d.device_name|escapejs }}', '', '')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-cyan-600/30 text-slate-300 hover:text-cyan-300 text-[11px] font-semibold border border-dashed border-slate-600 transition flex items-center gap-1 shadow-sm" title="Gán thiết bị này cùng nhà với thiết bị khác">
+                          <i class="fa-solid fa-link text-[10px] text-cyan-400"></i> Gán thiết bị
+                        </button>
+                        {% else %}
+                        <span class="text-slate-500 text-[11px]">-</span>
                         {% endif %}
                       {% endif %}
                     </td>
@@ -915,8 +1011,40 @@
                         <div class="hc-text-muted text-[11px]">{{ d.emergency_phone|default:'-' }}</div>
                       {% endif %}
                     </td>
-                    <td class="p-3.5 row-loc">{{ d.loc_display }}</td>
-                    <td class="p-3.5 font-semibold whitespace-nowrap row-status">{{ d.get_connection_status_display }}</td>
+                    <td class="p-3.5 whitespace-nowrap row-status">
+                      {% if d.connection_status == 'ONLINE' %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          Đang kết nối
+                        </span>
+                      {% elif d.connection_status == 'SOS' %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/50 animate-pulse">
+                          <i class="fa-solid fa-triangle-exclamation"></i>
+                          Đang phát SOS
+                        </span>
+                      {% elif d.connection_status == 'PROCESSING' %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                          <i class="fa-solid fa-spinner fa-spin"></i>
+                          Đang xử lý
+                        </span>
+                      {% elif d.connection_status == 'MAINTENANCE' %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/40">
+                          <i class="fa-solid fa-screwdriver-wrench"></i>
+                          Bảo trì
+                        </span>
+                      {% else %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/40">
+                          <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                          Mất kết nối
+                        </span>
+                      {% endif %}
+                      <div class="text-[10px] hc-text-muted mt-1 font-mono flex items-center gap-1" title="Chu kỳ Heartbeat: {{ d.heartbeat_interval|default:300 }}s • Phản hồi cuối: {{ d.last_seen_display }}">
+                        <i class="fa-solid fa-heart-pulse text-rose-400 text-[9px]"></i>
+                        <span>{{ d.heartbeat_interval|default:300 }}s</span>
+                        <span class="text-slate-600">•</span>
+                        <span>{{ d.last_seen_display }}</span>
+                      </div>
+                    </td>
                   </tr>
                   {% empty %}
                   <tr id="empty-device-row">
@@ -968,9 +1096,9 @@
                 </tr>
               </thead>
               <!-- prettier-ignore -->
-              <tbody class="divide-y" style="border-color: var(--border-color)">
+              <tbody id="alerts-table-body" class="divide-y" style="border-color: var(--border-color)">
                 {% for log in alerts %}
-                <tr class="hover:bg-cyan-500/10 transition">
+                <tr class="hover:bg-cyan-500/10 transition" data-alert-id="{{ log.id }}">
                   <td class="p-3.5 whitespace-nowrap">
                     <div class="font-bold text-red-500">#SOS-{{ log.id }}</div>
                     <div class="hc-text-muted">{{ log.created_at|date:"H:i:s d/m/Y" }}</div>
@@ -980,23 +1108,33 @@
                     <div class="hc-text-muted font-mono">{{ log.device.dev_eui }}</div>
                   </td>
                   <td class="p-3.5">{{ log.loc_display }}</td>
-                  <td class="p-3.5 font-semibold whitespace-nowrap">{{ log.get_status_display }}</td>
+                  <td class="p-3.5 whitespace-nowrap">
+                    {% if log.status == 'NEW' %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/50 animate-pulse"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Chưa xử lý (Mới)</span>
+                    {% elif log.status == 'PROCESSING' %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang xử lý</span>
+                    {% elif log.status == 'RESOLVED' %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"><i class="fa-solid fa-check mr-1"></i>Đã hoàn tất</span>
+                    {% else %}
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/40">Báo động giả</span>
+                    {% endif %}
+                  </td>
                   <td class="p-3.5">
                     <div><strong>Điều phối:</strong> <span>{{ log.notes_display }}</span></div>
                     <div><strong>Kết quả:</strong> <span>{{ log.report_display }}</span></div>
                   </td>
                   <td class="p-3.5 whitespace-nowrap">
                     {% if log.is_open %}
-                    <button type="button" data-id="{{ log.id }}" data-name="{{ log.device.device_name }}" data-eui="{{ log.device.dev_eui }}" onclick="openCoordinationModal(this.dataset.id, this.dataset.name, this.dataset.eui)" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg">
+                    <button type="button" data-id="{{ log.id }}" data-name="{{ log.device.device_name }}" data-eui="{{ log.device.dev_eui }}" onclick="openCoordinationModal(this.dataset.id, this.dataset.name, this.dataset.eui)" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm cursor-pointer">
                       Điều phối / Đóng hồ sơ
                     </button>
                     {% else %}
-                    <span class="text-emerald-500 font-semibold"><i class="fa-solid fa-check-circle"></i> Đã đóng băng</span>
+                    <span class="text-emerald-500 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>Đã đóng băng</span>
                     {% endif %}
                   </td>
                 </tr>
                 {% empty %}
-                <tr>
+                <tr id="empty-alerts-row">
                   <td colspan="6" class="p-6 text-center hc-text-muted">Chưa có sự kiện SOS nào.</td>
                 </tr>
                 {% endfor %}
@@ -1361,6 +1499,37 @@
             </div>
           </div>
           <div>
+            <label class="block hc-text-muted mb-1 flex items-center justify-between">
+              <span><i class="fa-solid fa-heart-pulse text-rose-400 mr-1"></i> Chu kỳ Heartbeat / Uplink (giây) *</span>
+              <span class="text-[10px] text-cyan-400">Kiểm tra Online/Offline</span>
+            </label>
+            <div class="flex gap-2">
+              <input
+                id="reg-heartbeat-interval"
+                type="number"
+                min="5"
+                step="1"
+                value="300"
+                placeholder="300"
+                class="w-full hc-input rounded-lg px-3 py-2 font-mono"
+              />
+              <select
+                onchange="if(this.value){ document.getElementById('reg-heartbeat-interval').value = this.value; }"
+                class="hc-input rounded-lg px-2 py-2 text-xs text-slate-300 shrink-0 cursor-pointer"
+                title="Chọn nhanh chu kỳ heartbeat"
+              >
+                <option value="">Gợi ý</option>
+                <option value="60">1 phút (60s)</option>
+                <option value="120">2 phút (120s)</option>
+                <option value="300" selected>5 phút (300s)</option>
+                <option value="600">10 phút (600s)</option>
+                <option value="1800">30 phút (1800s)</option>
+                <option value="3600">1 giờ (3600s)</option>
+              </select>
+            </div>
+            <p class="text-[10px] hc-text-muted mt-0.5">Nếu quá thời gian này không nhận được bản tin uplink, server sẽ chuyển sang Mất kết nối (Offline).</p>
+          </div>
+          <div>
             <label class="block hc-text-muted mb-1">Chế độ định vị GPS</label>
             <select
               id="reg-has-gps"
@@ -1375,15 +1544,21 @@
           </div>
           <div id="reg-pairing-container" class="p-2.5 rounded-xl border border-cyan-500/30 bg-cyan-950/20 space-y-1.5">
             <label class="block font-bold text-cyan-300 text-[11px]">
-              <i class="fa-solid fa-link mr-1"></i> Gán nút nhấn vào Thiết bị GPS (Nhóm tàu/xe)
+              <i class="fa-solid fa-link mr-1"></i> Gán cùng nhà / Thiết bị liên kết:
             </label>
             <select id="reg-parent-id" class="w-full hc-input rounded-lg px-3 py-2 text-xs">
               <option value="">-- Hoạt động độc lập (Không gán) --</option>
-              {% for g in gps_devices %}
-              <option value="{{ g.id }}">🚢 {{ g.device_name }} ({{ g.dev_eui }})</option>
+              {% for other in devices %}
+              <option value="{{ other.id }}">
+                {% if other.device_type == 'GATEWAY' %}📡 Trạm Gateway:
+                {% elif other.device_type == 'CAMERA' %}📹 Camera:
+                {% elif other.has_gps %}🚢 Tàu GPS:
+                {% else %}🔔 Nút nhấn:{% endif %}
+                {{ other.device_name }} ({{ other.dev_eui }})
+              </option>
               {% endfor %}
             </select>
-            <input type="text" id="reg-group-name" placeholder="Tên nhóm / Đội tàu (Tùy chọn)" class="w-full hc-input rounded-lg px-3 py-1.5 text-xs" />
+            <input type="text" id="reg-group-name" placeholder="Tên nhà / Hộ gia đình / Nhóm (Tùy chọn)" class="w-full hc-input rounded-lg px-3 py-1.5 text-xs" />
           </div>
           <div id="address-only-field">
             <label class="block hc-text-muted mb-1">Địa chỉ tĩnh</label>
@@ -1782,29 +1957,68 @@
             </select>
           </div>
 
-          <!-- Nhóm thiết bị & Gán với GPS -->
+          <!-- Heartbeat / Uplink interval -->
+          <div>
+            <label class="block font-semibold mb-1 hc-text-muted flex items-center justify-between">
+              <span><i class="fa-solid fa-heart-pulse text-rose-400 mr-1"></i> Chu kỳ Heartbeat / Uplink (giây): <span class="text-red-400">*</span></span>
+              <span class="text-[10px] text-cyan-400">Kiểm tra Online / Offline</span>
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="number"
+                id="assign-heartbeat-interval"
+                min="5"
+                step="1"
+                value="300"
+                placeholder="300"
+                class="w-full hc-input rounded-xl px-3 py-2 font-mono text-xs"
+              />
+              <select
+                onchange="if(this.value){ document.getElementById('assign-heartbeat-interval').value = this.value; }"
+                class="hc-input rounded-xl px-2.5 py-2 text-xs text-slate-300 shrink-0 cursor-pointer"
+                title="Chọn nhanh chu kỳ heartbeat"
+              >
+                <option value="">Gợi ý</option>
+                <option value="60">1 phút (60s)</option>
+                <option value="120">2 phút (120s)</option>
+                <option value="300">5 phút (300s)</option>
+                <option value="600">10 phút (600s)</option>
+                <option value="1800">30 phút (1800s)</option>
+                <option value="3600">1 giờ (3600s)</option>
+              </select>
+            </div>
+            <p class="text-[10px] hc-text-muted mt-1">Chu kỳ uplink định kỳ của thiết bị. Nếu quá thời gian này mà server không nhận được tin, thiết bị sẽ chuyển sang Offline.</p>
+          </div>
+
+          <!-- Nhóm thiết bị & Gán với nhau (Cùng nhà) -->
           <div id="assign-pairing-container" class="p-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 space-y-2">
             <div class="flex items-center justify-between">
               <label class="block font-bold text-cyan-300 text-xs">
-                <i class="fa-solid fa-link mr-1"></i> Gán nút nhấn vào Thiết bị GPS (Nhóm tàu/xe)
+                <i class="fa-solid fa-link mr-1"></i> Gán cùng nhà / Thiết bị liên kết:
               </label>
-              <span class="text-[10px] text-cyan-400 bg-cyan-900/60 px-2 py-0.5 rounded-full border border-cyan-500/30 font-semibold">Đồng bộ SOS</span>
+              <span class="text-[10px] text-cyan-400 bg-cyan-900/60 px-2 py-0.5 rounded-full border border-cyan-500/30 font-semibold">Cùng nhà / Nhóm</span>
             </div>
             <p class="text-[11px] text-slate-400 leading-relaxed">
-              Khi nút nhấn này phát SOS, hệ thống sẽ kích hoạt báo động khẩn cấp cho thiết bị GPS được gán và vẽ điểm SOS lên hành trình Replay của tàu.
+              Gán thiết bị này cùng nhà hoặc cùng nhóm với thiết bị khác (ví dụ: nhiều nút nhấn trong cùng 1 gia đình/cơ sở).
             </p>
             <div>
-              <label class="block text-[11px] font-semibold mb-1 text-slate-300">Chọn thiết bị GPS liên kết:</label>
+              <label class="block text-[11px] font-semibold mb-1 text-slate-300">Chọn thiết bị liên kết (Thiết bị chính / Cùng nhà):</label>
               <select id="assign-parent-id" class="w-full hc-input rounded-xl px-3 py-2 text-xs font-medium cursor-pointer">
-                <option value="">-- Hoạt động độc lập (Không gán vào GPS) --</option>
-                {% for g in gps_devices %}
-                <option value="{{ g.id }}">🚢 {{ g.device_name }} ({{ g.dev_eui }}) - {{ g.customer_name|default:"Ngư dân" }}</option>
+                <option value="">-- Hoạt động độc lập (Không gán) --</option>
+                {% for other in devices %}
+                <option value="{{ other.id }}">
+                  {% if other.device_type == 'GATEWAY' %}📡 Trạm Gateway:
+                  {% elif other.device_type == 'CAMERA' %}📹 Camera:
+                  {% elif other.has_gps %}🚢 Tàu GPS:
+                  {% else %}🔔 Nút nhấn:{% endif %}
+                  {{ other.device_name }} ({{ other.dev_eui }})
+                </option>
                 {% endfor %}
               </select>
             </div>
             <div>
-              <label class="block text-[11px] font-semibold mb-1 text-slate-300">Tên nhóm / Đội tàu (Tùy chọn):</label>
-              <input type="text" id="assign-group-name" placeholder="Ví dụ: Đội Tàu Cứu Hộ Hải Châu / Đội Tàu Sơn Trà..." class="w-full hc-input rounded-xl px-3 py-2 text-xs" />
+              <label class="block text-[11px] font-semibold mb-1 text-slate-300">Tên nhà / Hộ gia đình / Nhóm:</label>
+              <input type="text" id="assign-group-name" placeholder="Ví dụ: Nhà số 12 Lê Lợi, Hộ gia đình ông Bùi Anh Nhật..." class="w-full hc-input rounded-xl px-3 py-2 text-xs" />
             </div>
           </div>
 
@@ -1838,18 +2052,18 @@
     </div>
 
     <!-- ======================================================================= -->
-    <!-- MODAL GÁN NHANH NÚT NHẤN VÀO GPS (QUICK PAIR MODAL) -->
+    <!-- MODAL GÁN THIẾT BỊ VỚI NHAU (CÙNG NHÀ / NHÓM) -->
     <!-- ======================================================================= -->
     <div id="quick-pair-modal" onclick="if(event.target === this) closeQuickPairModal()" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
       <div class="max-w-md w-full hc-surface border rounded-2xl shadow-2xl p-5 sm:p-6 space-y-4">
         <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--border-color)">
           <div class="flex items-center gap-2.5">
             <div class="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-base border border-cyan-500/30">
-              <i class="fa-solid fa-link"></i>
+              <i class="fa-solid fa-house-user"></i>
             </div>
             <div>
-              <h3 class="text-sm font-bold text-white">Gán Nút Nhấn Vào GPS</h3>
-              <p class="text-[11px] hc-text-muted">Nhóm nút nhấn với thiết bị GPS để đồng bộ SOS</p>
+              <h3 class="text-sm font-bold text-white">Gán Thiết Bị Với Nhau (Cùng Nhà)</h3>
+              <p class="text-[11px] hc-text-muted">Nhóm các thiết bị trong cùng 1 nhà, căn hộ hoặc cơ sở</p>
             </div>
           </div>
           <button type="button" onclick="closeQuickPairModal()" class="hc-text-muted hover:text-white text-base p-1.5 transition">
@@ -1861,28 +2075,43 @@
           <input type="hidden" id="quick-pair-dev-id" />
 
           <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 space-y-1">
-            <div class="text-[10px] text-slate-400 uppercase font-semibold">Nút nhấn đang chọn:</div>
+            <div class="text-[10px] text-slate-400 uppercase font-semibold">Thiết bị đang thao tác:</div>
             <div id="quick-pair-dev-name" class="font-bold text-cyan-300 text-sm">--</div>
           </div>
 
           <div>
             <label class="block font-semibold mb-1 hc-text-muted">
-              Chọn Thiết bị GPS cần gán (Tàu thuyền, xe, định vị): <span class="text-red-400">*</span>
+              Chọn Thiết bị liên kết (Thiết bị chính / Cùng nhà):
             </label>
-            <select id="quick-pair-gps-id" class="w-full hc-input rounded-xl px-3 py-2.5 text-xs font-semibold cursor-pointer border shadow-sm">
-              <option value="">-- Hủy gán (Hoạt động độc lập) --</option>
-              {% for g in gps_devices %}
-              <option value="{{ g.id }}">🚢 {{ g.device_name }} ({{ g.dev_eui }}) - {{ g.customer_name|default:"Ngư dân" }}</option>
+            <select id="quick-pair-parent-id" onchange="handleQuickPairParentChange()" class="w-full hc-input rounded-xl px-3 py-2.5 text-xs font-semibold cursor-pointer border shadow-sm">
+              <option value="">-- Hoạt động độc lập (Không gán với thiết bị nào) --</option>
+              {% for other in devices %}
+              <option value="{{ other.id }}" data-group="{{ other.group_name|default:'' }}" data-owner="{{ other.customer_name|default:'' }}" data-addr="{{ other.address|default:'' }}">
+                {% if other.device_type == 'GATEWAY' %}📡 Trạm Gateway:
+                {% elif other.device_type == 'CAMERA' %}📹 Camera:
+                {% elif other.has_gps %}🚢 Tàu thuyền (GPS):
+                {% else %}🔔 Nút nhấn:{% endif %}
+                {{ other.device_name }} ({{ other.dev_eui }}){% if other.customer_name %} - {{ other.customer_name }}{% endif %}
+              </option>
               {% endfor %}
             </select>
+            <!-- Giữ input ẩn id="quick-pair-gps-id" để tương thích ngược -->
+            <input type="hidden" id="quick-pair-gps-id" />
             <p class="text-[10px] text-cyan-400/90 mt-1.5">
-              <i class="fa-solid fa-circle-info mr-1"></i> Khi thuyền viên nhấn nút SOS, tàu GPS tương ứng sẽ lập tức phát báo động và ghim vị trí SOS lên hành trình Replay.
+              <i class="fa-solid fa-circle-info mr-1"></i> Ví dụ: Chọn Trạm Gateway hoặc Nút nhấn chính của nhà để gom các nút khác về cùng 1 gia đình/cơ sở.
             </p>
           </div>
 
           <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Tên nhóm / Đội tàu (Tùy chọn):</label>
-            <input type="text" id="quick-pair-group-name" placeholder="Ví dụ: Đội Tàu Đánh Cá Sơn Trà 01" class="w-full hc-input rounded-xl px-3 py-2 text-xs" />
+            <label class="block font-semibold mb-1 hc-text-muted">Tên nhà / Hộ gia đình / Nhóm thiết bị:</label>
+            <input type="text" id="quick-pair-group-name" placeholder="Ví dụ: Nhà số 12 Lê Lợi, Hộ gia đình ông Bùi Anh Nhật..." class="w-full hc-input rounded-xl px-3 py-2 text-xs" />
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-start gap-2">
+            <input type="checkbox" id="quick-pair-sync-info" class="mt-0.5 accent-cyan-400 rounded cursor-pointer" checked />
+            <label for="quick-pair-sync-info" class="text-[11px] text-slate-300 cursor-pointer select-none">
+              Đồng bộ tên chủ hộ, SĐT và địa chỉ từ thiết bị liên kết (nếu thiết bị này chưa có thông tin)
+            </label>
           </div>
 
           <div class="flex items-center justify-end gap-2.5 pt-3 border-t" style="border-color: var(--border-color)">

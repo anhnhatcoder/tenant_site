@@ -191,6 +191,150 @@ def is_truthy_sos(val, key_name="") -> bool:
     return False
 
 
+def extract_heartbeat_interval(payload: Dict[str, Any], metrics: Dict[str, Any]) -> Optional[int]:
+    """
+    Trích xuất chu kỳ uplink / heartbeat (giây) từ payload của IoT Platform:
+    Hỗ trợ cả JSON phẳng, measurements (HC TECH OutboundRecord), object (ChirpStack v4), attributes.
+    Ví dụ:
+    - {"heartbeat_interval": 60}
+    - {"uplink_interval": 300}
+    - {"interval": "120"}
+    - {"period": "5m"} -> 300
+    - {"measurements": [{"name": "uplink_interval", "value": 60}]}
+    """
+    candidate_keys = (
+        "heartbeat_interval", "heartbeatInterval", "uplink_interval", "uplinkInterval",
+        "heartbeat", "interval", "period", "uplink_period", "uplinkPeriod",
+        "heartbeat_seconds", "heartbeatSeconds", "uplink_seconds", "uplinkSeconds",
+        "heartbeat_time", "heartbeatTime", "uplink_time", "uplinkTime",
+        "report_interval", "reportInterval", "reporting_interval",
+        "thoi_gian_uplink", "chu_ky_uplink", "thoi_gian_heartbeat",
+        "heart_beat_interval", "uplink_cycle"
+    )
+    val = None
+    if isinstance(metrics, dict):
+        for k in candidate_keys:
+            if k in metrics and metrics[k] is not None:
+                val = metrics[k]
+                break
+    if val is None and isinstance(payload, dict):
+        for k in candidate_keys:
+            if k in payload and payload[k] is not None:
+                val = payload[k]
+                break
+
+    if val is not None:
+        try:
+            s_val = str(val).strip().lower()
+            if s_val.endswith('m') and not s_val.endswith('ms'):
+                return max(1, int(float(s_val[:-1]) * 60))
+            if s_val.endswith('h'):
+                return max(1, int(float(s_val[:-1]) * 3600))
+            if s_val.endswith('s'):
+                s_val = s_val[:-1].strip()
+            num = float(s_val)
+            if num > 0:
+                return max(1, int(num))
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def _broadcast_device_status_update(device: Device):
+    """Phát sự kiện SSE IOT_UPLINK khi trạng thái kết nối của thiết bị thay đổi theo heartbeat."""
+    local_last_seen = timezone.localtime(device.last_seen) if device.last_seen else None
+    broadcast_event("IOT_UPLINK", {
+        "device_id": device.id,
+        "dev_eui": device.dev_eui,
+        "device_name": device.device_name,
+        "device_type": device.device_type,
+        "device_type_display": device.get_device_type_display(),
+        "category_type": device.category_type,
+        "category_type_display": device.get_category_type_display() if device.category_type else "Cấp Cứu/Y tế",
+        "customer_name": device.customer_name or "",
+        "emergency_phone": device.emergency_phone or "",
+        "is_pending_assignment": not bool(device.customer_name and device.customer_name.strip()),
+        "parent_device_id": device.parent_device.id if device.parent_device else None,
+        "parent_device_name": device.parent_device.device_name if device.parent_device else None,
+        "group_name": device.group_name or "",
+        "address": device.address or "",
+        "has_gps": device.has_gps,
+        "connection_status": device.connection_status,
+        "connection_status_display": device.get_connection_status_display(),
+        "is_sos": (device.connection_status == Device.ConnectionStatus.SOS),
+        "battery_level": device.battery_level,
+        "latitude": float(device.latitude) if device.latitude else None,
+        "longitude": float(device.longitude) if device.longitude else None,
+        "heartbeat_interval": device.heartbeat_interval or 300,
+        "last_seen": local_last_seen.strftime('%d/%m/%Y %H:%M:%S') if local_last_seen else "Chưa kết nối",
+        "reported_at": local_last_seen.strftime('%H:%M:%S %d/%m/%Y') if local_last_seen else "",
+        "device_updated": True
+    })
+
+
+def evaluate_device_connection_statuses(now=None, broadcast=True) -> Dict[str, Any]:
+    """
+    Kiểm tra và cập nhật trạng thái hoạt động (ONLINE / OFFLINE) của các thiết bị
+    dựa vào thời gian nhận phản hồi cuối (last_seen) so với chu kỳ heartbeat_interval (giây).
+    
+    Quy tắc:
+    - Bỏ qua thiết bị đang ở trạng thái khẩn cấp (SOS, PROCESSING) hoặc bảo trì (MAINTENANCE).
+    - Thiết bị không có last_seen hoặc (now - last_seen).total_seconds() > heartbeat_interval:
+      -> Chuyển thành OFFLINE.
+    - Thiết bị có last_seen và (now - last_seen).total_seconds() <= heartbeat_interval:
+      -> Khôi phục thành ONLINE.
+    - Tự động phát SSE IOT_UPLINK nếu có thay đổi trạng thái.
+    """
+    if now is None:
+        now = timezone.now()
+
+    devices = list(Device.objects.filter(is_active=True).exclude(
+        connection_status__in=[
+            Device.ConnectionStatus.SOS,
+            Device.ConnectionStatus.PROCESSING,
+            Device.ConnectionStatus.MAINTENANCE
+        ]
+    ).select_related('parent_device'))
+
+    turned_offline = []
+    turned_online = []
+
+    for d in devices:
+        interval = d.heartbeat_interval if (d.heartbeat_interval and d.heartbeat_interval > 0) else 300
+        is_timed_out = (d.last_seen is None) or ((now - d.last_seen).total_seconds() > interval)
+
+        if is_timed_out and d.connection_status != Device.ConnectionStatus.OFFLINE:
+            d.connection_status = Device.ConnectionStatus.OFFLINE
+            turned_offline.append(d)
+        elif not is_timed_out and d.connection_status != Device.ConnectionStatus.ONLINE:
+            d.connection_status = Device.ConnectionStatus.ONLINE
+            turned_online.append(d)
+
+    if turned_offline:
+        Device.objects.filter(id__in=[d.id for d in turned_offline]).update(connection_status=Device.ConnectionStatus.OFFLINE)
+        if broadcast:
+            for d in turned_offline:
+                try:
+                    _broadcast_device_status_update(d)
+                except Exception as e:
+                    logger.debug(f"[Heartbeat] Lỗi broadcast offline device {d.dev_eui}: {e}")
+
+    if turned_online:
+        Device.objects.filter(id__in=[d.id for d in turned_online]).update(connection_status=Device.ConnectionStatus.ONLINE)
+        if broadcast:
+            for d in turned_online:
+                try:
+                    _broadcast_device_status_update(d)
+                except Exception as e:
+                    logger.debug(f"[Heartbeat] Lỗi broadcast online device {d.dev_eui}: {e}")
+
+    return {
+        "checked_count": len(devices),
+        "turned_offline": len(turned_offline),
+        "turned_online": len(turned_online),
+    }
+
+
 class HCTechWebhookHandler:
     """
     Quản lý luồng nhận dữ liệu từ Webhook HC TECH IoT Platform (v1.2.0) và đồng bộ vào Django:
@@ -303,6 +447,7 @@ class HCTechWebhookHandler:
             reported_at = timezone.now()
         elif timezone.is_naive(reported_at):
             reported_at = timezone.make_aware(reported_at, VN_TZ)
+        local_reported_at = timezone.localtime(reported_at)
 
         # Bóc tách các thông số đo đạc
         metrics = cls.extract_metrics_dict(payload)
@@ -385,6 +530,9 @@ class HCTechWebhookHandler:
         elif "gateway" in raw_dev_name or "gw" in raw_dev_name:
             detected_device_type = Device.DeviceType.GATEWAY
 
+        # Trích xuất chu kỳ heartbeat / uplink do nền tảng IoT truyền kèm trong JSON
+        incoming_interval = extract_heartbeat_interval(payload, metrics)
+
         # Tìm hoặc tạo mới thiết bị trong Database
         device = Device.objects.filter(dev_eui__iexact=dev_eui_key).first()
         is_new_device = False
@@ -411,18 +559,26 @@ class HCTechWebhookHandler:
                 has_gps=bool(lat_dec is not None and lng_dec is not None),
                 latitude=lat_dec if lat_dec is not None else Decimal("16.05440700"),
                 longitude=lng_dec if lng_dec is not None else Decimal("108.20216700"),
+                heartbeat_interval=incoming_interval if incoming_interval else 300,
                 connection_status=Device.ConnectionStatus.SOS if is_sos else Device.ConnectionStatus.ONLINE,
                 last_seen=reported_at,
             )
-            logger.info(f"[HCTech Webhook] Đã phát hiện thiết bị mới {dev_eui_key} -> Đưa vào danh sách chờ gán thông tin")
-        elif area_obj and not device.area:
-            device.area = area_obj
+            logger.info(f"[HCTech Webhook] Đã phát hiện thiết bị mới {dev_eui_key} (Heartbeat={device.heartbeat_interval}s) -> Đưa vào danh sách chờ gán thông tin")
+        else:
+            if area_obj and not device.area:
+                device.area = area_obj
+            if incoming_interval:
+                device.heartbeat_interval = incoming_interval
+                logger.info(f"[HCTech Webhook] Đã cập nhật chu kỳ heartbeat={incoming_interval}s cho thiết bị {device.dev_eui}")
 
         # Đảm bảo gói tin cũ đến muộn (do Webhook không bảo đảm thứ tự - FR-11.22) không ghi đè tọa độ mới hơn
         is_newer_packet = (device.last_seen is None) or (reported_at >= device.last_seen)
 
         if is_newer_packet:
             device.last_seen = reported_at
+            # Nếu thiết bị trước đó đang OFFLINE và gói tin này không phải SOS thì khôi phục ONLINE
+            if device.connection_status == Device.ConnectionStatus.OFFLINE and not is_sos:
+                device.connection_status = Device.ConnectionStatus.ONLINE
             if lat_dec is not None and lng_dec is not None:
                 device.latitude = lat_dec
                 device.longitude = lng_dec
@@ -621,6 +777,8 @@ class HCTechWebhookHandler:
                 "connection_status_display": device.get_connection_status_display(),
                 "is_sos": is_sos,
                 "battery_level": device.battery_level,
+                "heartbeat_interval": device.heartbeat_interval or 300,
+                "last_seen": local_reported_at.strftime('%d/%m/%Y %H:%M:%S'),
                 "latitude": float(device.latitude) if device.latitude else None,
                 "longitude": float(device.longitude) if device.longitude else None,
                 "speed": float(speed or 0.0),

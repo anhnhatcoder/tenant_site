@@ -33,6 +33,7 @@ from .hctech_webhook import (
     get_webhook_monitor_logs,
     clear_webhook_monitor_logs,
     add_webhook_monitor_log,
+    evaluate_device_connection_statuses,
 )
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -132,12 +133,19 @@ def logout_view(request):
 @login_required(login_url='/login/')
 def dashboard_view(request):
     ensure_default_accounts()
+    evaluate_device_connection_statuses(broadcast=False)
     devices = list(Device.objects.filter(is_active=True).select_related('parent_device').order_by('-id'))
     # Ẩn tài khoản System Admin / Superuser ở danh sách quản lý tài khoản trên Dashboard
     users_list = list(User.objects.exclude(role=User.Role.SYSTEM_ADMIN).exclude(is_superuser=True).order_by('id'))
     alerts = list(AlertLog.objects.select_related('device', 'acknowledged_by', 'resolved_by')[:50])
 
     for d in devices:
+        d.heartbeat_interval = d.heartbeat_interval or 300
+        if d.last_seen:
+            local_seen = timezone.localtime(d.last_seen)
+            d.last_seen_display = local_seen.strftime('%d/%m/%Y %H:%M:%S')
+        else:
+            d.last_seen_display = 'Chưa kết nối'
         d.is_pending_assignment = not bool(d.customer_name and d.customer_name.strip())
         d.gps_code = 'GPS' if d.has_gps else 'STATIC'
         d.loc_display = f"{d.latitude}, {d.longitude}" if d.has_gps else (d.address or '-')
@@ -145,8 +153,10 @@ def dashboard_view(request):
         d.parent_name = d.parent_device.device_name if d.parent_device else None
         d.parent_eui = d.parent_device.dev_eui if d.parent_device else None
         d.group_name_display = d.group_name or ""
-        d.paired_buttons = list(d.paired_devices.filter(is_active=True).values('id', 'device_name', 'dev_eui', 'connection_status')) if d.has_gps else []
+        d.paired_buttons = list(d.paired_devices.filter(is_active=True).values('id', 'device_name', 'dev_eui', 'device_type', 'connection_status'))
         d.paired_buttons_count = len(d.paired_buttons)
+        d.paired_sub_devices = d.paired_buttons
+        d.paired_sub_count = d.paired_buttons_count
         if d.device_type == 'CAMERA':
             d.type_label, d.type_bg = 'Camera', 'bg-emerald-600'
         elif d.device_type == 'GATEWAY':
@@ -247,6 +257,7 @@ def dashboard_view(request):
 
 
 def api_dashboard_state(request):
+    evaluate_device_connection_statuses(broadcast=False)
     gps_filter = request.GET.get('has_gps')
     status_filter = request.GET.get('status')
     device_type_filter = request.GET.get('device_type')
@@ -300,10 +311,11 @@ def api_dashboard_state(request):
             'parent_device_name': d.parent_device.device_name if d.parent_device else None,
             'parent_device_eui': d.parent_device.dev_eui if d.parent_device else None,
             'group_name': d.group_name or "",
-            'paired_buttons': list(d.paired_devices.filter(is_active=True).values('id', 'device_name', 'dev_eui', 'connection_status')) if d.has_gps else [],
-            'paired_buttons_count': d.paired_devices.filter(is_active=True).count() if d.has_gps else 0,
+            'paired_buttons': list(d.paired_devices.filter(is_active=True).values('id', 'device_name', 'dev_eui', 'device_type', 'connection_status')),
+            'paired_buttons_count': d.paired_devices.filter(is_active=True).count(),
             'connection_status_display': d.get_connection_status_display(),
             'battery_level': d.battery_level,
+            'heartbeat_interval': d.heartbeat_interval or 300,
             'last_seen': local_last_seen.strftime('%d/%m/%Y %H:%M:%S') if local_last_seen else 'Chưa kết nối'
         })
 
@@ -327,7 +339,31 @@ def api_dashboard_state(request):
             'notes': (emergency_alert.notes or '') if not str(emergency_alert.notes or '').startswith('Tín hiệu vô tuyến') else '',
         }
 
-    return JsonResponse({'devices': devices_data, 'emergency': emergency_data})
+    alerts_qs = list(AlertLog.objects.select_related('device', 'acknowledged_by', 'resolved_by')[:50])
+    alerts_data = []
+    for log in alerts_qs:
+        local_created = timezone.localtime(log.created_at) if log.created_at else None
+        loc_display = f"Tọa độ biển: {log.latitude}, {log.longitude}" if (log.device and log.device.has_gps) else (log.address or (log.device.address if log.device else '-') or '-')
+        device_name = log.device.device_name if log.device else 'Không xác định'
+        dev_eui = log.device.dev_eui if log.device else ''
+        alerts_data.append({
+            'id': log.id,
+            'created_at': local_created.strftime('%H:%M:%S %d/%m/%Y') if local_created else '',
+            'device_name': device_name,
+            'dev_eui': dev_eui,
+            'loc_display': loc_display,
+            'status': log.status,
+            'status_display': log.get_status_display(),
+            'notes_display': log.notes if log.notes else '-',
+            'report_display': log.resolution_report if log.resolution_report else '-',
+            'is_open': (log.status != 'RESOLVED'),
+        })
+
+    return JsonResponse({
+        'devices': devices_data,
+        'emergency': emergency_data,
+        'alerts': alerts_data
+    })
 
 
 def api_stats_data(request):
@@ -452,6 +488,15 @@ def api_update_device(request, device_id):
         except Exception:
             pass
 
+    hb_interval = data.get('heartbeat_interval') if 'heartbeat_interval' in data else data.get('uplink_interval')
+    if hb_interval is not None:
+        try:
+            val_hb = int(hb_interval)
+            if val_hb > 0:
+                device.heartbeat_interval = val_hb
+        except (ValueError, TypeError):
+            pass
+
     device.save()
 
     is_pending = not bool(device.customer_name and device.customer_name.strip())
@@ -474,6 +519,7 @@ def api_update_device(request, device_id):
         "connection_status_display": device.get_connection_status_display(),
         "is_sos": (device.connection_status == Device.ConnectionStatus.SOS),
         "battery_level": device.battery_level,
+        "heartbeat_interval": device.heartbeat_interval or 300,
         "latitude": float(device.latitude) if device.latitude else None,
         "longitude": float(device.longitude) if device.longitude else None,
         "parent_device_id": device.parent_device.id if device.parent_device else None,
@@ -494,6 +540,7 @@ def api_update_device(request, device_id):
             'category_type': device.category_type,
             'category_type_display': device.get_category_type_display() if device.category_type else "Cấp Cứu/Y tế",
             'address': device.address,
+            'heartbeat_interval': device.heartbeat_interval or 300,
             'is_pending_assignment': is_pending,
             'parent_device_id': device.parent_device.id if device.parent_device else None,
             'parent_device_name': device.parent_device.device_name if device.parent_device else None,
@@ -541,6 +588,12 @@ def api_register_device(request):
                 pass
         group_name = str(data.get('group_name', '')).strip()
 
+        hb_interval = data.get('heartbeat_interval') if 'heartbeat_interval' in data else data.get('uplink_interval')
+        try:
+            hb_val = max(1, int(hb_interval)) if hb_interval else 300
+        except (ValueError, TypeError):
+            hb_val = 300
+
         device = Device.objects.create(
             dev_eui=dev_eui,
             device_name=device_name,
@@ -554,6 +607,7 @@ def api_register_device(request):
             address=address if not has_gps else f'{lat}, {lng}',
             latitude=lat,
             longitude=lng,
+            heartbeat_interval=hb_val,
             connection_status=Device.ConnectionStatus.ONLINE,
             last_seen=timezone.now()
         )
@@ -830,9 +884,33 @@ def api_process_alert(request, alert_id):
         device.connection_status = Device.ConnectionStatus.PROCESSING
         device.save()
         alert.save()
+
+        broadcast_event("IOT_UPLINK", {
+            "dev_eui": device.dev_eui,
+            "device_name": device.device_name,
+            "connection_status": device.connection_status,
+            "is_sos": True,
+            "battery_level": device.battery_level,
+            "latitude": float(device.latitude) if device.latitude else None,
+            "longitude": float(device.longitude) if device.longitude else None,
+            "alert_id": alert.id,
+            "resolved": False
+        })
     elif action == 'update_notes':
         alert.notes = data.get('notes', '')
         alert.save()
+
+        broadcast_event("IOT_UPLINK", {
+            "dev_eui": device.dev_eui,
+            "device_name": device.device_name,
+            "connection_status": device.connection_status,
+            "is_sos": (device.connection_status in [Device.ConnectionStatus.SOS, Device.ConnectionStatus.PROCESSING]),
+            "battery_level": device.battery_level,
+            "latitude": float(device.latitude) if device.latitude else None,
+            "longitude": float(device.longitude) if device.longitude else None,
+            "alert_id": alert.id,
+            "resolved": False
+        })
     elif action == 'resolve':
         alert.status = AlertLog.AlertStatus.RESOLVED
         alert.resolved_at = timezone.now()
@@ -985,19 +1063,46 @@ def api_quick_pair_device(request, device_id):
     except Exception:
         return JsonResponse({'status': 'error', 'message': 'Invalid JSON body'}, status=400)
 
-    gps_id = data.get('gps_device_id')
+    parent_id = data.get('parent_device_id') or data.get('gps_device_id')
     group_name = data.get('group_name')
+    sync_info = bool(data.get('sync_info', False))
 
-    if gps_id in ('', 0, '0', None, 'none', 'null'):
+    if parent_id in ('', 0, '0', None, 'none', 'null'):
         device.parent_device = None
     else:
         try:
-            gps_dev = Device.objects.get(id=int(gps_id), has_gps=True)
-            if gps_dev.id == device.id:
+            parent_dev = Device.objects.get(id=int(parent_id), is_active=True)
+            if parent_dev.id == device.id:
                 return JsonResponse({'status': 'error', 'message': 'Không thể gán thiết bị vào chính nó!'}, status=400)
-            device.parent_device = gps_dev
+
+            # Chống vòng lặp liên kết (A -> B -> A)
+            curr = parent_dev
+            while curr.parent_device:
+                if curr.parent_device_id == device.id:
+                    return JsonResponse({'status': 'error', 'message': 'Không thể tạo vòng lặp liên kết (thiết bị này đang là cha của thiết bị được chọn)!'}, status=400)
+                curr = curr.parent_device
+
+            device.parent_device = parent_dev
+
+            # Tự động đồng bộ tên nhóm nếu thiết bị con chưa có mà thiết bị cha có
+            if not group_name and parent_dev.group_name:
+                group_name = parent_dev.group_name
+
+            # Tùy chọn đồng bộ thông tin chủ hộ / SĐT / địa chỉ từ thiết bị liên kết nếu bật
+            if sync_info:
+                if parent_dev.customer_name and (not device.customer_name or not device.customer_name.strip() or device.customer_name in ('Demo LoRaWAN', 'Chưa đặt tên')):
+                    device.customer_name = parent_dev.customer_name
+                if parent_dev.emergency_phone and (not device.emergency_phone or not device.emergency_phone.strip() or device.emergency_phone == '0905000000'):
+                    device.emergency_phone = parent_dev.emergency_phone
+                if parent_dev.address and (not device.address or not device.address.strip() or 'Đang cập nhật' in device.address):
+                    device.address = parent_dev.address
+                if parent_dev.latitude and not device.latitude:
+                    device.latitude = parent_dev.latitude
+                    device.longitude = parent_dev.longitude
+                if parent_dev.area and not device.area:
+                    device.area = parent_dev.area
         except Device.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Không tìm thấy thiết bị GPS hợp lệ!'}, status=404)
+            return JsonResponse({'status': 'error', 'message': 'Không tìm thấy thiết bị liên kết hợp lệ!'}, status=404)
 
     if group_name is not None:
         device.group_name = str(group_name).strip()
@@ -1005,6 +1110,7 @@ def api_quick_pair_device(request, device_id):
     device.save()
 
     parent_name = device.parent_device.device_name if device.parent_device else 'Độc lập'
+    group_display = device.group_name or (f"Cùng: {parent_name}" if device.parent_device else "Độc lập")
 
     broadcast_event("IOT_UPLINK", {
         "device_id": device.id,
@@ -1020,7 +1126,7 @@ def api_quick_pair_device(request, device_id):
 
     return JsonResponse({
         'status': 'success',
-        'message': f"Đã gán '{device.device_name}' vào nhóm '{parent_name}' thành công!",
+        'message': f"Đã gán '{device.device_name}' vào nhóm '{group_display}' thành công!",
         'parent_id': device.parent_device.id if device.parent_device else None,
         'parent_name': parent_name,
         'group_name': device.group_name or ""
