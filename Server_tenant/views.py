@@ -15,7 +15,7 @@ from django.core.management import call_command
 from django.db import connection
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, StreamingHttpResponse
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
@@ -27,6 +27,12 @@ from .hctech_webhook import (
     api_sync_from_hctech,
     HCTechWebhookHandler,
     sync_hctech_catalog_and_telemetry,
+    get_webhook_token,
+    save_webhook_token,
+    generate_new_webhook_token,
+    get_webhook_monitor_logs,
+    clear_webhook_monitor_logs,
+    add_webhook_monitor_log,
 )
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -38,29 +44,69 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def ensure_default_accounts():
-    # Chỉ tạo tài khoản mặc định khi hệ thống chưa có bất kỳ user nào
-    if not User.objects.exists():
-        u_admin = User.objects.create_user(
-            username='admin',
-            password='1',
-            first_name='Nguyễn Bảo Nguyên',
-            email='admin@hctech.com.vn',
-            role=User.Role.SYSTEM_ADMIN,
-            phone_number='0905111222'
-        )
-        u_admin.is_staff = True
-        u_admin.is_superuser = True
-        u_admin.save()
+_ACCOUNTS_INITIALIZED = False
 
-        User.objects.create_user(
-            username='viewer',
-            password='1',
-            first_name='Vận Hành Viên',
-            email='viewer@hctech.com.vn',
-            role=User.Role.VIEWER,
-            phone_number='0905333444'
-        )
+
+def ensure_schema_updates():
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                ALTER TABLE "Server_tenant_device" 
+                ADD COLUMN IF NOT EXISTS "parent_device_id" bigint NULL REFERENCES "Server_tenant_device" ("id") ON DELETE SET NULL;
+                ALTER TABLE "Server_tenant_device" 
+                ADD COLUMN IF NOT EXISTS "group_name" varchar(255) NULL;
+                
+                ALTER TABLE "Server_tenant_locationhistory" 
+                ADD COLUMN IF NOT EXISTS "button_device_id" bigint NULL REFERENCES "Server_tenant_device" ("id") ON DELETE SET NULL;
+                ALTER TABLE "Server_tenant_locationhistory" 
+                ADD COLUMN IF NOT EXISTS "packet_type" varchar(50) DEFAULT 'PERIODIC';
+            ''')
+    except Exception as e:
+        logger.warning(f"Schema update check: {e}")
+
+def ensure_default_accounts():
+    global _ACCOUNTS_INITIALIZED
+    if _ACCOUNTS_INITIALIZED:
+        return
+    try:
+        # 1. Tài khoản Superuser (Quản trị toàn quyền hệ thống + Trang Admin)
+        if not User.objects.filter(username='admin').exists():
+            u_admin = User.objects.create_user(
+                username='admin',
+                password='1',
+                first_name='Bùi Anh Nhật',
+                email='anhnhat.coder@gmail.com',
+                role=User.Role.SYSTEM_ADMIN,
+                phone_number='0937236490'
+            )
+            u_admin.is_staff = True
+            u_admin.is_superuser = True
+            u_admin.save()
+        else:
+            User.objects.filter(username='admin').update(first_name='Bùi Anh Nhật', is_staff=True, is_superuser=True, role=User.Role.SYSTEM_ADMIN)
+
+        # 2. Tài khoản Tenant Admin (Chỉ quản lý Dashboard, không vào được trang Admin)
+        if not User.objects.filter(username='tenant').exists():
+            u_tenant = User.objects.create_user(
+                username='tenant',
+                password='1',
+                first_name='Tenant Admin',
+                email='tenant@hctech.com.vn',
+                role=User.Role.TENANT_ADMIN,
+                phone_number='0905222333'
+            )
+            u_tenant.is_staff = False
+            u_tenant.is_superuser = False
+            u_tenant.save()
+        else:
+            User.objects.filter(username='tenant').update(first_name='Tenant Admin', is_staff=False, is_superuser=False, role=User.Role.TENANT_ADMIN)
+
+        # Đảm bảo toàn bộ tài khoản role TENANT_ADMIN không có cờ is_superuser hoặc is_staff
+        User.objects.filter(role=User.Role.TENANT_ADMIN).update(is_staff=False, is_superuser=False)
+        ensure_schema_updates()
+        _ACCOUNTS_INITIALIZED = True
+    except Exception as e:
+        logger.error(f"ensure_default_accounts error: {e}")
 
 
 def login_view(request):
@@ -86,13 +132,21 @@ def logout_view(request):
 @login_required(login_url='/login/')
 def dashboard_view(request):
     ensure_default_accounts()
-    devices = list(Device.objects.filter(is_active=True).order_by('-id'))
-    users_list = list(User.objects.all().order_by('id'))
+    devices = list(Device.objects.filter(is_active=True).select_related('parent_device').order_by('-id'))
+    # Ẩn tài khoản System Admin / Superuser ở danh sách quản lý tài khoản trên Dashboard
+    users_list = list(User.objects.exclude(role=User.Role.SYSTEM_ADMIN).exclude(is_superuser=True).order_by('id'))
     alerts = list(AlertLog.objects.select_related('device', 'acknowledged_by', 'resolved_by')[:50])
 
     for d in devices:
+        d.is_pending_assignment = not bool(d.customer_name and d.customer_name.strip())
         d.gps_code = 'GPS' if d.has_gps else 'STATIC'
         d.loc_display = f"{d.latitude}, {d.longitude}" if d.has_gps else (d.address or '-')
+        d.parent_id = d.parent_device.id if d.parent_device else None
+        d.parent_name = d.parent_device.device_name if d.parent_device else None
+        d.parent_eui = d.parent_device.dev_eui if d.parent_device else None
+        d.group_name_display = d.group_name or ""
+        d.paired_buttons = list(d.paired_devices.filter(is_active=True).values('id', 'device_name', 'dev_eui', 'connection_status')) if d.has_gps else []
+        d.paired_buttons_count = len(d.paired_buttons)
         if d.device_type == 'CAMERA':
             d.type_label, d.type_bg = 'Camera', 'bg-emerald-600'
         elif d.device_type == 'GATEWAY':
@@ -138,18 +192,31 @@ def dashboard_view(request):
     offline_count = all_devs.filter(connection_status='OFFLINE').count()
     maint_count = all_devs.filter(connection_status='MAINTENANCE').count()
 
-    is_admin = request.user.role in ['SYSTEM_ADMIN', 'TENANT_ADMIN'] or request.user.is_superuser
+    is_superuser = request.user.is_superuser
+    is_admin = request.user.role in ['SYSTEM_ADMIN', 'TENANT_ADMIN'] or is_superuser
     current_user_display = request.user.first_name if request.user.first_name else request.user.username
+
+    if is_superuser or getattr(request.user, 'role', '') == 'SYSTEM_ADMIN':
+        user_role_label = 'Superuser'
+        role_badge_cls = 'bg-purple-500/20 text-purple-400'
+    elif getattr(request.user, 'role', '') == 'TENANT_ADMIN':
+        user_role_label = 'Tenant Admin'
+        role_badge_cls = 'bg-cyan-500/20 text-cyan-400'
+    else:
+        user_role_label = 'Viewer'
+        role_badge_cls = 'bg-amber-500/20 text-amber-400'
 
     context = {
         'devices': devices,
+        'gps_devices': [d for d in devices if d.has_gps],
         'users_list': users_list,
         'alerts': alerts,
         'is_admin': is_admin,
-        'role_badge_cls': 'bg-cyan-500/20 text-cyan-500' if is_admin else 'bg-amber-500/20 text-amber-500',
+        'is_superuser': is_superuser,
+        'role_badge_cls': role_badge_cls,
         'current_user_display': current_user_display,
         'current_username': request.user.username,
-        'user_role_label': 'Tenant Admin' if is_admin else 'Viewer',
+        'user_role_label': user_role_label,
         'total_devices': all_devs.count(),
         'online_count': online_count,
         'sos_count': sos_count,
@@ -184,7 +251,7 @@ def api_dashboard_state(request):
     status_filter = request.GET.get('status')
     device_type_filter = request.GET.get('device_type')
 
-    devices_qs = Device.objects.filter(is_active=True)
+    devices_qs = Device.objects.filter(is_active=True).select_related('parent_device')
     if gps_filter in ['true', 'false']:
         devices_qs = devices_qs.filter(has_gps=(gps_filter == 'true'))
     if status_filter:
@@ -197,27 +264,53 @@ def api_dashboard_state(request):
         else:
             devices_qs = devices_qs.filter(device_type=device_type_filter)
 
-    devices_data = [{
-        'id': d.id,
-        'dev_eui': d.dev_eui,
-        'device_name': d.device_name,
-        'device_type': d.get_device_type_display(),
-        'device_type_raw': d.device_type,
-        'category_type': d.category_type,
-        'has_gps': d.has_gps,
-        'customer_name': d.customer_name,
-        'emergency_phone': d.emergency_phone,
-        'address': d.address or 'Đang cập nhật GPS trên biển',
-        'latitude': float(d.latitude) if d.latitude else 16.054407,
-        'longitude': float(d.longitude) if d.longitude else 108.202167,
-        'connection_status': d.connection_status,
-        'battery_level': d.battery_level,
-        'last_seen': d.last_seen.strftime('%d/%m/%Y %H:%M:%S') if d.last_seen else 'Chưa kết nối'
-    } for d in devices_qs]
+    devices_data = []
+    for d in devices_qs:
+        loc_display = f"{round(float(d.latitude), 6)}, {round(float(d.longitude), 6)}" if (d.has_gps and d.latitude and d.longitude) else (d.address or "-")
+        type_bg = "bg-blue-600" if d.device_type == Device.DeviceType.CAMERA else ("bg-cyan-600" if d.device_type == Device.DeviceType.NUT_NHAN else "bg-emerald-600")
+        type_label = d.get_device_type_display()
+        cat_cls = "border-red-500 text-red-400 bg-red-500/10" if d.category_type == Device.CategoryType.CHAY else ("border-amber-500 text-amber-400 bg-amber-500/10" if d.category_type == Device.CategoryType.AN_NINH else "border-emerald-500 text-emerald-400 bg-emerald-500/10")
+        cat_label = d.get_category_type_display() if d.category_type else "Cấp Cứu/Y tế"
+        gps_code = "GPS" if d.has_gps else "STATIC"
+
+        local_last_seen = timezone.localtime(d.last_seen) if d.last_seen else None
+
+        devices_data.append({
+            'id': d.id,
+            'dev_eui': d.dev_eui,
+            'device_name': d.device_name,
+            'device_type': d.get_device_type_display(),
+            'device_type_raw': d.device_type,
+            'type_bg': type_bg,
+            'type_label': type_label,
+            'category_type': d.category_type,
+            'cat_cls': cat_cls,
+            'cat_label': cat_label,
+            'gps_code': gps_code,
+            'has_gps': d.has_gps,
+            'customer_name': d.customer_name or "",
+            'emergency_phone': d.emergency_phone or "",
+            'is_pending_assignment': not bool(d.customer_name and d.customer_name.strip()),
+            'address': d.address or 'Đang cập nhật GPS trên biển',
+            'loc_display': loc_display,
+            'latitude': float(d.latitude) if d.latitude else 16.054407,
+            'longitude': float(d.longitude) if d.longitude else 108.202167,
+            'connection_status': d.connection_status,
+            'parent_device_id': d.parent_device.id if d.parent_device else None,
+            'parent_device_name': d.parent_device.device_name if d.parent_device else None,
+            'parent_device_eui': d.parent_device.dev_eui if d.parent_device else None,
+            'group_name': d.group_name or "",
+            'paired_buttons': list(d.paired_devices.filter(is_active=True).values('id', 'device_name', 'dev_eui', 'connection_status')) if d.has_gps else [],
+            'paired_buttons_count': d.paired_devices.filter(is_active=True).count() if d.has_gps else 0,
+            'connection_status_display': d.get_connection_status_display(),
+            'battery_level': d.battery_level,
+            'last_seen': local_last_seen.strftime('%d/%m/%Y %H:%M:%S') if local_last_seen else 'Chưa kết nối'
+        })
 
     emergency_alert = AlertLog.objects.filter(status='NEW').select_related('device').first()
     emergency_data = None
     if emergency_alert:
+        local_created = timezone.localtime(emergency_alert.created_at)
         emergency_data = {
             'alert_id': emergency_alert.id,
             'device_id': emergency_alert.device.id,
@@ -229,9 +322,9 @@ def api_dashboard_state(request):
             'latitude': float(emergency_alert.latitude or emergency_alert.device.latitude or 16.054407),
             'longitude': float(emergency_alert.longitude or emergency_alert.device.longitude or 108.202167),
             'address': emergency_alert.address or emergency_alert.device.address,
-            'created_at': emergency_alert.created_at.strftime('%H:%M:%S - %d/%m/%Y'),
+            'created_at': local_created.strftime('%H:%M:%S - %d/%m/%Y'),
             'alert_type': emergency_alert.get_alert_type_display(),
-            'notes': emergency_alert.notes or '',
+            'notes': (emergency_alert.notes or '') if not str(emergency_alert.notes or '').startswith('Tín hiệu vô tuyến') else '',
         }
 
     return JsonResponse({'devices': devices_data, 'emergency': emergency_data})
@@ -287,6 +380,127 @@ def api_stats_data(request):
     })
 
 
+
+
+@csrf_exempt
+def api_update_device(request, device_id):
+    """
+    Gán thông tin hoặc cập nhật thiết bị (Tên, Chủ hộ, SĐT, Lĩnh vực, Địa chỉ).
+    Cho phép người dùng gán thông tin nhanh cho thiết bị mới xuất hiện từ Webhook uplink.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+
+    if hasattr(request, 'user') and request.user.is_authenticated and getattr(request.user, 'role', '') == 'VIEWER' and not getattr(request.user, 'is_superuser', False):
+        return JsonResponse({'status': 'error', 'message': 'Tài khoản Viewer không có quyền cập nhật thông tin thiết bị!'}, status=403)
+
+    device = get_object_or_404(Device, id=device_id)
+    try:
+        data = json.loads(request.body or '{}')
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body'}, status=400)
+
+    device_name = data.get('device_name')
+    customer_name = data.get('customer_name')
+    emergency_phone = data.get('emergency_phone')
+    category_type = data.get('category_type')
+    device_type = data.get('device_type')
+    address = data.get('address')
+    parent_id = data.get('parent_device_id') if 'parent_device_id' in data else data.get('parent_id')
+    if parent_id is not None:
+        if parent_id in ('', 0, '0', 'none', 'null', None):
+            device.parent_device = None
+        else:
+            try:
+                p_dev = Device.objects.get(id=int(parent_id))
+                if p_dev.id != device.id:
+                    device.parent_device = p_dev
+            except (Device.DoesNotExist, ValueError):
+                pass
+    group_name = data.get('group_name')
+    if group_name is not None:
+        device.group_name = str(group_name).strip()
+
+    if device_name is not None and str(device_name).strip():
+        device.device_name = str(device_name).strip()
+    if customer_name is not None:
+        device.customer_name = str(customer_name).strip()
+    if emergency_phone is not None:
+        device.emergency_phone = str(emergency_phone).strip()
+    if category_type and category_type in Device.CategoryType.values:
+        device.category_type = category_type
+    if device_type and device_type in Device.DeviceType.values:
+        device.device_type = device_type
+    if address is not None:
+        device.address = str(address).strip()
+    has_gps = data.get('has_gps')
+    if has_gps is not None:
+        if isinstance(has_gps, bool):
+            device.has_gps = has_gps
+        elif isinstance(has_gps, str):
+            device.has_gps = (has_gps.strip().lower() in ('true', '1', 'yes', 'gps'))
+    lat = data.get('latitude')
+    lng = data.get('longitude')
+    if lat is not None and str(lat).strip():
+        try:
+            device.latitude = Decimal(str(lat).strip())
+        except Exception:
+            pass
+    if lng is not None and str(lng).strip():
+        try:
+            device.longitude = Decimal(str(lng).strip())
+        except Exception:
+            pass
+
+    device.save()
+
+    is_pending = not bool(device.customer_name and device.customer_name.strip())
+
+    # Phát thông báo SSE cập nhật tức thời trên mọi màn hình (0ms delay)
+    broadcast_event("IOT_UPLINK", {
+        "device_id": device.id,
+        "dev_eui": device.dev_eui,
+        "device_name": device.device_name,
+        "device_type": device.device_type,
+        "device_type_display": device.get_device_type_display(),
+        "category_type": device.category_type,
+        "category_type_display": device.get_category_type_display() if device.category_type else "Cấp Cứu/Y tế",
+        "customer_name": device.customer_name,
+        "emergency_phone": device.emergency_phone,
+        "is_pending_assignment": is_pending,
+        "address": device.address or "",
+        "has_gps": device.has_gps,
+        "connection_status": device.connection_status,
+        "connection_status_display": device.get_connection_status_display(),
+        "is_sos": (device.connection_status == Device.ConnectionStatus.SOS),
+        "battery_level": device.battery_level,
+        "latitude": float(device.latitude) if device.latitude else None,
+        "longitude": float(device.longitude) if device.longitude else None,
+        "parent_device_id": device.parent_device.id if device.parent_device else None,
+        "parent_device_name": device.parent_device.device_name if device.parent_device else None,
+        "group_name": device.group_name or "",
+        "device_updated": True
+    })
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f'Đã gán thông tin cho thiết bị "{device.device_name}" thành công!',
+        'device': {
+            'id': device.id,
+            'dev_eui': device.dev_eui,
+            'device_name': device.device_name,
+            'customer_name': device.customer_name,
+            'emergency_phone': device.emergency_phone,
+            'category_type': device.category_type,
+            'category_type_display': device.get_category_type_display() if device.category_type else "Cấp Cứu/Y tế",
+            'address': device.address,
+            'is_pending_assignment': is_pending,
+            'parent_device_id': device.parent_device.id if device.parent_device else None,
+            'parent_device_name': device.parent_device.device_name if device.parent_device else None,
+            'group_name': device.group_name or ""
+        }
+    })
+
 @csrf_exempt
 def api_register_device(request):
     if request.method != 'POST':
@@ -318,6 +532,15 @@ def api_register_device(request):
         except (ValueError, TypeError):
             lat, lng = 16.054407, 108.202167
 
+        parent_id = data.get('parent_device_id') if 'parent_device_id' in data else data.get('parent_id')
+        p_dev = None
+        if parent_id and parent_id not in ('', 0, '0', 'none', 'null', None):
+            try:
+                p_dev = Device.objects.get(id=int(parent_id))
+            except (Device.DoesNotExist, ValueError):
+                pass
+        group_name = str(data.get('group_name', '')).strip()
+
         device = Device.objects.create(
             dev_eui=dev_eui,
             device_name=device_name,
@@ -326,6 +549,8 @@ def api_register_device(request):
             customer_name=customer_name,
             emergency_phone=emergency_phone,
             has_gps=has_gps,
+            parent_device=p_dev,
+            group_name=group_name or None,
             address=address if not has_gps else f'{lat}, {lng}',
             latitude=lat,
             longitude=lng,
@@ -375,11 +600,10 @@ def api_create_user(request):
         password=pwd,
         first_name=data.get('full_name', '').strip() or uname,
         role=role,
-        phone_number=data.get('phone_number', '').strip()
+        phone_number=data.get('phone_number', '').strip(),
+        is_staff=False,
+        is_superuser=False
     )
-    if role == 'TENANT_ADMIN':
-        u.is_staff = True
-        u.save()
     return JsonResponse({'status': 'success', 'message': f'Đã tạo tài khoản {uname} thành công!'})
 
 
@@ -403,11 +627,57 @@ def api_delete_user(request, user_id=None):
         if hasattr(request, 'user') and request.user.is_authenticated and target_user.id == request.user.id:
             return JsonResponse({'status': 'error', 'message': 'Không thể tự xóa tài khoản đang đăng nhập!'}, status=400)
 
+        if target_user.is_superuser or target_user.role == User.Role.SYSTEM_ADMIN:
+            return JsonResponse({'status': 'error', 'message': 'Không thể xóa tài khoản Quản trị hệ thống!'}, status=403)
+
         deleted_name = target_user.username
         target_user.delete()
         return JsonResponse({'status': 'success', 'message': f'Đã xóa tài khoản "{deleted_name}" vĩnh viễn!'})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': f'Lỗi khi xóa: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+def api_change_password(request):
+    """
+    Thay đổi mật khẩu cho người dùng hiện đang đăng nhập.
+    Tự động duy trì phiên đăng nhập sau khi đổi bằng update_session_auth_hash.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Phương thức không được hỗ trợ!'}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Bạn chưa đăng nhập!'}, status=401)
+
+    try:
+        data = json.loads(request.body or '{}')
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Dữ liệu JSON không hợp lệ!'}, status=400)
+
+    current_pwd = data.get('current_password', '')
+    new_pwd = data.get('new_password', '')
+    confirm_pwd = data.get('confirm_password', '')
+
+    if not current_pwd or not new_pwd:
+        return JsonResponse({'status': 'error', 'message': 'Vui lòng nhập đầy đủ mật khẩu hiện tại và mật khẩu mới!'}, status=400)
+
+    if not request.user.check_password(current_pwd):
+        return JsonResponse({'status': 'error', 'message': 'Mật khẩu hiện tại không chính xác!'}, status=400)
+
+    if new_pwd != confirm_pwd:
+        return JsonResponse({'status': 'error', 'message': 'Mật khẩu mới và xác nhận mật khẩu không trùng khớp!'}, status=400)
+
+    if len(new_pwd) < 1:
+        return JsonResponse({'status': 'error', 'message': 'Mật khẩu mới không được để trống!'}, status=400)
+
+    request.user.set_password(new_pwd)
+    request.user.save()
+    update_session_auth_hash(request, request.user)
+
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Đổi mật khẩu thành công! Mật khẩu mới đã được cập nhật.'
+    })
 
 
 @csrf_exempt
@@ -517,7 +787,17 @@ def sse_stream(request):
             while True:
                 try:
                     msg = q.get(timeout=15)
-                    yield f"event: message\ndata: {json.dumps(msg)}\n\n"
+                    # Hỗ trợ cả dữ liệu phẳng lẫn nested payload để tương thích 100% với mọi client
+                    payload = msg.get("payload", {}) if isinstance(msg, dict) else {}
+                    flat_data = dict(payload) if isinstance(payload, dict) else {}
+                    flat_data["type"] = msg.get("type", "message")
+                    flat_data["payload"] = payload
+                    json_str = json.dumps(flat_data)
+
+                    event_type = msg.get("type", "message")
+                    yield f"event: message\ndata: {json_str}\n\n"
+                    if event_type and event_type != "message":
+                        yield f"event: {event_type}\ndata: {json_str}\n\n"
                 except queue.Empty:
                     # Gửi heartbeat keep-alive tránh browser ngắt kết nối
                     yield ": keepalive\n\n"
@@ -687,6 +967,65 @@ def api_turn_off_emergency(request):
     })
 
 
+
+@csrf_exempt
+def api_quick_pair_device(request, device_id):
+    """
+    API gán nhanh nút nhấn vào thiết bị GPS hoặc hủy gán (Phục vụ chức năng Nhóm thiết bị).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
+
+    if hasattr(request, 'user') and request.user.is_authenticated and getattr(request.user, 'role', '') == 'VIEWER' and not getattr(request.user, 'is_superuser', False):
+        return JsonResponse({'status': 'error', 'message': 'Tài khoản Viewer không có quyền cấu hình nhóm thiết bị!'}, status=403)
+
+    device = get_object_or_404(Device, id=device_id)
+    try:
+        data = json.loads(request.body or '{}')
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON body'}, status=400)
+
+    gps_id = data.get('gps_device_id')
+    group_name = data.get('group_name')
+
+    if gps_id in ('', 0, '0', None, 'none', 'null'):
+        device.parent_device = None
+    else:
+        try:
+            gps_dev = Device.objects.get(id=int(gps_id), has_gps=True)
+            if gps_dev.id == device.id:
+                return JsonResponse({'status': 'error', 'message': 'Không thể gán thiết bị vào chính nó!'}, status=400)
+            device.parent_device = gps_dev
+        except Device.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Không tìm thấy thiết bị GPS hợp lệ!'}, status=404)
+
+    if group_name is not None:
+        device.group_name = str(group_name).strip()
+
+    device.save()
+
+    parent_name = device.parent_device.device_name if device.parent_device else 'Độc lập'
+
+    broadcast_event("IOT_UPLINK", {
+        "device_id": device.id,
+        "dev_eui": device.dev_eui,
+        "device_name": device.device_name,
+        "device_type": device.device_type,
+        "parent_device_id": device.parent_device.id if device.parent_device else None,
+        "parent_device_name": device.parent_device.device_name if device.parent_device else None,
+        "group_name": device.group_name or "",
+        "connection_status": device.connection_status,
+        "is_sos": (device.connection_status == Device.ConnectionStatus.SOS),
+    })
+
+    return JsonResponse({
+        'status': 'success',
+        'message': f"Đã gán '{device.device_name}' vào nhóm '{parent_name}' thành công!",
+        'parent_id': device.parent_device.id if device.parent_device else None,
+        'parent_name': parent_name,
+        'group_name': device.group_name or ""
+    })
+
 def api_route_history(request, device_id):
     range_filter = request.GET.get('range', '24h')
     now = timezone.now()
@@ -699,7 +1038,15 @@ def api_route_history(request, device_id):
     else:
         start_time = now - timedelta(hours=24)
 
-    points = list(LocationHistory.objects.filter(device_id=device_id, recorded_at__gte=start_time).order_by('recorded_at'))
+    target_dev = get_object_or_404(Device, id=device_id)
+    # Nếu chọn nút nhấn đã gán vào GPS, tự động dùng thiết bị GPS cha
+    effective_dev = target_dev.parent_device if (not target_dev.has_gps and target_dev.parent_device) else target_dev
+
+    points = list(LocationHistory.objects.filter(
+        device_id=effective_dev.id, 
+        recorded_at__gte=start_time
+    ).select_related('button_device').order_by('recorded_at'))
+
     total_distance_km = 0.0
     history_data = []
 
@@ -707,12 +1054,30 @@ def api_route_history(request, device_id):
         if i > 0:
             prev = points[i - 1]
             total_distance_km += haversine_distance(prev.latitude, prev.longitude, pt.latitude, pt.longitude)
+
+        has_button = bool(pt.button_device_id)
+        btn_name = pt.button_device.device_name if pt.button_device else ""
+        btn_eui = pt.button_device.dev_eui if pt.button_device else ""
+
+        pkt_type = getattr(pt, 'packet_type', 'PERIODIC')
+        if pt.is_sos_point:
+            pkt_type = 'SOS'
+        elif not pkt_type or pkt_type == 'PERIODIC':
+            if has_button:
+                pkt_type = 'HEARTBEAT'
+            else:
+                pkt_type = 'PERIODIC'
+
         history_data.append({
             'lat': float(pt.latitude),
             'lng': float(pt.longitude),
             'speed': pt.speed,
             'battery': pt.battery_level,
             'is_sos': pt.is_sos_point,
+            'packet_type': pkt_type,
+            'has_button': has_button,
+            'button_name': btn_name,
+            'button_eui': btn_eui,
             'is_drifting': pt.is_drifting,
             'time': pt.recorded_at.strftime('%H:%M:%S %d/%m/%Y')
         })
@@ -720,7 +1085,9 @@ def api_route_history(request, device_id):
     return JsonResponse({
         'points': history_data,
         'total_distance_km': round(total_distance_km, 2),
-        'point_count': len(history_data)
+        'point_count': len(history_data),
+        'device_name': effective_dev.device_name,
+        'has_gps': effective_dev.has_gps
     })
 
 
@@ -778,8 +1145,8 @@ def admin_portal_view(request):
     """
     ensure_default_accounts()
 
-    is_admin = request.user.is_superuser or getattr(request.user, 'role', '') in [User.Role.SYSTEM_ADMIN, User.Role.TENANT_ADMIN]
-    if not is_admin:
+    # Chỉ Superuser mới được phép truy cập Trang Quản Trị Hệ Thống (/admin/)
+    if not (request.user.is_authenticated and request.user.is_superuser):
         return render(request, 'admin_denied.html', {'user': request.user}, status=403)
 
     # 1. Thống kê số lượng bản ghi Cơ sở dữ liệu
@@ -839,10 +1206,11 @@ def admin_portal_view(request):
         'cloud_token_masked': masked_token,
         'cloud_token_full': raw_token,
         'webhook_url': webhook_url,
+        'webhook_bearer_token': get_webhook_token(),
         'devices_list': devices_list,
         'recent_alerts': recent_alerts,
         'recent_locations': recent_locations,
-        'server_time': timezone.now().strftime('%H:%M:%S %d/%m/%Y'),
+        'server_time': timezone.localtime(timezone.now()).strftime('%H:%M:%S %d/%m/%Y'),
     }
     return render(request, 'admin_portal.html', context)
 
@@ -864,10 +1232,11 @@ def api_admin_action(request, action):
     - get_metrics: Lấy số liệu mới nhất
     - export_devices_json: Tải danh mục thiết bị dạng JSON
     """
-    if not (hasattr(request, 'user') and request.user.is_authenticated and (request.user.is_superuser or getattr(request.user, 'role', '') in [User.Role.SYSTEM_ADMIN, User.Role.TENANT_ADMIN])):
-        return JsonResponse({'status': 'error', 'message': 'Chỉ Quản trị viên mới có quyền thực hiện!'}, status=403)
+    # Chỉ Superuser mới có quyền thực hiện các lệnh quản trị hệ thống
+    if not (hasattr(request, 'user') and request.user.is_authenticated and request.user.is_superuser):
+        return JsonResponse({'status': 'error', 'message': 'Chỉ Superuser mới có quyền thực hiện thao tác quản trị này!'}, status=403)
 
-    if request.method != 'POST' and action not in ['list_downlink_commands', 'get_metrics']:
+    if request.method != 'POST' and action not in ['list_downlink_commands', 'get_metrics', 'get_webhook_monitor_logs', 'export_devices_json']:
         return JsonResponse({'status': 'error', 'message': 'Phương thức không được hỗ trợ'}, status=405)
 
     data = {}
@@ -927,6 +1296,38 @@ def api_admin_action(request, action):
                 r = HCTechWebhookHandler.process_telemetry_record(ev, trigger_sse=True)
                 results.append(r)
             latency_ms = round((time.time() - t0) * 1000, 1)
+
+            # Đưa gói tin giả lập lên Webhook Monitor để Admin kiểm tra tức thời
+            now_vn = timezone.localtime(timezone.now())
+            sim_dev_eui = ""
+            if isinstance(payload, dict):
+                sim_dev_eui = payload.get("dev_eui") or payload.get("devEui") or ""
+            elif isinstance(payload, list) and len(payload) > 0 and isinstance(payload[0], dict):
+                sim_dev_eui = payload[0].get("dev_eui") or payload[0].get("devEui") or ""
+
+            sim_entry = {
+                "id": f"sim_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}",
+                "timestamp": now_vn.strftime("%H:%M:%S %d/%m/%Y"),
+                "time_only": now_vn.strftime("%H:%M:%S"),
+                "client_ip": "127.0.0.1 (Simulator)",
+                "method": "POST (Admin Simulator)",
+                "content_type": "application/json",
+                "auth_status": "authorized (internal)",
+                "token_masked": "Internal-Admin",
+                "is_valid_json": True,
+                "raw_body": json.dumps(payload, ensure_ascii=False, indent=2),
+                "json_data": payload,
+                "dev_eui": sim_dev_eui,
+                "is_sos": any(bool(r.get("sos_triggered")) for r in results),
+                "status_code": 200,
+                "status_message": f"Giả lập thành công {len(results)} gói tin ({latency_ms} ms).",
+                "processed_count": len(results),
+                "results": results,
+                "error_message": None,
+                "headers": {"Source": "Admin Portal Simulator"}
+            }
+            add_webhook_monitor_log(sim_entry)
+            broadcast_event("WEBHOOK_MONITOR", sim_entry)
             return JsonResponse({
                 'status': 'success',
                 'message': f'Đã xử lý {len(results)} gói tin thành công trong {latency_ms} ms.',
@@ -943,6 +1344,47 @@ def api_admin_action(request, action):
             return JsonResponse({'status': 'success', 'message': 'Đã xóa toàn bộ cache chống trùng lặp Webhook thành công!'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': f'Lỗi xóa cache: {str(e)}'}, status=500)
+
+    # 4b. SINH TOKEN XÁC THỰC WEBHOOK MỚI
+    elif action == 'generate_webhook_token':
+        try:
+            new_token = generate_new_webhook_token()
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Đã sinh Authorization Bearer token mới và kích hoạt thành công!',
+                'token': new_token
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Lỗi khi sinh token: {str(e)}'}, status=500)
+
+    # 4c. LƯU TOKEN XÁC THỰC WEBHOOK
+    elif action == 'save_webhook_token':
+        token_to_save = str(data.get('token', '')).strip()
+        if not token_to_save:
+            return JsonResponse({'status': 'error', 'message': 'Token không được để trống!'}, status=400)
+        try:
+            ok = save_webhook_token(token_to_save)
+            if ok:
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Đã lưu cấu hình Authorization Bearer token thành công!',
+                    'token': token_to_save
+                })
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Không thể ghi file cấu hình token!'}, status=500)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Lỗi lưu token: {str(e)}'}, status=500)
+
+    # 4d. LẤY NHẬT KÝ WEBHOOK MONITOR REAL-TIME
+    elif action == 'get_webhook_monitor_logs':
+        logs = get_webhook_monitor_logs()
+        return JsonResponse({'status': 'success', 'logs': logs, 'count': len(logs)})
+
+    # 4e. XÓA SẠCH NHẬT KÝ WEBHOOK MONITOR
+    elif action == 'clear_webhook_monitor_logs':
+        clear_webhook_monitor_logs()
+        broadcast_event("WEBHOOK_MONITOR_CLEAR", {"cleared": True})
+        return JsonResponse({'status': 'success', 'message': 'Đã xóa toàn bộ nhật ký gói tin Webhook Monitor!'})
 
     # 5. CLEANUP OLD GPS
     elif action == 'cleanup_gps':

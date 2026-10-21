@@ -90,6 +90,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'tenant_site.wsgi.application'
+ASGI_APPLICATION = 'tenant_site.asgi.application'
 
 
 # Database
@@ -129,9 +130,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'vi'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
 USE_I18N = True
 
@@ -141,7 +142,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 
 # Email
@@ -157,4 +158,7 @@ AUTH_USER_MODEL = 'Server_tenant.User'
 
 HCTECH_IOT_BASE_URL = "https://iot-staging.hctech.com.vn/api/public/v1"
 
-HCTECH_IOT_API_TOKEN = "Key_Bao_Mat"
+HCTECH_IOT_API_TOKEN = "iot_RmsRJUHfZHzHk8d1mCWwSKK5kbstP9mgD1HCaUiWXCk"
+
+# Khóa bí mật xác thực Authorization: Bearer cho Inbound Webhook Uplink
+HCTECH_WEBHOOK_SECRET = os.environ.get('HCTECH_WEBHOOK_SECRET', '')

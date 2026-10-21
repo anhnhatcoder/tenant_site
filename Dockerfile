@@ -25,4 +25,4 @@ RUN chmod +x /app/entrypoint.sh
 EXPOSE 5000
 
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:5000"]
+CMD ["uvicorn", "tenant_site.asgi:application", "--host", "0.0.0.0", "--port", "5000"]

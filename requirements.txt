@@ -15,3 +15,4 @@ requests==2.34.2
 # Async & SQL Parsing Utilities
 asgiref==3.12.1
 sqlparse==0.6.0
+uvicorn[standard]>=0.30.0

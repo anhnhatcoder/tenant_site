@@ -14,28 +14,29 @@
     body { font-family: 'Inter', sans-serif; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
-  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 text-center relative overflow-hidden">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-3 sm:p-4">
+  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-8 text-center relative overflow-hidden">
     <div class="absolute -top-24 -left-24 w-48 h-48 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
-    <div class="w-20 h-20 mx-auto rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 text-4xl mb-6 shadow-inner animate-pulse">
+    <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 text-3xl sm:text-4xl mb-5 sm:mb-6 shadow-inner animate-pulse">
       <i class="fa-solid fa-shield-halved"></i>
     </div>
 
-    <span class="inline-block px-3 py-1 bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
+    <span class="inline-block px-3 py-1 bg-red-500/20 border border-red-500/30 text-red-400 text-[11px] sm:text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
       Lỗi phân quyền (HTTP 403)
     </span>
 
-    <h1 class="text-2xl font-black text-white mb-2">Quyền Truy Cập Bị Từ Chối</h1>
+    <h1 class="text-xl sm:text-2xl font-black text-white mb-2">Quyền Truy Cập Bị Từ Chối</h1>
     <p class="text-sm text-slate-400 mb-6 leading-relaxed">
-      Khu vực <strong>Trang Quản Trị Hệ Thống (/admin/)</strong> chứa các công cụ điều hành Webhook và can thiệp Cơ sở dữ liệu chuyên sâu. Chỉ tài khoản <strong>Tenant Admin</strong> hoặc <strong>System Admin</strong> mới có quyền truy cập.
+      Khu vực <strong>Trang Quản Trị Hệ Thống (/admin/)</strong> chứa các công cụ điều hành Webhook và can thiệp Cơ sở dữ liệu chuyên sâu. Chỉ tài khoản <strong>Superuser</strong> mới có quyền truy cập. Tài khoản <strong>Tenant Admin</strong> chỉ có quyền quản trị và thao tác trên Bảng Điều Khiển (Dashboard).
     </p>
 
     <div class="bg-slate-950/80 rounded-xl p-4 border border-slate-800 mb-6 text-left text-xs space-y-1.5">
       <div><span class="text-slate-500">Tài khoản hiện tại:</span> <strong class="text-white">{{ user.username }}</strong></div>
       <div><span class="text-slate-500">Họ và tên:</span> <span class="text-slate-300">{{ user.first_name|default:"-" }}</span></div>
-      <div><span class="text-slate-500">Vai trò:</span> <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-semibold">{{ user.get_role_display }}</span></div>
+      <div><span class="text-slate-500">Vai trò:</span> <span class="px-2 py-0.5 rounded bg-slate-800 text-cyan-400 font-semibold">{{ user.get_role_display }}</span></div>
+      <div><span class="text-slate-500">Quyền hạn:</span> <span class="text-amber-400 font-medium">Quản lý Bảng Điều Khiển (Không có quyền Superuser)</span></div>
     </div>
 
     <div class="space-y-3">

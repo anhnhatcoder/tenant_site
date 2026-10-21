@@ -7,23 +7,24 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('', views.dashboard_view, name='dashboard'),
 
-    # Trang Quản Trị Hệ Thống Chuyên Sâu tại đường dẫn /admin/
     path('admin/', views.admin_portal_view, name='admin_portal'),
     path('admin/api/<str:action>/', views.api_admin_action, name='api_admin_action'),
 
     path('api/state/', views.api_dashboard_state, name='api_dashboard_state'),
     path('api/stats/', views.api_stats_data, name='api_stats_data'),
     path('api/devices/register/', views.api_register_device, name='api_register_device'),
+    path('api/devices/<int:device_id>/update/', views.api_update_device, name='api_update_device'),
+    path('api/devices/<int:device_id>/pair/', views.api_quick_pair_device, name='api_quick_pair_device'),
     path('api/devices/delete/', views.api_delete_devices, name='api_delete_devices'),
     path('api/users/create/', views.api_create_user, name='api_create_user'),
+    path('api/users/change-password/', views.api_change_password, name='api_change_password'),
     path('api/users/delete/', views.api_delete_user, name='api_delete_user'),
     path('api/users/<int:user_id>/delete/', views.api_delete_user, name='api_delete_user_by_id'),
 
-    # Sử dụng Webhook handler mới hỗ trợ cả HC TECH IoT lẫn ChirpStack
     path('api/webhook/uplink/', hctech_webhook_view, name='webhook_iot_uplink'),
-    # Endpoint mới để đồng bộ danh mục thiết bị, nhóm và dữ liệu đo từ HC TECH Cloud
     path('api/hctech/sync/', api_sync_from_hctech, name='api_sync_from_hctech'),
 
+    path('events/', views.sse_stream, name='sse_stream_events_alias'),
     path('api/stream/events/', views.sse_stream, name='sse_stream'),
     path('api/alerts/<int:alert_id>/process/', views.api_process_alert, name='api_process_alert'),
     path('api/alerts/dispatch/', views.api_dispatch_emergency, name='api_dispatch_emergency'),

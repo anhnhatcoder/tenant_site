@@ -12,6 +12,42 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
     />
+    <style>
+      .login-card {
+        width: 440px;
+        box-sizing: border-box;
+        flex-shrink: 0;
+        transform-origin: center center;
+        transition: transform 0.1s ease-out;
+        will-change: transform;
+      }
+      @media (max-width: 640px) {
+        body {
+          padding: 1rem !important;
+          overflow-y: auto !important;
+        }
+        .login-card {
+          width: 100% !important;
+          max-width: 390px !important;
+          padding: 1.5rem 1.25rem !important;
+          transform: none !important;
+          margin: auto !important;
+        }
+        .login-card h1 {
+          font-size: 1.05rem !important;
+        }
+        .login-card input {
+          font-size: 16px !important; /* Ngăn iOS Safari tự zoom khi focus */
+          padding-top: 0.75rem !important;
+          padding-bottom: 0.75rem !important;
+        }
+        .login-card button[type="submit"] {
+          padding-top: 0.85rem !important;
+          padding-bottom: 0.85rem !important;
+          font-size: 0.9rem !important;
+        }
+      }
+    </style>
   </head>
   <body
     class="min-h-screen bg-[#041523] text-slate-100 flex items-center justify-center p-4 relative overflow-hidden"
@@ -24,7 +60,7 @@
     ></div>
 
     <div
-      class="w-full max-w-md bg-[#072238] border border-[#114264] rounded-2xl shadow-2xl p-8 space-y-6 z-10"
+      class="login-card bg-[#072238] border border-[#114264] rounded-2xl shadow-2xl p-8 space-y-6 z-10"
     >
       <div class="text-center space-y-2">
         <img
@@ -76,15 +112,25 @@
           >
           <div class="relative">
             <i
-              class="fa-solid fa-lock absolute left-3.5 top-3 text-slate-400 text-xs"
+              class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-400 text-xs pointer-events-none"
             ></i>
             <input
+              id="password-input"
               name="password"
               type="password"
               required
               placeholder="Nhập mật khẩu..."
-              class="w-full bg-[#041829] border border-[#114264] focus:border-[#22ece9] rounded-xl pl-9 pr-4 py-2.5 text-sm text-white outline-none"
+              class="w-full bg-[#041829] border border-[#114264] focus:border-[#22ece9] rounded-xl pl-9 pr-11 py-2.5 text-sm text-white outline-none transition"
             />
+            <button
+              type="button"
+              id="toggle-password-btn"
+              onclick="togglePasswordVisibility()"
+              class="absolute right-3 top-2 text-slate-400 hover:text-[#22ece9] transition p-1 text-sm focus:outline-none"
+              title="Bật/Tắt hiển thị mật khẩu"
+            >
+              <i id="toggle-password-icon" class="fa-solid fa-eye-slash"></i>
+            </button>
           </div>
         </div>
         <button
@@ -99,5 +145,62 @@
         </button>
       </form>
     </div>
+
+    <script>
+      function togglePasswordVisibility() {
+        const input = document.getElementById('password-input');
+        const icon = document.getElementById('toggle-password-icon');
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.classList.remove('fa-eye-slash');
+          icon.classList.add('fa-eye');
+          icon.classList.add('text-[#22ece9]');
+        } else {
+          input.type = 'password';
+          icon.classList.remove('fa-eye');
+          icon.classList.remove('text-[#22ece9]');
+          icon.classList.add('fa-eye-slash');
+        }
+      }
+
+      function adjustZoom() {
+        const card = document.querySelector('.login-card');
+        if (!card) return;
+
+        // Trên màn hình điện thoại (<= 640px), không áp dụng scale để chữ rõ ràng và không nhảy giao diện khi bật bàn phím ảo
+        if (window.innerWidth <= 640) {
+          card.style.transform = 'none';
+          return;
+        }
+
+        // Tự động phát hiện tỷ lệ zoom của trình duyệt (outerWidth / innerWidth)
+        let zoom = 1;
+        if (window.outerWidth && window.innerWidth) {
+          zoom = window.outerWidth / window.innerWidth;
+        }
+
+        // Tỷ lệ nghịch (1 / zoom) để bù trừ hoàn toàn kích thước khi người dùng zoom trình duyệt
+        let scale = 1 / zoom;
+
+        // Giới hạn an toàn để không bị tràn khung nhìn nếu màn hình quá nhỏ
+        const maxScaleW = (window.innerWidth * 0.94) / 440;
+        const maxScaleH = (window.innerHeight * 0.94) / 540;
+        const maxAllowed = Math.min(maxScaleW, maxScaleH);
+
+        scale = Math.min(scale, maxAllowed);
+        scale = Math.max(0.5, scale);
+
+        card.style.transform = `scale(${scale})`;
+      }
+
+      window.addEventListener('resize', adjustZoom);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adjustZoom);
+      }
+      document.addEventListener('DOMContentLoaded', adjustZoom);
+      adjustZoom();
+      setTimeout(adjustZoom, 100);
+      setTimeout(adjustZoom, 400);
+    </script>
   </body>
 </html>

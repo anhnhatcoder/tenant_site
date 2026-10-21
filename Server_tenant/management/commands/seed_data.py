@@ -254,6 +254,23 @@ class Command(BaseCommand):
                 'last_seen': now - timedelta(hours=3),
             },
 
+            {
+                'dev_eui': '24E124128C020005',
+                'device_name': 'Nút Bấm Cứu Hộ Thuyền Viên (Moko LW006)',
+                'device_type': Device.DeviceType.NUT_NHAN,
+                'category_type': Device.CategoryType.CAP_CUU_Y_TE,
+                'has_gps': False,
+                'area': area_objs['TT-HC-04'],
+                'customer_name': 'Trung Tâm Phối Hợp TKCN Hàng Hải',
+                'emergency_phone': '02363822233',
+                'address': 'Gán trên Tàu Cứu Hộ 01',
+                'latitude': Decimal('16.09500000'),
+                'longitude': Decimal('108.22500000'),
+                'connection_status': Device.ConnectionStatus.SOS,
+                'battery_level': 92,
+                'description': 'Nút nhấn đeo cổ tay của thuyền viên trên Tàu Cứu Hộ 01',
+                'last_seen': now - timedelta(minutes=18),
+            },
             # Gateways LoRaWAN
             {
                 'dev_eui': 'AC1F09FFFE010001',
@@ -355,8 +372,15 @@ class Command(BaseCommand):
         # 4. Khởi tạo Nhật ký Sự kiện Báo động (AlertLog)
         AlertLog.objects.all().delete()  # Làm sạch để tạo lại nhật ký chuẩn
 
-        # Sự kiện 1: NEW (Chưa xử lý - Đang phát SOS)
+        # Gán nút nhấn vào Tàu Cứu Hộ 01
         d_sar = device_objs['24E124128C010001']
+        d_btn_moko = device_objs.get('24E124128C020005')
+        if d_btn_moko:
+            d_btn_moko.parent_device = d_sar
+            d_btn_moko.group_name = 'Đội Tàu Cứu Hộ Hải Châu'
+            d_btn_moko.save()
+
+        # Sự kiện 1: NEW (Chưa xử lý - Đang phát SOS)
         AlertLog.objects.create(
             alert_type=AlertLog.AlertType.CUU_HO_BIEN,
             status=AlertLog.AlertStatus.NEW,
@@ -438,6 +462,9 @@ class Command(BaseCommand):
             step_lng = start_lng + (i * 0.0007) + (random.uniform(-0.0002, 0.0002))
             pt_time = base_time + timedelta(minutes=i * 9)
             is_sos = (i == 19)
+            is_hb = (i in [6, 13])
+            pkt_type = 'SOS' if is_sos else ('HEARTBEAT' if is_hb else 'PERIODIC')
+            btn_dev = d_btn_moko if (is_sos or is_hb) else None
             speed = 0.0 if is_sos else round(random.uniform(8.5, 16.0), 1)
 
             lh = LocationHistory(
@@ -447,6 +474,8 @@ class Command(BaseCommand):
                 speed=speed,
                 battery_level=max(100 - i, 88),
                 is_sos_point=is_sos,
+                packet_type=pkt_type,
+                button_device=btn_dev,
                 is_drifting=is_sos,
                 stationary_duration_minutes=25 if is_sos else 0,
             )

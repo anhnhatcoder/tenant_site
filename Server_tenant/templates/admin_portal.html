@@ -226,6 +226,7 @@
       border-color: #cbd5e1 !important;
     }
     html.light #webhook-url-input,
+    html.light #webhook-token-input,
     html.light #cloud-base-url-input {
       color: #0f172a !important;
     }
@@ -318,6 +319,42 @@
     html.light #theme-icon {
       color: #d97706 !important;
     }
+
+    /* ========================================================================== */
+    /* TỐI ƯU HÓA ĐỘC QUYỀN CHO GIAO DIỆN DI ĐỘNG (MAX-WIDTH: 768PX)             */
+    /* KHÔNG THAY ĐỔI GIAO DIỆN PC                                               */
+    /* ========================================================================== */
+    @media (max-width: 768px) {
+      header.glass-panel {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-top: 0.65rem !important;
+        padding-bottom: 0.65rem !important;
+      }
+      nav.glass-panel {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      .tab-btn {
+        padding: 0.4rem 0.75rem !important;
+        font-size: 11px !important;
+      }
+      main {
+        padding: 0.75rem !important;
+      }
+      .table-responsive-container {
+        -webkit-overflow-scrolling: touch;
+        overflow-x: auto;
+        width: 100%;
+      }
+      .table-responsive-container table {
+        min-width: 520px;
+      }
+      input, select, textarea, button {
+        touch-action: manipulation;
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white transition-colors duration-200">
@@ -326,8 +363,8 @@
   <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none"></div>
 
   <!-- CONFIRMATION MODAL -->
-  <div id="confirm-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="max-w-md w-full glass-panel bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 text-center transform transition-all">
+  <div id="confirm-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="max-w-md w-full glass-panel bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-5 sm:p-6 text-center transform transition-all max-h-[92vh] overflow-y-auto">
       <div id="confirm-modal-icon" class="w-14 h-14 mx-auto rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl mb-4 border border-amber-500/30">
         <i class="fa-solid fa-triangle-exclamation"></i>
       </div>
@@ -345,26 +382,26 @@
   </div>
 
   <!-- HEADER -->
-  <header class="glass-panel sticky top-0 z-40 border-b border-slate-800 px-4 lg:px-8 py-3 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3.5">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 font-bold text-lg">
+  <header class="glass-panel sticky top-0 z-40 border-b border-slate-800 px-3 sm:px-4 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+    <div class="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 font-bold text-base sm:text-lg shrink-0">
         <i class="fa-solid fa-server"></i>
       </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-base lg:text-lg font-black tracking-tight text-white flex items-center gap-2">
-            HC TECH <span class="text-cyan-400">ADMIN CONSOLE</span>
+      <div class="truncate">
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <h1 class="text-xs sm:text-base lg:text-lg font-black tracking-tight text-white flex items-center gap-1.5 truncate">
+            HC TECH <span class="text-cyan-400">ADMIN</span>
           </h1>
-          <span class="px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-extrabold uppercase tracking-wider">
+          <span class="px-1.5 sm:px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider shrink-0">
             v2.4
           </span>
         </div>
-        <p class="text-[11px] text-slate-400">Trung tâm Quản trị Nâng cao: API, Webhook & Cơ sở Dữ liệu</p>
+        <p class="hidden sm:block text-[11px] text-slate-400 truncate">Trung tâm Quản trị Nâng cao: API, Webhook & Cơ sở Dữ liệu</p>
       </div>
     </div>
 
     <!-- SYSTEM STATUS PILLS & ACTIONS -->
-    <div class="flex items-center gap-2.5 flex-wrap justify-end">
+    <div class="flex items-center gap-1.5 sm:gap-2.5 flex-wrap justify-end shrink-0">
       <!-- Database status pill -->
       <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -378,23 +415,23 @@
       </div>
 
       <!-- Button Back to Dashboard -->
-      <a href="/" target="_blank" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-600/20 transition" title="Mở trang giám sát chính">
+      <a href="/" target="_blank" class="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-600/20 transition" title="Mở trang giám sát chính">
         <i class="fa-solid fa-desktop"></i>
-        <span>Xem Dashboard</span>
+        <span class="hidden sm:inline">Xem Dashboard</span>
       </a>
 
       <!-- Theme toggle -->
-      <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-amber-400 transition" title="Chuyển đổi giao diện Sáng / Tối">
-        <i id="theme-icon" class="fa-solid fa-sun"></i>
+      <button onclick="toggleTheme()" class="p-1.5 sm:p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-amber-400 transition" title="Chuyển đổi giao diện Sáng / Tối">
+        <i id="theme-icon" class="fa-solid fa-sun text-xs sm:text-sm"></i>
       </button>
 
       <!-- User badge & logout -->
-      <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
+      <div class="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-800">
         <div class="hidden lg:block text-right text-xs">
           <div class="font-bold text-white">{{ current_user_display }}</div>
           <div class="text-[10px] text-cyan-400 font-medium">{{ user_role_label }}</div>
         </div>
-        <a href="/logout/" class="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition text-xs" title="Đăng xuất">
+        <a href="/logout/" class="p-1.5 sm:p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition text-xs" title="Đăng xuất">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
         </a>
       </div>
@@ -402,36 +439,36 @@
   </header>
 
   <!-- NAVIGATION TABS -->
-  <nav class="glass-panel border-b border-slate-800 px-4 lg:px-8 py-2 overflow-x-auto custom-scrollbar">
-    <div class="flex items-center gap-2 min-w-max">
-      <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+  <nav class="glass-panel border-b border-slate-800 px-3 lg:px-8 py-2 overflow-x-auto custom-scrollbar no-scrollbar">
+    <div class="flex items-center gap-1.5 sm:gap-2 min-w-max">
+      <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn active px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:gap-2 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
         <i class="fa-solid fa-chart-pie"></i>
         <span>Tổng Quan & Sức Khỏe Hệ Thống</span>
       </button>
 
-      <button onclick="switchTab('webhook')" id="tab-btn-webhook" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+      <button onclick="switchTab('webhook')" id="tab-btn-webhook" class="tab-btn px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
         <i class="fa-solid fa-satellite-dish"></i>
         <span>Quản Lý Webhook & API</span>
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
       </button>
 
-      <button onclick="switchTab('commands')" id="tab-btn-commands" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+      <button onclick="switchTab('commands')" id="tab-btn-commands" class="tab-btn px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
         <i class="fa-solid fa-tower-broadcast"></i>
         <span>Lệnh Điều Khiển LoRaWAN</span>
         <span class="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[9px] font-mono">OpenAPI v1.2</span>
       </button>
 
-      <button onclick="switchTab('database')" id="tab-btn-database" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+      <button onclick="switchTab('database')" id="tab-btn-database" class="tab-btn px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
         <i class="fa-solid fa-database"></i>
         <span>Thao Tác Cơ Sở Dữ Liệu</span>
       </button>
 
-      <button onclick="switchTab('advanced')" id="tab-btn-advanced" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
+      <button onclick="switchTab('advanced')" id="tab-btn-advanced" class="tab-btn px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent">
         <i class="fa-solid fa-bolt"></i>
         <span>Lệnh Nâng Cao & Giả Lập</span>
       </button>
 
-      <a href="/django-admin/" target="_blank" class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent ml-auto" title="Truy cập Django Admin thuần">
+      <a href="/django-admin/" target="_blank" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 sm:gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent ml-auto" title="Truy cập Django Admin thuần">
         <i class="fa-solid fa-table-cells"></i>
         <span>Django Model Admin</span>
         <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
@@ -440,14 +477,14 @@
   </nav>
 
   <!-- MAIN CONTENT CONTAINER -->
-  <main class="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+  <main class="flex-1 p-3 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
 
     <!-- ======================================================================= -->
     <!-- TAB 1: TỔNG QUAN & SỨC KHỎE HỆ THỐNG -->
     <!-- ======================================================================= -->
     <div id="tab-content-overview" class="tab-content space-y-6">
       <!-- TOP METRIC CARDS -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-4 mobile-metric-grid">
         <!-- Card 1: Devices -->
         <div class="glass-panel rounded-2xl p-4 border border-slate-800 relative overflow-hidden group hover:border-cyan-500/40 transition">
           <div class="flex items-center justify-between mb-2">
@@ -639,8 +676,8 @@
               <i class="fa-solid fa-file-csv"></i> Tải CSV
             </a>
           </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+          <div class="table-responsive-container custom-scrollbar">
+            <table class="w-full text-left text-xs min-w-[480px]">
               <thead class="text-slate-500 border-b border-slate-800 text-[11px] uppercase">
                 <tr>
                   <th class="pb-2">Mã SOS</th>
@@ -673,6 +710,10 @@
               </tbody>
             </table>
           </div>
+          <div class="md:hidden text-[10px] text-slate-500 flex items-center gap-1">
+            <i class="fa-solid fa-arrows-left-right text-cyan-400"></i>
+            <span>Vuốt ngang để xem chi tiết</span>
+          </div>
         </div>
 
         <!-- Recent GPS Points -->
@@ -684,8 +725,8 @@
             </h3>
             <span class="text-xs text-slate-400 font-mono">Auto Recorded</span>
           </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
+          <div class="table-responsive-container custom-scrollbar">
+            <table class="w-full text-left text-xs min-w-[480px]">
               <thead class="text-slate-500 border-b border-slate-800 text-[11px] uppercase">
                 <tr>
                   <th class="pb-2">Tàu / Thiết Bị</th>
@@ -717,6 +758,10 @@
               </tbody>
             </table>
           </div>
+          <div class="md:hidden text-[10px] text-slate-500 flex items-center gap-1">
+            <i class="fa-solid fa-arrows-left-right text-cyan-400"></i>
+            <span>Vuốt ngang để xem chi tiết</span>
+          </div>
         </div>
       </div>
     </div>
@@ -744,10 +789,12 @@
         </div>
 
         <!-- Webhook Endpoint Bar -->
-        <div class="flex items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-          <span class="px-2 py-1 rounded bg-cyan-600 text-white font-mono font-bold text-[11px]">POST</span>
-          <input type="text" id="webhook-url-input" value="{{ webhook_url }}" readonly class="bg-transparent text-slate-200 font-mono text-xs flex-1 outline-none select-all" />
-          <button onclick="copyWebhookUrl()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <span class="px-2 py-1 rounded bg-cyan-600 text-white font-mono font-bold text-[11px] shrink-0">POST</span>
+            <input type="text" id="webhook-url-input" value="{{ webhook_url }}" readonly class="bg-transparent text-slate-200 font-mono text-xs flex-1 outline-none select-all truncate" />
+          </div>
+          <button onclick="copyWebhookUrl()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-1 shrink-0">
             <i class="fa-regular fa-copy"></i> Copy URL
           </button>
         </div>
@@ -770,6 +817,171 @@
               <i class="fa-solid fa-bolt text-emerald-400"></i> Phát SSE Thời Gian Thực
             </div>
             <p class="text-[11px]">Bắn tín hiệu <code>IOT_UPLINK</code> tới toàn bộ Dashboard với độ trễ 0ms.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================================= -->
+      <!-- REAL-TIME WEBHOOK INGESTION MONITOR & RAW JSON INSPECTOR CONSOLE -->
+      <!-- ======================================================================= -->
+      <div id="webhook-monitor-card" class="glass-panel rounded-2xl p-5 sm:p-6 border border-cyan-500/40 space-y-4 shadow-2xl relative overflow-hidden">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white flex items-center justify-center font-bold text-base shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid fa-desktop"></i>
+              </div>
+              <h2 class="text-base font-black text-white flex items-center gap-2">
+                <span>Live Monitor: Tiếp Nhận & Phân Tích Chuỗi JSON Webhook</span>
+              </h2>
+              <span class="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 text-[10px] font-mono font-extrabold border border-cyan-500/40 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>REALTIME 0ms</span>
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+              Bắt và hiển thị trực tiếp 100% mọi chuỗi JSON gửi đến Webhook (kèm Headers, IP, trạng thái xác thực và phân tích các trường đo đạc) để admin kiểm tra tức thì.
+            </p>
+          </div>
+
+          <!-- Counter badges -->
+          <div class="flex items-center gap-2 flex-wrap text-xs font-mono">
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800">
+              <i class="fa-solid fa-inbox text-cyan-400"></i>
+              <span class="text-slate-300">Tổng nhận: <strong id="mon-stat-total" class="text-cyan-400 font-bold">0</strong></span>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>SOS: <strong id="mon-stat-sos" class="font-bold">0</strong></span>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400">
+              <i class="fa-solid fa-shield-xmark text-amber-400"></i>
+              <span>Lỗi xác thực: <strong id="mon-stat-401" class="text-amber-400 font-bold">0</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter bar and controls -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <i class="fa-solid fa-magnifying-glass text-slate-500 pl-1 text-xs"></i>
+            <input type="text" id="mon-search-input" oninput="filterMonitorLogs()" placeholder="Tìm kiếm nhanh theo DevEUI, IP, trạng thái hoặc từ khóa JSON..." class="bg-transparent text-slate-200 outline-none text-xs flex-1 placeholder:text-slate-500 font-medium" />
+            <button onclick="clearMonitorSearch()" class="text-slate-500 hover:text-slate-300 pr-1 text-xs transition" title="Xóa tìm kiếm"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            <label class="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 cursor-pointer select-none text-[11px] px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
+              <input type="checkbox" id="mon-auto-scroll" checked class="accent-cyan-500 rounded" />
+              <span>Tự cuộn lên đầu</span>
+            </label>
+
+            <button onclick="fetchWebhookMonitorLogs()" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition flex items-center gap-1.5 text-xs font-semibold" title="Tải lại danh sách">
+              <i class="fa-solid fa-arrows-rotate text-xs"></i>
+              <span>Làm mới</span>
+            </button>
+
+            <button onclick="clearWebhookMonitorLogs()" class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition flex items-center gap-1.5 text-xs font-semibold" title="Xóa toàn bộ lịch sử màn hình monitor">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+              <span>Xóa Monitor</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Monitor Log Stream List -->
+        <div id="mon-log-list" class="space-y-3 max-h-[560px] overflow-y-auto custom-scrollbar pr-1">
+          <div id="mon-empty-placeholder" class="p-8 text-center text-slate-500 text-xs border border-dashed border-slate-800 rounded-xl space-y-2">
+            <i class="fa-solid fa-satellite-dish text-3xl text-cyan-400 mb-1 animate-bounce"></i>
+            <p class="font-bold text-slate-300 text-sm">Đang chờ nhận gói tin Webhook JSON...</p>
+            <p class="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+              Bất kỳ gói tin gửi từ Postman, cURL, Gateway ChirpStack, bộ nút nhấn hoặc bộ giả lập sẽ hiển thị trực tiếp tại đây cùng đầy đủ cấu trúc JSON để phân tích.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================================= -->
+      <!-- WEBHOOK AUTHORIZATION BEARER CONFIGURATION CARD -->
+      <!-- ======================================================================= -->
+      <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-key text-amber-400"></i>
+              Xác Thực Webhook (Authorization: Bearer)
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Bắt buộc bên phát (HC TECH IoT Platform, ChirpStack v4) phải gửi kèm Header Bearer token để bảo vệ Webhook</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="webhook-token-badge" class="px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span>Đã Bật Xác Thực Bearer</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Token Display & Control Bar -->
+        <div class="space-y-2">
+          <label class="text-xs text-slate-300 font-semibold flex items-center justify-between flex-wrap gap-1">
+            <span>Khóa Bearer Token hiện hành:</span>
+            <span class="text-[11px] text-slate-400 font-normal">Định dạng chuẩn: <code class="text-amber-300">Authorization: Bearer &lt;token&gt;</code></span>
+          </label>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <span class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 font-mono font-bold text-[11px] shrink-0 border border-amber-500/30">BEARER</span>
+              <input type="password" id="webhook-token-input" value="{{ webhook_bearer_token }}" class="bg-transparent text-emerald-400 font-mono text-xs flex-1 outline-none select-all truncate" placeholder="Nhập khóa hoặc bấm Sinh Token..." spellcheck="false" />
+              <button type="button" onclick="toggleWebhookTokenVisibility()" id="btn-toggle-webhook-eye" class="text-slate-400 hover:text-slate-200 px-2.5 py-1 text-xs transition" title="Ẩn/Hiện Bearer Token">
+                <i class="fa-regular fa-eye" id="webhook-eye-icon"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+              <button onclick="copyWebhookTokenOnly()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                <i class="fa-regular fa-copy"></i>
+                <span>Copy Token</span>
+              </button>
+              <button onclick="copyWebhookBearerHeader()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold transition flex items-center justify-center gap-1.5 border border-cyan-500/30">
+                <i class="fa-solid fa-code"></i>
+                <span>Copy Header</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons: Generate & Save -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="generateWebhookBearerToken()" id="btn-generate-token" class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Sinh Token Mới Ngẫu Nhiên</span>
+            </button>
+            <button onclick="saveWebhookBearerToken()" id="btn-save-token" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 transition flex items-center gap-2">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Lưu Cấu Hình</span>
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span>Token được lưu vĩnh viễn và có hiệu lực ngay lập tức (không cần restart máy chủ).</span>
+          </p>
+        </div>
+
+        <!-- Quick Integration Example -->
+        <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-terminal text-cyan-400"></i>
+              Cấu hình mẫu trên cổng phát (HC TECH Platform / ChirpStack Gateway):
+            </span>
+            <button onclick="copyCurlExample()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy lệnh cURL kiểm tra</span>
+            </button>
+          </div>
+          <div class="text-[11px] font-mono text-slate-300 bg-slate-900/90 p-3 rounded-lg border border-slate-800 overflow-x-auto space-y-1 leading-relaxed">
+            <div><span class="text-purple-400">Header Name :</span> <span class="text-slate-100 font-bold">Authorization</span></div>
+            <div><span class="text-purple-400">Header Value:</span> <span class="text-emerald-300 font-bold">Bearer <span class="preview-token-snippet">{{ webhook_bearer_token }}</span></span></div>
+            <div class="text-slate-400 text-[10px] pt-1">
+              * Tương thích ngược: Hệ thống cũng chấp nhận Header <code>X-Webhook-Secret: <span class="preview-token-snippet">{{ webhook_bearer_token }}</span></code>
+            </div>
           </div>
         </div>
       </div>
@@ -989,7 +1201,7 @@
         </div>
 
         <!-- Execute Button -->
-        <div class="flex items-center justify-between pt-1">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
           <div class="flex items-center gap-2">
             <button onclick="queryCloudTelemetry()" id="btn-query-telemetry" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-cyan-600/30 transition flex items-center gap-2">
               <i class="fa-solid fa-magnifying-glass"></i>
@@ -1012,8 +1224,8 @@
         <!-- Telemetry Results Area -->
         <div id="telemetry-result-container" class="space-y-3 pt-2">
           <!-- Table View -->
-          <div id="telemetry-view-table" class="overflow-x-auto bg-slate-950 rounded-xl border border-slate-800 p-3 max-h-[350px] custom-scrollbar">
-            <table class="w-full text-left text-xs" id="telemetry-table">
+          <div id="telemetry-view-table" class="table-responsive-container overflow-x-auto bg-slate-950 rounded-xl border border-slate-800 p-3 max-h-[350px] custom-scrollbar">
+            <table class="w-full text-left text-xs min-w-[680px]" id="telemetry-table">
               <thead class="text-slate-400 border-b border-slate-800 text-[11px] uppercase">
                 <tr>
                   <th class="pb-2">Mốc Thời Gian</th>
@@ -1033,6 +1245,10 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+          <div class="md:hidden text-[10px] text-slate-500 flex items-center gap-1">
+            <i class="fa-solid fa-arrows-left-right text-cyan-400"></i>
+            <span>Vuốt ngang để xem đủ 7 cột dữ liệu</span>
           </div>
 
           <!-- JSON View (hidden by default) -->
@@ -1084,7 +1300,7 @@
           <!-- Mode Selector -->
           <div class="space-y-1.5 md:col-span-2">
             <label class="text-xs font-semibold text-slate-300">Chế Độ Phát Lệnh (Command Payload Mode):</label>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button type="button" onclick="switchDownlinkMode('command')" id="btn-mode-command" class="py-2.5 px-3 rounded-xl border border-cyan-500/50 bg-cyan-500/20 text-cyan-300 text-xs font-bold transition flex items-center justify-center gap-2">
                 <i class="fa-solid fa-cube"></i>
                 <span>Lệnh Định Dạng Chuẩn (Form Command)</span>
@@ -1199,8 +1415,8 @@
         </div>
 
         <!-- Commands Table -->
-        <div class="overflow-x-auto bg-slate-950 rounded-xl border border-slate-800 p-3 max-h-[400px] custom-scrollbar">
-          <table class="w-full text-left text-xs" id="downlink-commands-table">
+        <div class="table-responsive-container overflow-x-auto bg-slate-950 rounded-xl border border-slate-800 p-3 max-h-[400px] custom-scrollbar">
+          <table class="w-full text-left text-xs min-w-[760px]" id="downlink-commands-table">
             <thead class="text-slate-400 border-b border-slate-800 text-[11px] uppercase">
               <tr>
                 <th class="pb-2">Mã Lệnh</th>
@@ -1222,6 +1438,10 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        <div class="md:hidden text-[10px] text-slate-500 flex items-center gap-1">
+          <i class="fa-solid fa-arrows-left-right text-cyan-400"></i>
+          <span>Vuốt ngang để xem đủ 9 cột thông tin lệnh</span>
         </div>
       </div>
     </div>
@@ -1274,7 +1494,7 @@
           </div>
 
           <div class="space-y-3 pt-2">
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
               <select id="cleanup-gps-days" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
                 <option value="30" selected>Cũ hơn 30 ngày</option>
                 <option value="60">Cũ hơn 60 ngày</option>
@@ -1305,7 +1525,7 @@
           </div>
 
           <div class="space-y-3 pt-2">
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
               <select id="cleanup-alerts-days" class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200">
                 <option value="30" selected>Đã giải quyết > 30 ngày</option>
                 <option value="60">Đã giải quyết > 60 ngày</option>
@@ -1599,6 +1819,7 @@
       loadSimulatorTemplate();
       loadDownlinkCommands();
       setupSSE();
+      fetchWebhookMonitorLogs();
 
       const isLight = document.documentElement.classList.contains('light');
       const icon = document.getElementById('theme-icon');
@@ -1637,10 +1858,316 @@
             appendConsole('overview-console', `[Emergency Broadcast] ${data.device_name || 'Khẩn cấp'}`);
           } catch (err) {}
         });
+
+        // 🚨 SỰ KIỆN LIVE WEBHOOK MONITOR (0ms delay)
+        es.addEventListener('WEBHOOK_MONITOR', (e) => {
+          try {
+            const entry = JSON.parse(e.data);
+            handleIncomingWebhookMonitorLog(entry);
+          } catch (err) {
+            console.error("Lỗi đọc gói tin WEBHOOK_MONITOR:", err);
+          }
+        });
+
+        es.addEventListener('WEBHOOK_MONITOR_UPDATE', (e) => {
+          try {
+            const update = JSON.parse(e.data);
+            updateWebhookMonitorStatus(update);
+          } catch (err) {}
+        });
+
+        es.addEventListener('WEBHOOK_MONITOR_CLEAR', (e) => {
+          clearMonitorDisplay(false);
+        });
       } catch (e) {
         console.warn("SSE connect failed:", e);
       }
     }
+
+    // =========================================================================
+    // 4b. LIVE WEBHOOK INGESTION MONITOR & RAW JSON INSPECTOR CONSOLE LOGIC
+    // =========================================================================
+    let _webhookMonitorLogs = [];
+
+    async function fetchWebhookMonitorLogs() {
+      try {
+        const res = await fetch('/admin/api/get_webhook_monitor_logs/');
+        const data = await res.json();
+        if (data.status === 'success' && Array.isArray(data.logs)) {
+          _webhookMonitorLogs = data.logs;
+          renderWebhookMonitorList();
+          updateMonitorCounters();
+        }
+      } catch (err) {
+        console.warn("Không thể tải nhật ký Webhook Monitor:", err);
+      }
+    }
+
+    function updateMonitorCounters() {
+      const totalEl = document.getElementById('mon-stat-total');
+      const sosEl = document.getElementById('mon-stat-sos');
+      const errEl = document.getElementById('mon-stat-401');
+
+      const total = _webhookMonitorLogs.length;
+      const sos = _webhookMonitorLogs.filter(l => l.is_sos).length;
+      const unauth = _webhookMonitorLogs.filter(l => l.status_code === 401).length;
+
+      if (totalEl) totalEl.innerText = total;
+      if (sosEl) sosEl.innerText = sos;
+      if (errEl) errEl.innerText = unauth;
+    }
+
+    function handleIncomingWebhookMonitorLog(entry) {
+      if (!entry || !entry.id) return;
+      const existingIdx = _webhookMonitorLogs.findIndex(l => l.id === entry.id);
+      if (existingIdx !== -1) {
+        _webhookMonitorLogs[existingIdx] = Object.assign({}, _webhookMonitorLogs[existingIdx], entry);
+      } else {
+        _webhookMonitorLogs.unshift(entry);
+        if (_webhookMonitorLogs.length > 100) {
+          _webhookMonitorLogs.pop();
+        }
+      }
+      renderWebhookMonitorList();
+      updateMonitorCounters();
+
+      // Tự động cuộn lên đầu nếu được bật
+      const autoScroll = document.getElementById('mon-auto-scroll');
+      const logList = document.getElementById('mon-log-list');
+      if (autoScroll && autoScroll.checked && logList) {
+        logList.scrollTop = 0;
+      }
+
+      const devText = entry.dev_eui ? `[${entry.dev_eui}]` : '';
+      if (entry.is_sos) {
+        showToast(`🚨 WEBHOOK: Nhận gói tin SOS ${devText}`, 'error');
+      } else if (entry.status_code === 401) {
+        showToast(`⚠️ WEBHOOK 401: Sai hoặc thiếu Bearer Token`, 'warning');
+      }
+    }
+
+    function updateWebhookMonitorStatus(update) {
+      if (!update || !update.id) return;
+      const item = _webhookMonitorLogs.find(l => l.id === update.id);
+      if (item) {
+        item.status_code = update.status_code ?? item.status_code;
+        item.status_message = update.status_message ?? item.status_message;
+        item.results = update.results ?? item.results;
+        updateMonitorCardDOM(item);
+        updateMonitorCounters();
+      }
+    }
+
+    async function clearWebhookMonitorLogs() {
+      if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử gói tin trên Webhook Monitor?")) return;
+      try {
+        const res = await fetch('/admin/api/clear_webhook_monitor_logs/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          clearMonitorDisplay(true);
+          showToast(data.message || "Đã xóa toàn bộ nhật ký Webhook Monitor!", "success");
+        }
+      } catch (err) {
+        showToast("Lỗi khi xóa nhật ký Monitor: " + err.message, "error");
+      }
+    }
+
+    function clearMonitorDisplay(silent = false) {
+      _webhookMonitorLogs = [];
+      renderWebhookMonitorList();
+      updateMonitorCounters();
+      if (!silent) showToast("Đã làm sạch màn hình Monitor", "info");
+    }
+
+    function filterMonitorLogs() {
+      renderWebhookMonitorList();
+    }
+
+    function clearMonitorSearch() {
+      const input = document.getElementById('mon-search-input');
+      if (input) {
+        input.value = '';
+        renderWebhookMonitorList();
+      }
+    }
+
+    function renderWebhookMonitorList() {
+      const listContainer = document.getElementById('mon-log-list');
+      if (!listContainer) return;
+
+      const q = (document.getElementById('mon-search-input')?.value || '').trim().toLowerCase();
+      let filtered = _webhookMonitorLogs;
+      if (q) {
+        filtered = _webhookMonitorLogs.filter(item => {
+          const raw = (item.raw_body || '').toLowerCase();
+          const eui = (item.dev_eui || '').toLowerCase();
+          const ip = (item.client_ip || '').toLowerCase();
+          const msg = (item.status_message || '').toLowerCase();
+          return raw.includes(q) || eui.includes(q) || ip.includes(q) || msg.includes(q);
+        });
+      }
+
+      if (filtered.length === 0) {
+        listContainer.innerHTML = `
+          <div id="mon-empty-placeholder" class="p-8 text-center text-slate-500 text-xs border border-dashed border-slate-800 rounded-xl space-y-2">
+            <i class="fa-solid fa-satellite-dish text-3xl text-cyan-400 mb-1 animate-bounce"></i>
+            <p class="font-bold text-slate-300 text-sm">Đang chờ nhận gói tin Webhook JSON...</p>
+            <p class="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+              Bất kỳ gói tin gửi từ Postman, cURL, Gateway ChirpStack, bộ nút nhấn Moko 002 hoặc bộ giả lập sẽ hiển thị trực tiếp tại đây cùng đầy đủ cấu trúc JSON để phân tích.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(item => {
+        html += createMonitorCardHtml(item);
+      });
+      listContainer.innerHTML = html;
+    }
+
+    function createMonitorCardHtml(item) {
+      const is200 = item.status_code === 200;
+      const is401 = item.status_code === 401;
+      const is400 = item.status_code === 400;
+
+      let statusBadgeClass = 'bg-slate-800 text-slate-300 border-slate-700';
+      let statusIcon = 'fa-circle-info';
+      if (is200) {
+        statusBadgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+        statusIcon = 'fa-check';
+      } else if (is401) {
+        statusBadgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+        statusIcon = 'fa-shield-halved';
+      } else if (is400) {
+        statusBadgeClass = 'bg-red-500/20 text-red-400 border-red-500/40';
+        statusIcon = 'fa-triangle-exclamation';
+      }
+
+      let sosBadgeHtml = '';
+      if (item.is_sos) {
+        sosBadgeHtml = `<span class="px-2 py-0.5 rounded-full bg-red-600 text-white font-extrabold text-[10px] uppercase flex items-center gap-1 shadow-md shadow-red-600/40 animate-pulse"><i class="fa-solid fa-bell"></i> 🚨 SOS BÁO ĐỘNG</span>`;
+      } else {
+        sosBadgeHtml = `<span class="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-cyan-300 text-[10px] font-semibold flex items-center gap-1"><i class="fa-solid fa-heart-pulse text-emerald-400"></i> Heartbeat / Telemetry</span>`;
+      }
+
+      const devEuiHtml = item.dev_eui
+        ? `<span class="px-2 py-0.5 rounded-lg bg-cyan-950/80 border border-cyan-800/80 text-cyan-300 font-mono text-[11px] font-bold"><i class="fa-solid fa-microchip text-cyan-400 mr-1"></i>${item.dev_eui}</span>`
+        : `<span class="text-slate-500 font-mono text-[11px]">DevEUI: N/A</span>`;
+
+      const authBadge = item.auth_status === 'authorized' || item.auth_status === 'authorized (internal)'
+        ? `<span class="text-emerald-400 text-[10px] font-medium"><i class="fa-solid fa-lock text-emerald-400 mr-0.5"></i> Token OK</span>`
+        : `<span class="text-amber-400 text-[10px] font-medium"><i class="fa-solid fa-lock-open text-amber-400 mr-0.5"></i> ${item.auth_status || 'Unauth'}</span>`;
+
+      let jsonDisplay = '';
+      try {
+        if (item.json_data) {
+          jsonDisplay = JSON.stringify(item.json_data, null, 2);
+        } else if (item.raw_body) {
+          const parsed = JSON.parse(item.raw_body);
+          jsonDisplay = JSON.stringify(parsed, null, 2);
+        } else {
+          jsonDisplay = "(Chuỗi rỗng)";
+        }
+      } catch (e) {
+        jsonDisplay = item.raw_body || "(Không thể giải mã JSON)";
+      }
+
+      const escapedJson = jsonDisplay.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+      return `
+        <div id="mon-card-${item.id}" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition space-y-2.5 text-xs shadow-sm">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="px-2 py-0.5 rounded-lg border font-mono font-bold text-[11px] flex items-center gap-1 ${statusBadgeClass}">
+                <i class="fa-solid ${statusIcon}"></i>
+                <span>${item.status_code || 200}</span>
+              </span>
+              ${sosBadgeHtml}
+              ${devEuiHtml}
+              <span class="text-slate-400 font-mono text-[11px]"><i class="fa-regular fa-clock mr-1 text-slate-500"></i>${item.timestamp || item.time_only}</span>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-slate-400 text-[11px] font-mono"><i class="fa-solid fa-network-wired text-slate-500 mr-1"></i>${item.client_ip || 'IP'}</span>
+              ${authBadge}
+              <button type="button" onclick="copyMonitorPayload('${item.id}')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] transition flex items-center gap-1 font-medium" title="Sao chép toàn bộ chuỗi JSON">
+                <i class="fa-regular fa-copy"></i> Copy JSON
+              </button>
+              <button type="button" onclick="toggleMonitorPayload('${item.id}')" class="px-2 py-1 rounded bg-cyan-900/40 hover:bg-cyan-900/70 border border-cyan-700/50 text-cyan-300 text-[11px] transition flex items-center gap-1 font-semibold">
+                <i class="fa-solid fa-code" id="mon-icon-${item.id}"></i>
+                <span id="mon-lbl-${item.id}">Xem JSON</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-slate-400">
+            <div class="truncate max-w-xl">
+              <i class="fa-solid fa-terminal text-cyan-500 mr-1"></i>
+              <span class="text-slate-300 font-medium">${item.status_message || 'Đã tiếp nhận'}</span>
+              ${item.error_message ? `<span class="text-red-400 ml-1">(${item.error_message})</span>` : ''}
+            </div>
+            <div class="text-slate-500 font-mono shrink-0 ml-2">
+              ID: ${item.id}
+            </div>
+          </div>
+
+          <div id="mon-detail-${item.id}" class="hidden pt-2 border-t border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono px-1">
+              <span>HEADERS / PAYLOAD JSON ĐẦY ĐỦ:</span>
+              <span class="text-cyan-400 font-medium">${item.content_type || 'application/json'}</span>
+            </div>
+            <pre class="p-3 rounded-lg bg-slate-950 border border-slate-800/80 font-mono text-[11px] text-emerald-400 overflow-x-auto custom-scrollbar max-h-64 select-all leading-relaxed whitespace-pre">${escapedJson}</pre>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleMonitorPayload(id) {
+      const detail = document.getElementById(`mon-detail-${id}`);
+      const lbl = document.getElementById(`mon-lbl-${id}`);
+      if (!detail) return;
+      if (detail.classList.contains('hidden')) {
+        detail.classList.remove('hidden');
+        if (lbl) lbl.innerText = 'Ẩn JSON';
+      } else {
+        detail.classList.add('hidden');
+        if (lbl) lbl.innerText = 'Xem JSON';
+      }
+    }
+
+    function copyMonitorPayload(id) {
+      const item = _webhookMonitorLogs.find(l => l.id === id);
+      if (!item) return;
+      const text = item.raw_body || (item.json_data ? JSON.stringify(item.json_data, null, 2) : '');
+      if (!text) return showToast("Không có dữ liệu JSON để copy!", "warning");
+      navigator.clipboard.writeText(text);
+      showToast("Đã sao chép chuỗi JSON vào Clipboard!", "success");
+    }
+
+    function updateMonitorCardDOM(item) {
+      const card = document.getElementById(`mon-card-${item.id}`);
+      if (card) {
+        const temp = document.createElement('div');
+        temp.innerHTML = createMonitorCardHtml(item);
+        card.replaceWith(temp.firstElementChild);
+      }
+    }
+
+    // Đăng ký toàn cục
+    window.fetchWebhookMonitorLogs = fetchWebhookMonitorLogs;
+    window.handleIncomingWebhookMonitorLog = handleIncomingWebhookMonitorLog;
+    window.updateWebhookMonitorStatus = updateWebhookMonitorStatus;
+    window.clearWebhookMonitorLogs = clearWebhookMonitorLogs;
+    window.clearMonitorDisplay = clearMonitorDisplay;
+    window.filterMonitorLogs = filterMonitorLogs;
+    window.clearMonitorSearch = clearMonitorSearch;
+    window.toggleMonitorPayload = toggleMonitorPayload;
+    window.copyMonitorPayload = copyMonitorPayload;
 
     // 5. TEMPLATE & SIMULATOR LOGIC
     function loadSimulatorTemplate() {
@@ -2253,6 +2780,99 @@
       input.select();
       navigator.clipboard.writeText(input.value);
       showToast("Đã sao chép URL Webhook vào Clipboard!", "success");
+    }
+
+    function toggleWebhookTokenVisibility() {
+      const input = document.getElementById('webhook-token-input');
+      const icon = document.getElementById('webhook-eye-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-regular fa-eye';
+      }
+    }
+
+    function copyWebhookTokenOnly() {
+      const input = document.getElementById('webhook-token-input');
+      const val = input.value.trim();
+      if (!val) return showToast("Không có Bearer token để copy!", "warning");
+      navigator.clipboard.writeText(val);
+      showToast("Đã sao chép Bearer Token vào Clipboard!", "success");
+    }
+
+    function copyWebhookBearerHeader() {
+      const input = document.getElementById('webhook-token-input');
+      const val = input.value.trim();
+      if (!val) return showToast("Không có Bearer token để copy!", "warning");
+      navigator.clipboard.writeText(`Authorization: Bearer ${val}`);
+      showToast("Đã sao chép 'Authorization: Bearer ...' vào Clipboard!", "success");
+    }
+
+    async function generateWebhookBearerToken() {
+      const btn = document.getElementById('btn-generate-token');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang sinh token...`;
+      try {
+        const res = await fetch('/admin/api/generate_webhook_token/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.status === 'success' && data.token) {
+          document.getElementById('webhook-token-input').value = data.token;
+          document.querySelectorAll('.preview-token-snippet').forEach(el => el.innerText = data.token);
+          showToast(data.message || "Đã sinh Bearer Token mới thành công!", "success");
+        } else {
+          showToast(data.message || "Lỗi khi sinh Bearer token", "error");
+        }
+      } catch (err) {
+        showToast("Lỗi kết nối khi sinh token!", "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> <span>Sinh Token Mới Ngẫu Nhiên</span>`;
+      }
+    }
+
+    async function saveWebhookBearerToken() {
+      const input = document.getElementById('webhook-token-input');
+      const token = input.value.trim();
+      if (!token) return showToast("Bearer token không được để trống!", "warning");
+
+      const btn = document.getElementById('btn-save-token');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...`;
+      try {
+        const res = await fetch('/admin/api/save_webhook_token/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          document.querySelectorAll('.preview-token-snippet').forEach(el => el.innerText = token);
+          showToast(data.message || "Đã lưu cấu hình Bearer Token thành công!", "success");
+        } else {
+          showToast(data.message || "Lỗi khi lưu Bearer token", "error");
+        }
+      } catch (err) {
+        showToast("Lỗi kết nối khi lưu token!", "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>Lưu Cấu Hình</span>`;
+      }
+    }
+
+    function copyCurlExample() {
+      const urlInput = document.getElementById('webhook-url-input');
+      const tokenInput = document.getElementById('webhook-token-input');
+      const url = urlInput ? urlInput.value.trim() : window.location.origin + '/api/webhook/uplink/';
+      const token = tokenInput ? tokenInput.value.trim() : 'YOUR_TOKEN';
+      
+      const curlCmd = `curl -X POST "${url}" \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${token}" \\\n  -d '{"event_id":"evt_test_01","dev_eui":"A840410000000001","reported_at":"2026-10-20T08:00:00Z","measurements":[{"name":"latitude","value":16.0544},{"name":"longitude","value":108.2021}]}'`;
+      navigator.clipboard.writeText(curlCmd);
+      showToast("Đã sao chép lệnh cURL mẫu (kèm Authorization: Bearer) vào Clipboard!", "success");
     }
 
     function toggleTokenVisibility() {

@@ -21,7 +21,7 @@ const VIETNAM_BOUNDS = [
     [28.0, 125.0]   // Đông Bắc (vịnh Bắc Bộ, Hoàng Sa, biển Đông)
 ];
 const DEFAULT_MAP_CENTER = [16.054407, 108.202167];
-const DEFAULT_MAP_ZOOM = 6;
+const DEFAULT_MAP_ZOOM = 7;
 
 const mapvinaStreetLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}', {
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
@@ -54,6 +54,7 @@ const map = L.map('gis-map', {
     closePopupOnClick: true,
     worldCopyJump: false
 });
+window.map = map;
 
 map.on('click', function () {
     map.closePopup();
@@ -76,6 +77,7 @@ let currentEmergencyCoords = null;
 
 // Lưu danh sách Marker theo ID để KHÔNG xóa/tạo lại làm mất Popup đang mở
 let deviceMarkersMap = {};
+window.deviceMarkersMap = deviceMarkersMap;
 
 // Đóng / Mở Sidebar và tự động co giãn lại bản đồ
 function toggleSidebar() {
@@ -121,7 +123,18 @@ function playSirenBeep() {
 }
 
 function startSiren() {
-    if (!sirenInterval) sirenInterval = setInterval(playSirenBeep, 500);
+    if (!soundEnabled) return;
+    try {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+        }
+        playSirenBeep();
+    } catch (e) {
+        console.warn("AudioContext resume:", e);
+    }
+    if (!sirenInterval) {
+        sirenInterval = setInterval(playSirenBeep, 500);
+    }
 }
 
 function stopSiren() {
@@ -133,18 +146,54 @@ function stopSiren() {
 
 function toggleSoundSetting() {
     soundEnabled = !soundEnabled;
-    document.getElementById('text-sound').innerText = soundEnabled ? "Âm báo: BẬT" : "Âm báo: TẮT";
-    document.getElementById('icon-sound').className = soundEnabled
+    const soundText = soundEnabled ? "Âm báo: BẬT" : "Âm báo: TẮT";
+    const soundClass = soundEnabled
         ? "fa-solid fa-volume-high text-emerald-400 mr-1.5"
         : "fa-solid fa-volume-xmark text-slate-400 mr-1.5";
+    const t1 = document.getElementById('text-sound');
+    if (t1) t1.innerText = soundText;
+    const i1 = document.getElementById('icon-sound');
+    if (i1) i1.className = soundClass;
+
+    const t2 = document.getElementById('mobile-text-sound');
+    if (t2) t2.innerText = soundEnabled ? "Âm: BẬT" : "Âm: TẮT";
+    const i2 = document.getElementById('mobile-icon-sound');
+    if (i2) i2.className = soundEnabled ? "fa-solid fa-volume-high text-emerald-400" : "fa-solid fa-volume-xmark text-slate-400";
+
     if (!soundEnabled) stopSiren();
 }
 
 // ================= 3. RENDER MARKER THIẾT BỊ & TỰ ĐỘNG CĂN CHỈNH ZOOM =================
 let hasInitialMapFit = false;
 
+// Thuật toán phát hiện và gom nhóm cụm thiết bị chính, loại bỏ các điểm ngoại lai cá biệt (như thiết bị test cách 500-600km)
+function getClusteredCoords(coords) {
+    if (!coords || coords.length <= 2) return coords;
+
+    const lats = coords.map(c => c[0]).sort((a, b) => a - b);
+    const lngs = coords.map(c => c[1]).sort((a, b) => a - b);
+    const mid = Math.floor(coords.length / 2);
+    const medLat = coords.length % 2 !== 0 ? lats[mid] : (lats[mid - 1] + lats[mid]) / 2;
+    const medLng = coords.length % 2 !== 0 ? lngs[mid] : (lngs[mid - 1] + lngs[mid]) / 2;
+
+    const withDist = coords.map(c => {
+        const dLat = (c[0] - medLat) * 111;
+        const dLng = (c[1] - medLng) * 106;
+        return { coord: c, dist: Math.sqrt(dLat * dLat + dLng * dLng) };
+    });
+
+    // Gom cụm chính trong phạm vi bán kính 50km tính từ trung vị
+    const cluster = withDist.filter(d => d.dist <= 50);
+
+    // Nếu trên 70% số thiết bị nằm trong cụm này, ưu tiên zoom vào cụm chính
+    if (cluster.length >= Math.ceil(coords.length * 0.7) && cluster.length >= 2) {
+        return cluster.map(d => d.coord);
+    }
+    return coords;
+}
+
 // Tự động căn chỉnh và zoom khung nhìn bản đồ bao quát toàn bộ vị trí các thiết bị với hiệu ứng mượt mà
-function fitMapToDevices(animate = true, duration = 1.6) {
+function fitMapToDevices(animate = true, duration = 1.2, allowClusterFilter = true) {
     if (typeof map === 'undefined' || !map) return false;
 
     const coords = [];
@@ -162,29 +211,34 @@ function fitMapToDevices(animate = true, duration = 1.6) {
     // Đảm bảo kích thước container của bản đồ đã được tính toán chính xác
     map.invalidateSize();
 
-    if (coords.length === 1) {
+    const targetCoords = allowClusterFilter ? getClusteredCoords(coords) : coords;
+    const bounds = L.latLngBounds(targetCoords);
+    if (!bounds.isValid()) return false;
+
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const isSinglePoint = targetCoords.length === 1 ||
+        (Math.abs(sw.lat - ne.lat) < 0.0001 && Math.abs(sw.lng - ne.lng) < 0.0001);
+
+    if (isSinglePoint) {
         if (animate && typeof map.flyTo === 'function') {
-            map.flyTo(coords[0], 14, { duration: duration, easeLinearity: 0.25 });
+            map.flyTo(bounds.getCenter(), 14, { duration: duration });
         } else {
-            map.setView(coords[0], 14);
+            map.setView(bounds.getCenter(), 14);
         }
         return true;
     }
 
-    const bounds = L.latLngBounds(coords);
-    if (!bounds.isValid()) return false;
-
     if (animate && typeof map.flyToBounds === 'function') {
         map.flyToBounds(bounds, {
-            padding: [50, 50],
-            maxZoom: 15,
-            duration: duration,
-            easeLinearity: 0.25
+            padding: [40, 40],
+            maxZoom: 13,
+            duration: duration
         });
     } else {
         map.fitBounds(bounds, {
-            padding: [50, 50],
-            maxZoom: 15,
+            padding: [40, 40],
+            maxZoom: 13,
             animate: false
         });
     }
@@ -211,7 +265,7 @@ function getDeviceVisual(d) {
     if (isShip) {
         return {
             categoryKey: 'ship',
-            typeName: 'Cứu hộ tàu thuyền (GPS)',
+            typeName: 'Tàu thuyền / Di động (GPS)',
             iconClass: 'fa-ship',
             shapeClass: 'pin-ship',
             prefixIcon: '🚢'
@@ -226,25 +280,34 @@ function getDeviceVisual(d) {
             prefixIcon: '📹'
         };
     }
-    // Nút nhấn khẩn cấp
-    let icon = 'fa-bell';
-    let typeName = 'Nút nhấn khẩn cấp';
+    // Thiết bị trên Đất liền (Nút nhấn cố định / Nhà ở / Cơ sở)
+    let icon = 'fa-building';
+    let typeName = 'Nút nhấn Đất liền';
+    let prefixIcon = '🏢';
+    let catClass = 'pin-cat-default';
+
     if (d.category_type === 'CHAY') {
         icon = 'fa-fire';
-        typeName = 'Nút Báo Cháy (Đất liền)';
+        typeName = 'Báo Cháy (Đất liền)';
+        prefixIcon = '🔥';
+        catClass = 'pin-cat-chay';
     } else if (d.category_type === 'AN_NINH') {
         icon = 'fa-shield-halved';
-        typeName = 'Nút An Ninh (Đất liền)';
+        typeName = 'An Ninh (Đất liền)';
+        prefixIcon = '🛡️';
+        catClass = 'pin-cat-anninh';
     } else if (d.category_type === 'CAP_CUU_Y_TE') {
         icon = 'fa-heart-pulse';
-        typeName = 'Nút Cấp Cứu Y Tế';
+        typeName = 'Cấp Cứu Y Tế (Đất liền)';
+        prefixIcon = '🏥';
+        catClass = 'pin-cat-yte';
     }
     return {
         categoryKey: 'button',
         typeName: typeName,
         iconClass: icon,
-        shapeClass: 'pin-button',
-        prefixIcon: '🔔'
+        shapeClass: `pin-button ${catClass}`,
+        prefixIcon: prefixIcon
     };
 }
 
@@ -365,16 +428,14 @@ async function refreshMapMarkers(forceFit = false) {
     });
 
     // Tự động căn chỉnh và zoom lại vị trí của các thiết bị khi tải trang lần đầu hoặc khi đổi bộ lọc
-    if (!hasInitialMapFit) {
-        hasInitialMapFit = true;
-        if (!data.emergency) {
-            // Chờ một nhịp ngắn (300ms) sau khi vẽ xong marker để kích hoạt hiệu ứng zoom lướt mượt mà vào thiết bị
-            setTimeout(() => {
-                fitMapToDevices(true, 1.8);
-            }, 300);
-        }
-    } else if (forceFit === true) {
-        if (!data.emergency) {
+    if (!data.emergency) {
+        if (!hasInitialMapFit) {
+            map.invalidateSize();
+            if (fitMapToDevices(true, 1.2)) {
+                hasInitialMapFit = true;
+            }
+        } else if (forceFit === true) {
+            map.invalidateSize();
             fitMapToDevices(true, 1.2);
         }
     }
@@ -412,19 +473,26 @@ async function refreshMapMarkers(forceFit = false) {
         const notesRow = document.getElementById('sos-modal-notes-row');
         const notesEl = document.getElementById('sos-modal-notes');
         const sosNotesInput = document.getElementById('sos-notes');
-        if (data.emergency.notes) {
+        const cleanNotes = (data.emergency.notes || '').trim();
+        if (cleanNotes && !cleanNotes.includes('Tín hiệu vô tuyến')) {
             if (notesRow) notesRow.classList.remove('hidden');
-            if (notesEl) notesEl.innerText = data.emergency.notes;
-            if (sosNotesInput) sosNotesInput.value = data.emergency.notes;
+            if (notesEl) notesEl.innerText = cleanNotes;
+            if (sosNotesInput) sosNotesInput.value = cleanNotes;
         } else {
             if (notesRow) notesRow.classList.add('hidden');
             if (notesEl) notesEl.innerText = '';
+            if (sosNotesInput) sosNotesInput.value = '';
         }
 
         document.getElementById('step3-box').classList.remove('hidden');
         document.getElementById('step4-5-box').classList.add('hidden');
         document.getElementById('emergency-modal').classList.remove('hidden');
         startSiren();
+    }
+
+    // Tự động cập nhật bảng danh sách thiết bị và các thẻ thống kê thời gian thực (0ms delay)
+    if (data.devices) {
+        updateDeviceTableRealtime(data.devices);
     }
 }
 window.refreshMapMarkers = refreshMapMarkers;
@@ -451,6 +519,16 @@ function showMapTab(keepView = false) {
 
     const mapSec = document.getElementById('section-map');
     if (mapSec) mapSec.classList.remove('hidden');
+
+    // Đồng bộ trạng thái active cho thanh điều hướng di động (Mobile Bottom Nav) & đóng drawer
+    try {
+        document.querySelectorAll('.hc-mobile-nav-item').forEach(b => b.classList.remove('active'));
+        const mobileBtn = document.getElementById('mobile-nav-btn-map');
+        if (mobileBtn) mobileBtn.classList.add('active');
+        if (typeof closeMobileSidebar === 'function') {
+            closeMobileSidebar();
+        }
+    } catch (e) {}
 
     if (typeof map !== 'undefined' && map) {
         map.invalidateSize();
@@ -711,6 +789,7 @@ async function loadRouteHistory() {
                     </div>
                     <div class="space-y-1 mb-2.5">
                         <div><strong>Thời điểm gửi SOS:</strong> <span class="text-red-700 font-semibold">${pt.time}</span></div>
+                        ${pt.button_name ? `<div><strong>Nguồn phát SOS:</strong> <span class="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded text-[11px]"><i class="fa-solid fa-hand-pointer mr-1"></i>${pt.button_name}</span></div>` : ''}
                         <div><strong>Tình trạng tàu:</strong> <span class="bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold text-[11px]">⚠️ BÁO ĐỘNG KHẨN CẤP!</span></div>
                         <div><strong>Vận tốc lúc đó:</strong> <span class="font-bold text-sky-700">${pt.speed} km/h</span></div>
                         <div><strong>Dung lượng Pin:</strong> <span class="font-bold text-emerald-600">${pt.battery}%</span></div>
@@ -804,6 +883,34 @@ async function loadRouteHistory() {
                 </div>
             `;
             const m = L.marker([pt.lat, pt.lng], { icon: stopIcon, zIndexOffset: 500 }).addTo(routeLayer).bindPopup(stopPopup, { autoClose: true, closeOnClick: true });
+            m.on('click', () => { seekRoute(idx, false); });
+        } else if (pt.packet_type === 'HEARTBEAT' || (!pt.is_sos && pt.has_button)) {
+            // 🔘 ĐIỂM HEARTBEAT BÌNH THƯỜNG CỦA NÚT LIÊN KẾT (KHÔNG PHẢI SOS)
+            const hbIcon = L.divIcon({
+                className: '',
+                html: `<div class="w-4 h-4 rounded-full bg-teal-500 border-2 border-white shadow hover:scale-175 transition-all cursor-pointer ring-1 ring-teal-700/30 flex items-center justify-center text-[8px] text-white" title="Heartbeat định kỳ: ${pt.button_name || 'Nút nhấn'} (${pt.time})"><i class="fa-solid fa-signal"></i></div>`,
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+            });
+            const hbPopup = `
+                <div class="text-xs text-slate-900 font-sans p-1 min-w-[210px]">
+                    <div class="font-bold text-sm text-teal-800 border-b border-teal-200 pb-1 mb-1.5 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-check text-teal-600"></i> <span>TÍN HIỆU HEARTBEAT BÌNH THƯỜNG</span>
+                    </div>
+                    <div class="space-y-1 mb-2.5">
+                        <div><strong>Thời điểm:</strong> ${pt.time}</div>
+                        <div><strong>Trạng thái:</strong> <span class="bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold text-[11px]">✔ Bình thường (Hoạt động tốt)</span></div>
+                        ${pt.button_name ? `<div><strong>Nút nhấn gửi:</strong> <span class="font-bold text-teal-700">${pt.button_name}</span></div>` : ''}
+                        <div><strong>Vận tốc:</strong> <span class="font-bold text-sky-700">${pt.speed} km/h</span></div>
+                        <div><strong>Dung lượng Pin:</strong> <span class="font-bold text-emerald-600">${pt.battery}%</span></div>
+                        <div><strong>Tọa độ GPS:</strong> <span class="font-mono text-slate-700">${pt.lat.toFixed(5)}, ${pt.lng.toFixed(5)}</span></div>
+                    </div>
+                    <button onclick="window.seekRoute(${idx})" class="w-full py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded shadow transition flex items-center justify-center gap-1 cursor-pointer">
+                        <i class="fa-solid fa-ship"></i> Tua tàu đến điểm này
+                    </button>
+                </div>
+            `;
+            const m = L.marker([pt.lat, pt.lng], { icon: hbIcon, zIndexOffset: 400 }).addTo(routeLayer).bindPopup(hbPopup, { autoClose: true, closeOnClick: true });
             m.on('click', () => { seekRoute(idx, false); });
         } else {
             // 📍 ĐIỂM BÁO CÁO GPS ĐỊNH KỲ DỌC THEO HÀNH TRÌNH
@@ -950,6 +1057,275 @@ function closeAddDeviceModal() {
     document.getElementById('add-device-modal').classList.add('hidden');
 }
 
+// ================= GÁN THÔNG TIN CHO THIẾT BỊ MỚI / SỬA THÔNG TIN =================
+function toggleAssignGpsFields() {
+    const hasGps = document.getElementById('assign-has-gps')?.value === 'true';
+    const addrLabel = document.getElementById('assign-address-label');
+    const latInput = document.getElementById('assign-lat');
+    const lngInput = document.getElementById('assign-lng');
+    if (addrLabel) {
+        addrLabel.innerText = hasGps ? "Cảng neo đậu / Khu vực hoạt động:" : "Địa chỉ lắp đặt / Nhà ở cơ sở:";
+    }
+    if (hasGps) {
+        if (latInput && !latInput.value) latInput.placeholder = "Tự động lấy qua định vị GPS khi phát tin";
+        if (lngInput && !lngInput.value) lngInput.placeholder = "Tự động lấy qua định vị GPS khi phát tin";
+    } else {
+        if (latInput && !latInput.value) latInput.placeholder = "16.054407 (Vĩ độ cố định)";
+        if (lngInput && !lngInput.value) lngInput.placeholder = "108.202167 (Kinh độ cố định)";
+    }
+    const pairContainer = document.getElementById('assign-pairing-container');
+    if (pairContainer) {
+        pairContainer.style.display = hasGps ? 'none' : 'block';
+    }
+}
+
+function openAssignDeviceModal(deviceId, devEui, deviceName, customerName, phone, categoryType, address, hasGps, lat, lng, parentId, groupName) {
+    const modal = document.getElementById('assign-device-modal');
+    if (!modal) {
+        console.error("Không tìm thấy modal #assign-device-modal");
+        return;
+    }
+    const idInput = document.getElementById('assign-dev-id');
+    const euiInput = document.getElementById('assign-dev-eui');
+    const nameInput = document.getElementById('assign-dev-name');
+    const custInput = document.getElementById('assign-cust-name');
+    const phoneInput = document.getElementById('assign-phone');
+    const catInput = document.getElementById('assign-category');
+    const gpsSelect = document.getElementById('assign-has-gps');
+    const addrInput = document.getElementById('assign-address');
+    const latInput = document.getElementById('assign-lat');
+    const lngInput = document.getElementById('assign-lng');
+    const parentSelect = document.getElementById('assign-parent-id');
+    const groupInput = document.getElementById('assign-group-name');
+
+    if (idInput) idInput.value = deviceId || '';
+    if (euiInput) euiInput.value = devEui || '';
+    if (nameInput) nameInput.value = deviceName || '';
+    if (custInput) custInput.value = customerName || '';
+    if (phoneInput) phoneInput.value = phone || '';
+    if (catInput) catInput.value = categoryType || 'CAP_CUU_Y_TE';
+    if (gpsSelect) gpsSelect.value = (hasGps === true || hasGps === 'true' || hasGps === 1) ? 'true' : 'false';
+    if (addrInput) addrInput.value = address || '';
+    if (latInput) latInput.value = (lat !== undefined && lat !== null && lat !== 'None') ? lat : '';
+    if (lngInput) lngInput.value = (lng !== undefined && lng !== null && lng !== 'None') ? lng : '';
+    if (parentSelect) parentSelect.value = parentId || '';
+    if (groupInput) groupInput.value = groupName || '';
+
+    toggleAssignGpsFields();
+
+    modal.classList.remove('hidden');
+    // Focus vào ô tên người quản lý nếu đã có tên thiết bị, hoặc ô tên thiết bị
+    setTimeout(() => {
+        if (custInput && !custInput.value) {
+            custInput.focus();
+        } else if (nameInput) {
+            nameInput.focus();
+        }
+    }, 100);
+}
+
+function closeAssignDeviceModal() {
+    const modal = document.getElementById('assign-device-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function submitAssignDevice(e) {
+    if (e) e.preventDefault();
+    const deviceId = document.getElementById('assign-dev-id')?.value;
+    if (!deviceId) return alert("Không tìm thấy mã thiết bị cần cập nhật!");
+
+    const devName = document.getElementById('assign-dev-name')?.value.trim();
+    const custName = document.getElementById('assign-cust-name')?.value.trim();
+    const phone = document.getElementById('assign-phone')?.value.trim();
+    const category = document.getElementById('assign-category')?.value || 'CAP_CUU_Y_TE';
+    const hasGps = document.getElementById('assign-has-gps')?.value === 'true';
+    const address = document.getElementById('assign-address')?.value.trim();
+    const latVal = document.getElementById('assign-lat')?.value.trim();
+    const lngVal = document.getElementById('assign-lng')?.value.trim();
+
+    if (!devName) return alert("Vui lòng nhập tên thiết bị hiển thị!");
+    if (!custName) return alert("Vui lòng nhập tên chủ hộ / người quản lý / thuyền trưởng!");
+    if (!phone) return alert("Vui lòng nhập số điện thoại khẩn cấp!");
+
+    const btn = document.getElementById('btn-save-assign');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...`;
+    }
+
+    const parentIdVal = document.getElementById('assign-parent-id')?.value;
+    const groupNameVal = document.getElementById('assign-group-name')?.value?.trim();
+
+    try {
+        const payload = {
+            device_name: devName,
+            customer_name: custName,
+            emergency_phone: phone,
+            category_type: category,
+            has_gps: hasGps,
+            address: address,
+            parent_device_id: parentIdVal ? parseInt(parentIdVal) : null,
+            group_name: groupNameVal || ''
+        };
+        if (latVal) payload.latitude = parseFloat(latVal);
+        if (lngVal) payload.longitude = parseFloat(lngVal);
+
+        const res = await fetch(`/api/devices/${deviceId}/update/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (res.ok && result.status === 'success') {
+            closeAssignDeviceModal();
+            alert("✅ " + (result.message || "Đã lưu thông tin thiết bị thành công!"));
+            // Giữ lại tab hiện tại và tải lại để cập nhật toàn bộ bảng thiết bị và bản đồ
+            sessionStorage.setItem('active_hc_tab', 'devices');
+            location.reload();
+        } else {
+            alert("❌ " + (result.message || "Không thể cập nhật thông tin thiết bị!"));
+        }
+    } catch (err) {
+        alert("❌ Lỗi kết nối khi cập nhật thông tin: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Lưu thông tin</span>`;
+        }
+    }
+}
+
+// Chuyển sang trang bản đồ và zoom vào vị trí thiết bị khi người dùng nhấn vào thiết bị trong mục quản lý thiết bị
+function zoomToDeviceOnMap(deviceId) {
+    if (!deviceId) return;
+    const devIdNum = parseInt(deviceId);
+
+    // 1. Chuyển sang hiển thị Tab bản đồ mà không reset view
+    showMapTab(true);
+    sessionStorage.setItem('active_hc_tab', 'map');
+
+    // 2. Chờ DOM hiển thị và invalidateSize Leaflet
+    setTimeout(() => {
+        if (typeof map === 'undefined' || !map) return;
+        map.invalidateSize();
+
+        const performFlyAndPopup = (lat, lng, markerInstance) => {
+            map.flyTo([lat, lng], 17, { animate: true, duration: 1.0 });
+            let opened = false;
+            const tryOpen = () => {
+                if (opened) return;
+                const m = markerInstance || (deviceMarkersMap[devIdNum] && deviceMarkersMap[devIdNum].marker);
+                if (m) {
+                    opened = true;
+                    m.openPopup();
+                }
+            };
+            map.once('moveend', tryOpen);
+            setTimeout(tryOpen, 750);
+        };
+
+        const entry = deviceMarkersMap[devIdNum];
+        if (entry && entry.marker) {
+            const latlng = entry.marker.getLatLng();
+            performFlyAndPopup(latlng.lat, latlng.lng, entry.marker);
+        } else {
+            // Marker chưa có trong bộ nhớ bản đồ -> Fetch state từ API để lấy lat/lng
+            fetch('/api/state/')
+                .then(r => r.json())
+                .then(data => {
+                    const dev = (data.devices || []).find(x => x.id === devIdNum);
+                    if (dev && dev.latitude != null && dev.longitude != null) {
+                        const lat = parseFloat(dev.latitude);
+                        const lng = parseFloat(dev.longitude);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            refreshMapMarkers(false).then(() => {
+                                const m = deviceMarkersMap[devIdNum]?.marker;
+                                performFlyAndPopup(lat, lng, m);
+                            });
+                            return;
+                        }
+                    }
+                    alert("Thiết bị này chưa có dữ liệu tọa độ vị trí để hiển thị trên bản đồ.");
+                })
+                .catch(err => {
+                    console.error("Lỗi khi tải vị trí thiết bị:", err);
+                });
+        }
+    }, 200);
+}
+
+function handleDeviceRowClick(event, deviceId) {
+    // Không chuyển trang nếu người dùng click vào checkbox, button, link hoặc menu hành động
+    if (event && event.target && event.target.closest('button, input, a, .dev-check, .cursor-not-allowed')) {
+        return;
+    }
+    zoomToDeviceOnMap(deviceId);
+}
+
+// Đăng ký toàn cục vào window
+window.toggleAssignGpsFields = toggleAssignGpsFields;
+// Lưu danh sách thiết bị mới nhất để dùng nhanh cho modal gán thiết bị
+let latestDevicesList = [];
+
+function triggerAssignModal(deviceId) {
+    if (!deviceId) return;
+    const devIdNum = parseInt(deviceId);
+    let dev = (latestDevicesList || []).find(x => x.id === devIdNum);
+    if (dev) {
+        openAssignDeviceModal(
+            dev.id,
+            dev.dev_eui,
+            dev.device_name || '',
+            dev.customer_name || '',
+            dev.emergency_phone || '',
+            dev.category_type || 'CAP_CUU_Y_TE',
+            dev.address || '',
+            Boolean(dev.has_gps),
+            dev.latitude,
+            dev.longitude,
+            dev.parent_id || dev.parent_device_id || '',
+            dev.group_name || ''
+        );
+        return;
+    }
+    fetch('/api/state/')
+        .then(r => r.json())
+        .then(data => {
+            latestDevicesList = data.devices || [];
+            const d = latestDevicesList.find(x => x.id === devIdNum);
+            if (d) {
+                openAssignDeviceModal(
+                    d.id,
+                    d.dev_eui,
+                    d.device_name || '',
+                    d.customer_name || '',
+                    d.emergency_phone || '',
+                    d.category_type || 'CAP_CUU_Y_TE',
+                    d.address || '',
+                    Boolean(d.has_gps),
+                    d.latitude,
+                    d.longitude,
+                    d.parent_id || d.parent_device_id || '',
+                    d.group_name || ''
+                );
+            } else {
+                openAssignDeviceModal(deviceId, '', '', '', '', 'CAP_CUU_Y_TE', '', false, null, null, '', '');
+            }
+        })
+        .catch(err => {
+            console.error("Lỗi khi tải thông tin thiết bị:", err);
+            openAssignDeviceModal(deviceId, '', '', '', '', 'CAP_CUU_Y_TE', '', false, null, null);
+        });
+}
+window.triggerAssignModal = triggerAssignModal;
+
+window.openAssignDeviceModal = openAssignDeviceModal;
+window.closeAssignDeviceModal = closeAssignDeviceModal;
+window.submitAssignDevice = submitAssignDevice;
+window.zoomToDeviceOnMap = zoomToDeviceOnMap;
+window.handleDeviceRowClick = handleDeviceRowClick;
+
+
 async function submitNewDevice() {
     const payload = {
         device_type: document.getElementById('reg-device-type')?.value || 'NUT_NHAN',
@@ -983,18 +1359,97 @@ async function submitNewDevice() {
     }
 }
 
+
+// ================= MODAL GÁN NHANH NÚT NHẤN VÀO GPS =================
+function openQuickPairModal(deviceId, deviceName, parentId, groupName) {
+    const modal = document.getElementById('quick-pair-modal');
+    if (!modal) return;
+    
+    const idInput = document.getElementById('quick-pair-dev-id');
+    const nameEl = document.getElementById('quick-pair-dev-name');
+    const gpsSelect = document.getElementById('quick-pair-gps-id');
+    const groupInput = document.getElementById('quick-pair-group-name');
+
+    if (idInput) idInput.value = deviceId || '';
+    if (nameEl) nameEl.innerText = deviceName || ('Thiết bị #' + deviceId);
+    if (gpsSelect) gpsSelect.value = parentId || '';
+    if (groupInput) groupInput.value = groupName || '';
+
+    modal.classList.remove('hidden');
+}
+
+function closeQuickPairModal() {
+    const modal = document.getElementById('quick-pair-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function submitQuickPair(e) {
+    if (e) e.preventDefault();
+    const devId = document.getElementById('quick-pair-dev-id')?.value;
+    if (!devId) return alert("Không tìm thấy ID thiết bị!");
+
+    const gpsId = document.getElementById('quick-pair-gps-id')?.value;
+    const groupName = document.getElementById('quick-pair-group-name')?.value?.trim();
+
+    const btn = document.getElementById('btn-save-quick-pair');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang lưu...`;
+    }
+
+    try {
+        const res = await fetch(`/api/devices/${devId}/pair/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gps_device_id: gpsId || null,
+                group_name: groupName || ''
+            })
+        });
+        const result = await res.json();
+        if (res.ok && result.status === 'success') {
+            closeQuickPairModal();
+            alert("✅ " + (result.message || "Đã lưu liên kết nhóm thành công!"));
+            sessionStorage.setItem('active_hc_tab', 'devices');
+            location.reload();
+        } else {
+            alert("❌ " + (result.message || "Không thể lưu liên kết nhóm!"));
+        }
+    } catch (err) {
+        alert("❌ Lỗi kết nối khi gán nhóm: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-check"></i> <span>Lưu Liên Kết</span>`;
+        }
+    }
+}
+
+window.openQuickPairModal = openQuickPairModal;
+window.closeQuickPairModal = closeQuickPairModal;
+window.submitQuickPair = submitQuickPair;
+
 function filterDeviceTable() {
     const q = (document.getElementById('dev-search-input')?.value || '').toLowerCase();
     const t = document.getElementById('dev-type-filter')?.value || '';
     const c = document.getElementById('dev-conn-filter')?.value || '';
     const g = document.getElementById('dev-gps-filter')?.value || '';
+    const grp = document.getElementById('dev-group-filter')?.value || '';
 
     document.querySelectorAll('.device-row').forEach(row => {
         const textMatch = row.innerText.toLowerCase().includes(q);
         const typeMatch = !t || row.dataset.type === t;
         const connMatch = !c || row.dataset.conn === c;
         const gpsMatch = !g || row.dataset.gps === g;
-        row.style.display = (textMatch && typeMatch && connMatch && gpsMatch) ? '' : 'none';
+
+        let grpMatch = true;
+        if (grp === 'PAIRED') {
+            grpMatch = (row.dataset.hasParent === 'true' || (row.dataset.subCount && parseInt(row.dataset.subCount) > 0));
+        } else if (grp === 'UNPAIRED') {
+            grpMatch = (row.dataset.hasParent !== 'true' && (!row.dataset.subCount || parseInt(row.dataset.subCount) === 0));
+        }
+
+        row.style.display = (textMatch && typeMatch && connMatch && gpsMatch && grpMatch) ? '' : 'none';
     });
 }
 
@@ -1257,7 +1712,7 @@ function switchTab(tab) {
         if (speedEl) speedEl.innerText = '0 km/h';
 
         showMapTab(false);
-        refreshMapMarkers();
+        refreshMapMarkers(true);
     } else if (tab === 'playback') {
         const allSections = ['map', 'stats', 'devices', 'alerts', 'accounts', 'settings'];
         allSections.forEach(s => {
@@ -1302,6 +1757,18 @@ function switchTab(tab) {
         if (tab === 'stats') {
             loadStatsData();
         }
+    }
+
+    // Đồng bộ trạng thái active cho thanh điều hướng di động (Mobile Bottom Nav) & đóng drawer
+    try {
+        document.querySelectorAll('.hc-mobile-nav-item').forEach(b => b.classList.remove('active'));
+        const mobileBtn = document.getElementById(`mobile-nav-btn-${tab}`);
+        if (mobileBtn) mobileBtn.classList.add('active');
+        if (typeof closeMobileSidebar === 'function') {
+            closeMobileSidebar();
+        }
+    } catch (e) {
+        // Bỏ qua nếu chưa load DOM mobile
     }
 }
 
@@ -1466,23 +1933,69 @@ function initSSE() {
 
     sse.addEventListener('message', (e) => {
         try {
-            const msg = JSON.parse(e.data);
+            const raw = JSON.parse(e.data);
+            const msg = raw.payload || raw;
             console.log("⚡ [SSE] Tín hiệu uplink mới từ thiết bị:", msg);
+
             if (msg.is_sos && msg.device_id) {
                 currentEmergencyDeviceId = msg.device_id;
                 if (msg.latitude && msg.longitude) {
                     currentEmergencyCoords = [msg.latitude, msg.longitude];
                 }
                 setEmergencyButtonState(true, msg.device_id);
+
+                // 🚨 BẬT LOA / CÒI BÁO ĐỘNG NGAY LẬP TỨC (0ms) - BẤM LÀ KÊU NGAY ĐỂ TEST
+                startSiren();
+
+                // Cập nhật thông tin và hiển thị Modal khẩn cấp
+                currentAlertId = msg.alert_id || currentAlertId;
+                const nameEl = document.getElementById('sos-modal-name');
+                if (nameEl) nameEl.innerText = msg.device_name || `Thiết bị #${msg.device_id}`;
+                const deveuiEl = document.getElementById('sos-modal-deveui');
+                if (deveuiEl) deveuiEl.innerText = msg.dev_eui || '';
+                const phoneEl = document.getElementById('sos-modal-phone');
+                if (phoneEl) phoneEl.innerText = msg.customer_name ? `${msg.customer_name} (${msg.emergency_phone || '-'})` : 'Chưa gán thông tin';
+                const locEl = document.getElementById('sos-modal-loc');
+                if (locEl) locEl.innerText = `${msg.latitude || '-'}, ${msg.longitude || '-'}`;
+                const timeEl = document.getElementById('sos-modal-time');
+                if (timeEl) timeEl.innerText = msg.reported_at || new Date().toLocaleTimeString('vi-VN');
+
+                const notesRow = document.getElementById('sos-modal-notes-row');
+                const notesEl = document.getElementById('sos-modal-notes');
+                const uplinkNotes = (msg.notes || '').trim();
+                if (uplinkNotes && !uplinkNotes.includes('Tín hiệu vô tuyến')) {
+                    if (notesRow) notesRow.classList.remove('hidden');
+                    if (notesEl) notesEl.innerText = uplinkNotes;
+                } else {
+                    if (notesRow) notesRow.classList.add('hidden');
+                    if (notesEl) notesEl.innerText = '';
+                }
+
+                const step3 = document.getElementById('step3-box');
+                if (step3) step3.classList.remove('hidden');
+                const step45 = document.getElementById('step4-5-box');
+                if (step45) step45.classList.add('hidden');
+
+                const modal = document.getElementById('emergency-modal');
+                if (modal) modal.classList.remove('hidden');
+
+                // Cập nhật số đếm SOS trên Header ngay lập tức
+                const sosEl = document.getElementById('stat-sos');
+                if (sosEl) {
+                    const currentCount = parseInt(sosEl.innerText) || 0;
+                    if (currentCount === 0) sosEl.innerText = "1";
+                }
             } else if (msg.resolved || msg.is_sos === false) {
-                if (currentEmergencyDeviceId === msg.device_id) {
+                if (currentEmergencyDeviceId === msg.device_id || msg.reset_all) {
                     stopSiren();
                     currentEmergencyDeviceId = null;
                     currentEmergencyCoords = null;
                     currentAlertId = null;
+                    setEmergencyButtonState(false);
                 }
             }
-            // Ngay lập tức cập nhật bản đồ và kích hoạt cảnh báo (0ms delay)
+
+            // Ngay lập tức cập nhật bản đồ và danh sách thiết bị (0ms delay)
             refreshMapMarkers();
         } catch (err) {
             console.error("Lỗi đọc gói tin SSE:", err);
@@ -1494,20 +2007,266 @@ function initSSE() {
     };
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function initDashboard() {
     const savedTheme = localStorage.getItem('hc_dashboard_theme') || 'dark';
     applyTheme(savedTheme);
     verifyMapVinaKey();
     initStatsChart();
-    refreshMapMarkers();
+    refreshMapMarkers(true);
     initSSE();
     setInterval(refreshMapMarkers, 5000);
 
+    // Kích hoạt AudioContext khi người dùng tương tác lần đầu (tuân thủ Browser Autoplay Policy)
+    document.addEventListener('click', () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+        }
+    }, { once: false, passive: true });
+
     document.addEventListener('keydown', (e) => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+        }
         if (e.key === 'Escape') {
             closeManualSOSModal();
             closeEmergencyModal();
             if (typeof closeAddDeviceModal === 'function') closeAddDeviceModal();
         }
     });
-});
+}
+
+// ================= 7. CẬP NHẬT DANH SÁCH THIẾT BỊ REAL-TIME (0ms KHÔNG CẦN LOAD LẠI TRANG) =================
+function updateDeviceTableRealtime(devices) {
+    if (!devices || !Array.isArray(devices)) return;
+    latestDevicesList = devices;
+
+    const tbody = document.getElementById('device-table-body');
+    if (!tbody) return;
+
+    // 1. Cập nhật các thẻ đếm thống kê trên danh sách thiết bị
+    let camOnline = 0, camTotal = 0;
+    let btnOnline = 0, btnTotal = 0;
+    let gwOnline = 0, gwTotal = 0;
+    let onlineCount = 0, sosCount = 0, offlineCount = 0;
+
+    devices.forEach(d => {
+        const typeRaw = d.device_type_raw || '';
+        const isOnline = (d.connection_status === 'ONLINE');
+        const isSos = (d.connection_status === 'SOS' || d.connection_status === 'PROCESSING');
+
+        if (isSos) sosCount++;
+        else if (isOnline) onlineCount++;
+        else offlineCount++;
+
+        if (typeRaw === 'CAMERA') {
+            camTotal++;
+            if (isOnline || isSos) camOnline++;
+        } else if (typeRaw === 'NUT_NHAN') {
+            btnTotal++;
+            if (isOnline || isSos) btnOnline++;
+        } else if (typeRaw === 'GATEWAY') {
+            gwTotal++;
+            if (isOnline || isSos) gwOnline++;
+        }
+    });
+
+    // Cập nhật các thẻ Card
+    const elCamOn = document.getElementById('devcard-cam-online');
+    const elCamTot = document.getElementById('devcard-cam-total');
+    const elCamOff = document.getElementById('devcard-cam-offline');
+    if (elCamOn) elCamOn.innerText = camOnline;
+    if (elCamTot) elCamTot.innerText = camTotal;
+    if (elCamOff) elCamOff.innerText = camTotal - camOnline;
+
+    const elBtnOn = document.getElementById('devcard-btn-online');
+    const elBtnTot = document.getElementById('devcard-btn-total');
+    const elBtnOff = document.getElementById('devcard-btn-offline');
+    if (elBtnOn) elBtnOn.innerText = btnOnline;
+    if (elBtnTot) elBtnTot.innerText = btnTotal;
+    if (elBtnOff) elBtnOff.innerText = btnTotal - btnOnline;
+
+    const elGwOn = document.getElementById('devcard-gw-online');
+    const elGwTot = document.getElementById('devcard-gw-total');
+    const elGwOff = document.getElementById('devcard-gw-offline');
+    if (elGwOn) elGwOn.innerText = gwOnline;
+    if (elGwTot) elGwTot.innerText = gwTotal;
+    if (elGwOff) elGwOff.innerText = gwTotal - gwOnline;
+
+    const elTotDev = document.getElementById('devcard-total-devices');
+    if (elTotDev) elTotDev.innerText = devices.length;
+
+    // Cập nhật Header status pills
+    const hOnline = document.getElementById('stat-online');
+    const hSos = document.getElementById('stat-sos');
+    const hOffline = document.getElementById('stat-offline');
+    if (hOnline) hOnline.innerText = onlineCount;
+    if (hSos) hSos.innerText = sosCount;
+    if (hOffline) hOffline.innerText = offlineCount;
+
+    // 2. Cập nhật các hàng trong bảng thiết bị
+    const emptyRow = document.getElementById('empty-device-row');
+    if (emptyRow && devices.length > 0) {
+        emptyRow.remove();
+    }
+
+    devices.forEach(d => {
+        let row = tbody.querySelector(`tr[data-id="${d.id}"]`) || tbody.querySelector(`tr[data-deveui="${d.dev_eui}"]`);
+
+        // Format trạng thái
+        let statusHtml = '';
+        if (d.connection_status === 'SOS') {
+            statusHtml = `<span class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-red-500/20 text-red-400 border border-red-500/50 animate-pulse"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Đang phát SOS (Đỏ nhấp nháy)</span>`;
+        } else if (d.connection_status === 'PROCESSING') {
+            statusHtml = `<span class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">Đang xử lý cứu hộ (Vàng)</span>`;
+        } else if (d.connection_status === 'ONLINE') {
+            statusHtml = `<span class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">Đang kết nối (Xanh lá)</span>`;
+        } else {
+            statusHtml = `<span class="inline-block px-3 py-1 rounded-full text-[11px] font-bold bg-slate-500/20 text-slate-400 border border-slate-500/40">Mất kết nối (Xám)</span>`;
+        }
+
+        const locText = d.loc_display || (d.has_gps && d.latitude && d.longitude ? `${Number(d.latitude).toFixed(6)}, ${Number(d.longitude).toFixed(6)}` : (d.address || '-'));
+
+        if (row) {
+            // Cập nhật hàng đã có
+            row.setAttribute('data-conn', d.connection_status);
+            row.setAttribute('data-type', d.device_type_raw || '');
+            row.setAttribute('data-gps', d.gps_code || (d.has_gps ? 'GPS' : 'STATIC'));
+
+            const statusCell = row.querySelector('.row-status');
+            if (statusCell && statusCell.innerHTML !== statusHtml) {
+                statusCell.innerHTML = statusHtml;
+                if (d.connection_status === 'SOS') {
+                    row.classList.add('bg-red-500/20');
+                    setTimeout(() => row.classList.remove('bg-red-500/20'), 3000);
+                }
+            }
+
+            const locCell = row.querySelector('.row-loc');
+            if (locCell && locText) locCell.innerText = locText;
+
+            // Bổ sung sự kiện click vào hàng để zoom bản đồ
+            row.classList.add('cursor-pointer');
+            row.onclick = (e) => handleDeviceRowClick(e, d.id);
+            row.title = 'Nhấn vào hàng để chuyển sang Bản đồ và phóng to vị trí thiết bị này';
+
+            const nameCell = row.querySelector('.row-name');
+            if (nameCell && d.device_name) {
+                nameCell.innerHTML = `
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-location-dot text-xs text-cyan-500"></i>
+                        <span>${d.device_name}</span>
+                    </div>
+                `;
+            }
+
+            const ownerCell = row.querySelector('.row-owner');
+            if (ownerCell && (d.customer_name !== undefined || d.is_pending_assignment !== undefined)) {
+                if (!d.customer_name || !d.customer_name.trim()) {
+                    ownerCell.innerHTML = `
+                        <div class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/40">
+                          <i class="fa-solid fa-clock-rotate-left"></i> Chờ gán thông tin
+                        </div>
+                        <div class="mt-1">
+                          <button type="button" onclick="event.stopPropagation(); triggerAssignModal('${d.id}')" class="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold transition flex items-center gap-1 shadow-sm">
+                            <i class="fa-solid fa-user-pen"></i> Gán thông tin
+                          </button>
+                        </div>
+                    `;
+                } else {
+                    ownerCell.innerHTML = `
+                        <div class="font-medium flex items-center justify-between gap-1">
+                          <span>${d.customer_name}</span>
+                          <button type="button" onclick="event.stopPropagation(); triggerAssignModal('${d.id}')" class="text-cyan-400 hover:text-cyan-300 text-[10px] p-0.5" title="Sửa thông tin">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                          </button>
+                        </div>
+                        <div class="hc-text-muted text-[11px]">${d.emergency_phone || '-'}</div>
+                    `;
+                }
+            }
+        } else {
+            // Thiết bị mới -> Chèn hàng mới vào đầu bảng
+            const newTr = document.createElement('tr');
+            newTr.className = 'device-row hover:bg-cyan-500/10 transition bg-cyan-500/20 cursor-pointer';
+            newTr.setAttribute('data-id', d.id);
+            newTr.setAttribute('data-deveui', d.dev_eui);
+            newTr.setAttribute('data-type', d.device_type_raw || 'NUT_NHAN');
+            newTr.setAttribute('data-conn', d.connection_status);
+            newTr.setAttribute('data-gps', d.gps_code || (d.has_gps ? 'GPS' : 'STATIC'));
+            newTr.setAttribute('onclick', `handleDeviceRowClick(event, '${d.id}')`);
+            newTr.setAttribute('title', 'Nhấn vào hàng để chuyển sang Bản đồ và phóng to vị trí thiết bị này');
+
+            const typeBg = d.type_bg || (d.device_type_raw === 'CAMERA' ? 'bg-blue-600' : (d.device_type_raw === 'NUT_NHAN' ? 'bg-cyan-600' : 'bg-emerald-600'));
+            const typeLabel = d.type_label || d.device_type || 'Nút nhấn';
+            const catCls = d.cat_cls || 'border-emerald-500 text-emerald-400 bg-emerald-500/10';
+            const catLabel = d.cat_label || d.category_type_display || 'Cấp Cứu/Y tế';
+
+            newTr.innerHTML = `
+                <td class="p-3.5"><input type="checkbox" class="dev-check" value="${d.id}" onclick="event.stopPropagation()" /></td>
+                <td class="p-3.5 whitespace-nowrap row-type">
+                  <span class="inline-block whitespace-nowrap ${typeBg} text-white px-3 py-1 rounded-full text-[11px] font-bold">${typeLabel}</span>
+                </td>
+                <td class="p-3.5 whitespace-nowrap row-cat">
+                  <span class="inline-block whitespace-nowrap border ${catCls} px-3 py-0.5 rounded-full text-[11px] font-semibold">${catLabel}</span>
+                </td>
+                <td class="p-3.5 font-bold row-name text-cyan-400 hover:text-cyan-300">
+                  <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-location-dot text-xs text-cyan-500"></i>
+                    <span>${d.device_name}</span>
+                  </div>
+                </td>
+                <td class="p-3.5 font-mono hc-text-muted row-deveui">${d.dev_eui}</td>
+                <td class="p-3.5 row-group whitespace-nowrap">
+                  ${d.has_gps ? `
+                    <span class="text-slate-500 text-[11px] italic">Chưa có nút gán</span>
+                  ` : (d.parent_name ? `
+                    <div class="flex items-center gap-1.5">
+                      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold">
+                        <i class="fa-solid fa-link text-cyan-400"></i>
+                        <span class="truncate max-w-[130px]">${d.parent_name}</span>
+                      </span>
+                      <button type="button" onclick="event.stopPropagation(); openQuickPairModal('${d.id}', '${d.device_name}', '${d.parent_id || ''}', '${d.group_name || ''}')" class="text-cyan-400 hover:text-white p-1 text-[11px]" title="Đổi nhóm">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                    </div>
+                  ` : `
+                    <button type="button" onclick="event.stopPropagation(); openQuickPairModal('${d.id}', '${d.device_name}', '', '')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-cyan-600/30 text-slate-300 hover:text-cyan-300 text-[11px] font-semibold border border-dashed border-slate-600 transition flex items-center gap-1 shadow-sm">
+                      <i class="fa-solid fa-link text-[10px] text-cyan-400"></i> Gán GPS
+                    </button>
+                  `)}
+                </td>
+                <td class="p-3.5 row-owner">
+                  ${(!d.customer_name || !d.customer_name.trim()) ? `
+                    <div class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/40">
+                      <i class="fa-solid fa-clock-rotate-left"></i> Chờ gán thông tin
+                    </div>
+                    <div class="mt-1">
+                      <button type="button" onclick="event.stopPropagation(); triggerAssignModal('${d.id}')" class="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold transition flex items-center gap-1 shadow-sm">
+                        <i class="fa-solid fa-user-pen"></i> Gán thông tin
+                      </button>
+                    </div>
+                  ` : `
+                    <div class="font-medium flex items-center justify-between gap-1">
+                      <span>${d.customer_name}</span>
+                      <button type="button" onclick="event.stopPropagation(); triggerAssignModal('${d.id}')" class="text-cyan-400 hover:text-cyan-300 text-[10px] p-0.5" title="Sửa thông tin">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                    </div>
+                    <div class="hc-text-muted text-[11px]">${d.emergency_phone || '-'}</div>
+                  `}
+                </td>
+                <td class="p-3.5 row-loc">${locText}</td>
+                <td class="p-3.5 font-semibold whitespace-nowrap row-status">${statusHtml}</td>
+            `;
+            tbody.prepend(newTr);
+            setTimeout(() => newTr.classList.remove('bg-cyan-500/20'), 4000);
+        }
+    });
+}
+window.updateDeviceTableRealtime = updateDeviceTableRealtime;
+
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initDashboard);
+} else {
+    initDashboard();
+}

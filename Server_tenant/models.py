@@ -59,6 +59,17 @@ class Device(models.Model):
     # Phân loại cứu hộ (Mục 2.1 & 2.2: Có GPS = Cứu hộ biển, Không GPS = Cứu hộ đất liền cố định)
     has_gps = models.BooleanField(default=False, verbose_name="Có tích hợp GPS (Cứu hộ biển)")
     
+    # Nhóm thiết bị / Thiết bị GPS liên kết (Gán nút nhấn cho thiết bị GPS)
+    parent_device = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="paired_devices",
+        verbose_name="Thiết bị GPS liên kết / Nhóm cha"
+    )
+    group_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Tên nhóm / Đội thiết bị")
+
     area = models.ForeignKey(Area, on_delete=models.SET_NULL, null=True, blank=True, related_name="devices")
     customer_name = models.CharField(max_length=255, verbose_name="Tên người/đơn vị sở hữu")
     emergency_phone = models.CharField(max_length=20, verbose_name="SĐT liên hệ khẩn cấp (Mục 2.1)")
@@ -81,6 +92,7 @@ class Device(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['has_gps', 'connection_status']),
+            models.Index(fields=['parent_device'], name='device_parent_idx'),
         ]
 
     def __str__(self):
@@ -151,10 +163,26 @@ class LocationHistory(models.Model):
     is_drifting = models.BooleanField(default=False, verbose_name="Điểm dừng/trôi dạt (>15 phút)")
     stationary_duration_minutes = models.IntegerField(default=0, verbose_name="Thời gian đứng yên (phút)")
     
+    # Nút nhấn liên kết và phân loại bản tin (Heartbeat bình thường vs SOS khẩn cấp)
+    button_device = models.ForeignKey(
+        Device, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="button_location_histories", 
+        verbose_name="Nút nhấn liên kết phát tin"
+    )
+    packet_type = models.CharField(
+        max_length=50, 
+        default='PERIODIC', 
+        verbose_name="Phân loại gói tin (SOS / HEARTBEAT / PERIODIC)"
+    )
+
     recorded_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         ordering = ['recorded_at']
         indexes = [
             models.Index(fields=['device', 'recorded_at']),
+            models.Index(fields=['device', 'is_sos_point'], name='lochist_sos_idx'),
         ]

@@ -173,12 +173,28 @@ body.hc-body {
 
 /* 3. Nút nhấn khẩn cấp (Emergency Button / Báo động cố định) */
 .custom-pin.pin-button {
-  border-radius: 50%;
+  border-radius: 10px;
   border: 2px solid #ffffff;
 }
 .custom-pin.pin-button.marker-normal {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+.custom-pin.pin-button.pin-cat-chay.marker-normal {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+.custom-pin.pin-button.pin-cat-anninh.marker-normal {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+.custom-pin.pin-button.pin-cat-yte.marker-normal {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+.custom-pin.pin-button.pin-cat-default.marker-normal {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35);
 }
 
 /* 4. Camera cứu hộ */
@@ -268,4 +284,186 @@ body.hc-body {
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
   transition: all 0.25s ease;
+}
+
+/* ========================================================================== */
+/* TỐI ƯU HÓA ĐỘC QUYỀN CHO GIAO DIỆN ĐIỆN THOẠI DI ĐỘNG (MAX-WIDTH: 768PX)     */
+/* TUYỆT ĐỐI KHÔNG ẢNH HƯỞNG TỚI GIAO DIỆN TRÊN MÁY TÍNH ĐỂ BÀN / LAPTOP (PC) */
+/* ========================================================================== */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hc-mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 4px;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.35);
+}
+
+.hc-mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  gap: 3px;
+  transition: color 0.15s ease, transform 0.1s ease;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hc-mobile-nav-item i {
+  font-size: 16px;
+}
+
+.hc-mobile-nav-item.active {
+  color: var(--hc-cyan) !important;
+  font-weight: 700 !important;
+}
+
+@media (max-width: 768px) {
+  /* Hiển thị thanh bottom nav trên điện thoại */
+  .hc-mobile-bottom-nav {
+    display: flex !important;
+  }
+
+  /* Biến sidebar trên mobile thành slide-out drawer từ bên trái */
+  #app-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 285px !important;
+    min-width: 285px !important;
+    max-width: 86vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    z-index: 1050 !important;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.7) !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    visibility: hidden;
+  }
+
+  #app-sidebar.mobile-open {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+  }
+
+  /* Chống co hẹp kích thước do is-closed trên PC */
+  #app-sidebar.is-closed {
+    width: 285px !important;
+    min-width: 285px !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  /* Khoảng đệm nội dung chính trên mobile, tránh bị che bởi thanh điều hướng đáy */
+  main {
+    padding: 0.75rem !important;
+    padding-bottom: 4.5rem !important;
+  }
+
+  /* Bản đồ trên điện thoại */
+  #gis-map {
+    height: calc(100vh - 126px) !important;
+    height: calc(100dvh - 126px) !important;
+    border-radius: 0.6rem !important;
+  }
+
+  /* Hộp bộ lọc nổi góc dưới bản đồ trên điện thoại */
+  #map-filter-box {
+    right: 8px !important;
+    bottom: 12px !important;
+    width: calc(100% - 16px) !important;
+    max-width: 260px !important;
+  }
+
+  /* Popup marker trên điện thoại */
+  .leaflet-popup-content-wrapper {
+    max-width: 86vw !important;
+    border-radius: 12px !important;
+  }
+
+  .leaflet-popup-content {
+    margin: 10px 12px !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Bảng dữ liệu tự động cuộn ngang mượt mà, chữ không bị co cụm */
+  .table-responsive-container {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .table-responsive-container table {
+    min-width: 660px;
+  }
+
+  /* Thẻ thống kê nhỏ gọn trên điện thoại */
+  .hc-stat-card {
+    min-height: 92px !important;
+    padding: 0.75rem 0.9rem !important;
+  }
+
+  /* Nút bấm & form trên di động */
+  input, select, textarea, button {
+    touch-action: manipulation;
+  }
+
+  header.hc-surface {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .hc-header-pill {
+    height: 32px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+  }
+}
+
+#sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 21, 35, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1040;
+  transition: opacity 0.25s ease;
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
+  }
+  .hc-mobile-bottom-nav {
+    height: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

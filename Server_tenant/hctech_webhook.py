@@ -1,7 +1,11 @@
 import json
 import logging
+import secrets
+import time
+import uuid
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 import requests
@@ -18,6 +22,97 @@ from .hctech_client import HCTechIoTClient, HCTechAPIError, VN_TZ
 
 logger = logging.getLogger(__name__)
 
+WEBHOOK_SECRET_FILENAME = "webhook_secret.json"
+
+# ==============================================================================
+# HÀNG ĐỢI NHẬT KÝ WEBHOOK MONITOR THỜI GIAN THỰC (RING BUFFER LƯU TRÊN RAM)
+# ==============================================================================
+_WEBHOOK_MONITOR_LOGS: List[Dict[str, Any]] = []
+_MAX_MONITOR_LOGS = 100
+
+
+def add_webhook_monitor_log(entry: Dict[str, Any]):
+    """Thêm 1 gói tin vào hàng đợi monitor và giữ tối đa _MAX_MONITOR_LOGS phần tử mới nhất."""
+    global _WEBHOOK_MONITOR_LOGS
+    _WEBHOOK_MONITOR_LOGS.insert(0, entry)
+    if len(_WEBHOOK_MONITOR_LOGS) > _MAX_MONITOR_LOGS:
+        _WEBHOOK_MONITOR_LOGS = _WEBHOOK_MONITOR_LOGS[:_MAX_MONITOR_LOGS]
+
+
+def get_webhook_monitor_logs() -> List[Dict[str, Any]]:
+    """Lấy danh sách các gói tin gần nhất đã tiếp nhận."""
+    return list(_WEBHOOK_MONITOR_LOGS)
+
+
+def clear_webhook_monitor_logs():
+    """Xóa sạch hàng đợi log gói tin webhook."""
+    global _WEBHOOK_MONITOR_LOGS
+    _WEBHOOK_MONITOR_LOGS.clear()
+
+
+def get_webhook_secret_file_path() -> Path:
+    """Đường dẫn tệp cấu hình lưu trữ Authorization Bearer Token trên ổ đĩa."""
+    base_dir = getattr(settings, "BASE_DIR", None)
+    if base_dir:
+        return Path(base_dir) / WEBHOOK_SECRET_FILENAME
+    return Path(__file__).resolve().parent.parent / WEBHOOK_SECRET_FILENAME
+
+
+def get_webhook_token(auto_generate_if_empty: bool = True) -> str:
+    """
+    Lấy Authorization Bearer Token hiện hành của Webhook:
+    1. Ưu tiên đọc từ tệp cấu hình JSON bền vững (webhook_secret.json).
+    2. Fallback sang biến môi trường hoặc settings.HCTECH_WEBHOOK_SECRET.
+    3. Nếu chưa tồn tại và auto_generate_if_empty=True -> Tự động sinh token mặc định và lưu lại.
+    """
+    secret_file = get_webhook_secret_file_path()
+    if secret_file.exists():
+        try:
+            with open(secret_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                token = str(data.get("token", "")).strip()
+                if token:
+                    return token
+        except Exception as e:
+            logger.warning(f"[HCTech Webhook] Lỗi khi đọc {WEBHOOK_SECRET_FILENAME}: {e}")
+
+    env_token = str(getattr(settings, "HCTECH_WEBHOOK_SECRET", "") or "").strip()
+    if env_token:
+        return env_token
+
+    if auto_generate_if_empty:
+        return generate_new_webhook_token()
+
+    return ""
+
+
+def save_webhook_token(token: str) -> bool:
+    """Lưu vĩnh viễn Bearer Token vào tệp JSON bền vững."""
+    token = str(token).strip()
+    if not token:
+        return False
+    secret_file = get_webhook_secret_file_path()
+    try:
+        data = {
+            "token": token,
+            "updated_at": timezone.now().isoformat()
+        }
+        with open(secret_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        logger.info(f"[HCTech Webhook] Đã lưu Authorization Bearer Token mới vào {secret_file.name}")
+        return True
+    except Exception as e:
+        logger.error(f"[HCTech Webhook] Không thể ghi file {secret_file}: {e}")
+        return False
+
+
+def generate_new_webhook_token() -> str:
+    """Sinh chuỗi Bearer Token ngẫu nhiên có độ bảo mật cao và lưu vào hệ thống."""
+    raw_secret = secrets.token_hex(24)
+    new_token = f"hctech_sec_{raw_secret}"
+    save_webhook_token(new_token)
+    return new_token
+
 
 def safe_decimal(val, default=None):
     """Chuyển đổi an toàn sang Decimal, tránh crash khi nhận chuỗi rỗng hoặc giá trị không hợp lệ."""
@@ -32,25 +127,68 @@ def safe_decimal(val, default=None):
         return default
 
 
-def is_truthy_sos(val) -> bool:
+def is_truthy_sos(val, key_name="") -> bool:
     """
-    Xác định chính xác tín hiệu kích hoạt SOS từ các cảm biến/nút nhấn:
-    - Nhận diện các trạng thái nhấn: True, 1, 'press', 'short_press', 'long_press', 'double_press', 'sos', 'alarm', 'emergency', 'trigger'
-    - Bỏ qua các trạng thái không phải báo động: False, 0, 'normal', 'idle', 'none', 'released', 'off', 'standby'
+    Xác định chính xác tín hiệu kích hoạt SOS từ các cảm biến / nút nhấn:
+    (MokoSmart LW006/LW001/LW004/LW013/002, Milesight WS101, Dragino, Netvox, HC TECH)
+    - Tránh bắt nhầm các cờ chế độ (work_mode=1, report_type=1, device_status=1) của LW006 làm SOS giả.
     """
     if val is None or val is False:
         return False
     if val is True:
         return True
+
+    k_lower = str(key_name).lower() if key_name else ""
+
     if isinstance(val, (int, float)):
-        return val > 0
-    if isinstance(val, str):
-        normalized = val.strip().lower()
-        if normalized in ("true", "1", "yes", "press", "short_press", "long_press", "double_press", "sos", "alarm", "emergency", "trigger"):
-            return True
-        if normalized in ("false", "0", "no", "normal", "idle", "none", "released", "off", "standby"):
+        if val <= 0:
             return False
-    return bool(val)
+        # Chỉ coi số > 0 là SOS nếu key_name là trường cảnh báo khẩn cấp (sos, alarm, alert, is_sos)
+        return any(w in k_lower for w in ("sos", "alarm", "alert", "panic", "emergency"))
+
+    if isinstance(val, dict):
+        return any(is_truthy_sos(v, key_name=k) for k, v in val.items())
+    if isinstance(val, (list, tuple)):
+        return any(is_truthy_sos(v, key_name=key_name) for v in val)
+
+    if isinstance(val, str):
+        normalized = val.strip().lower().replace('-', ' ').replace('_', ' ')
+        if not normalized:
+            return False
+
+        # Bỏ qua các trạng thái bình thường hoặc heartbeat:
+        if normalized.startswith(("no ", "not ", "none ", "non ")) or normalized in (
+            "no", "none", "zero", "idle", "normal", "standby", "regular", "periodic",
+            "heartbeat", "keepalive", "telemetry", "ok", "ready", "off", "false", "0"
+        ):
+            return False
+
+        if any(neg in normalized for neg in (
+            "no event", "no trigger", "no alarm", "not trigger", "not pressed",
+            "exit", "heartbeat", "keepalive", "alarm off",
+            "alarm stop", "cancel", "released", "normal", "standby", "unpressed"
+        )):
+            return False
+
+        sos_explicit_patterns = (
+            "event 1 trigger", "event1 trigger", "event 2 trigger", "event2 trigger", "event trigger",
+            "sos", "emergency", "panic", "fall down", "man down", "distress", "help"
+        )
+        if any(kw in normalized for kw in sos_explicit_patterns):
+            return True
+
+        if any(kw in normalized for kw in (
+            "short press", "long press", "double press", "single press", "button press", "key press", "double click"
+        )):
+            return True
+
+        if normalized in ("press", "pressed", "click", "alarm", "true"):
+            return True
+
+        if normalized in ("1", "yes") and any(w in k_lower for w in ("sos", "alarm", "alert", "panic", "emergency")):
+            return True
+
+    return False
 
 
 class HCTechWebhookHandler:
@@ -112,7 +250,14 @@ class HCTechWebhookHandler:
                 result.setdefault(k, v)
 
         # 4. Các trường phẳng ở cấp ngoài cùng
-        for flat_key in ("latitude", "longitude", "battery", "battery_level", "battery_value", "speed", "is_sos", "sos", "button_event", "alarm"):
+        for flat_key in (
+            "latitude", "longitude", "battery", "battery_level", "battery_value", "speed",
+            "is_sos", "sos", "button_event", "buttonEvent", "button_action", "buttonAction",
+            "button_status", "buttonStatus", "alarm", "alarm_status", "alarmStatus",
+            "alarm_type", "alarmType", "alarm_event", "alarmEvent", "report_type", "reportType",
+            "event_type", "eventType", "event", "action_type", "actionType", "action",
+            "device_status", "deviceStatus", "device_mode", "deviceMode", "work_mode", "workMode"
+        ):
             if flat_key in payload and flat_key not in result:
                 result[flat_key] = payload[flat_key]
 
@@ -128,10 +273,6 @@ class HCTechWebhookHandler:
         Tuân thủ schema OutboundRecord từ openapi.yaml.
         """
         event_id = payload.get("event_id") or payload.get("id")
-        if cls.is_duplicate_event(event_id):
-            logger.info(f"[HCTech Webhook] Bỏ qua gói tin trùng lặp event_id={event_id} (FR-11.23)")
-            return {"status": "ignored_duplicate", "event_id": event_id}
-
         schema_version = payload.get("schema_version", "1.0")
         decode_status = payload.get("decode_status", "ok")
         decode_reason = payload.get("decode_reason")
@@ -173,16 +314,58 @@ class HCTechWebhookHandler:
         battery = metrics.get("battery") or metrics.get("battery_level") or metrics.get("battery_value")
         speed = metrics.get("speed", 0.0)
 
-        # Xác định tín hiệu bấm nút khẩn cấp SOS một cách chính xác
-        button_event = metrics.get("button_event")
-        button_status = button_event.get("status") if isinstance(button_event, dict) else button_event
-        is_sos = (
-            is_truthy_sos(button_status)
-            or is_truthy_sos(metrics.get("is_sos"))
-            or is_truthy_sos(metrics.get("sos"))
-            or is_truthy_sos(metrics.get("alarm"))
-            or str(payload.get("event_type", "")).strip().lower() == "sos"
-        )
+        # Xác định tín hiệu bấm nút khẩn cấp SOS một cách toàn diện
+        sos_candidate_keys = [
+            "button_event", "buttonEvent", "button_action", "buttonAction",
+            "button_status", "buttonStatus", "button", "btn_status", "btn_action",
+            "press_type", "pressType", "click_type", "clickType",
+            "is_sos", "sos", "sos_status", "sosStatus",
+            "alarm", "alarm_status", "alarmStatus", "alarm_event", "alarmEvent",
+            "alarm_type", "alarmType", "alert_type", "alertType",
+            "event_type", "eventType"
+        ]
+
+        is_sos = False
+        # 1. Kiểm tra trong metrics
+        for k in sos_candidate_keys:
+            if k in metrics and is_truthy_sos(metrics[k], key_name=k):
+                is_sos = True
+                break
+
+        # 2. Kiểm tra trực tiếp trong payload
+        if not is_sos:
+            for k in sos_candidate_keys:
+                if k in payload and is_truthy_sos(payload[k], key_name=k):
+                    is_sos = True
+                    break
+
+        # 3. Kiểm tra trong decoded object (ChirpStack v4)
+        if not is_sos and isinstance(payload.get("object"), dict):
+            for k in sos_candidate_keys:
+                if k in payload["object"] and is_truthy_sos(payload["object"][k]):
+                    is_sos = True
+                    break
+
+        # 4. Kiểm tra qua event string
+        if not is_sos:
+            raw_event = str(payload.get("event_type") or payload.get("event") or payload.get("type") or "").strip()
+            if raw_event and is_truthy_sos(raw_event):
+                is_sos = True
+
+        # 5. Nếu thiết bị là nút nhấn (MokoSmart / LoRaWAN Button) và có cờ bấm phím
+        device_name_check = (device_info.get("name") or payload.get("device_name") or "").lower()
+        if not is_sos and any(kw in device_name_check for kw in ("nút", "button", "mokosmart", "moko", "ws101", "lw004", "lw013", "lw002", "lw006", "002", "006")):
+            for k, v in metrics.items():
+                if any(sub in k.lower() for sub in ("press", "click", "btn", "button", "alarm", "event")) and is_truthy_sos(v):
+                    is_sos = True
+                    break
+
+        # QUAN TRỌNG: GỠ BỎ CHẶN LỌC TRÙNG KHI BÁO ĐỘNG SOS
+        # Nếu là gói tin SOS khẩn cấp, KHÔNG lọc trùng để cho phép kiểm thử bấm nút liên tục!
+        # Chỉ kiểm tra lọc trùng với gói tin bình thường (telemetry định kỳ):
+        if not is_sos and cls.is_duplicate_event(event_id):
+            logger.info(f"[HCTech Webhook] Bỏ qua gói tin thường trùng lặp event_id={event_id} (FR-11.23)")
+            return {"status": "ignored_duplicate", "event_id": event_id}
 
         # Tự động gán nhóm / khu vực nếu payload cung cấp thông tin nhóm
         group_id = device_info.get("group_id") or payload.get("group_id")
@@ -194,22 +377,44 @@ class HCTechWebhookHandler:
                 defaults={"name": group_name or f"Nhóm {str(group_id)[:8]}"}
             )
 
+        # Nhận diện loại thiết bị phù hợp
+        detected_device_type = Device.DeviceType.NUT_NHAN
+        raw_dev_name = (device_info.get("name") or device_info.get("deviceName") or payload.get("device_name") or "").lower()
+        if "camera" in raw_dev_name or "cam" in raw_dev_name:
+            detected_device_type = Device.DeviceType.CAMERA
+        elif "gateway" in raw_dev_name or "gw" in raw_dev_name:
+            detected_device_type = Device.DeviceType.GATEWAY
+
         # Tìm hoặc tạo mới thiết bị trong Database
         device = Device.objects.filter(dev_eui__iexact=dev_eui_key).first()
+        is_new_device = False
         if not device:
+            is_new_device = True
+            # YÊU CẦU: Thiết bị mới nhận diện lần đầu từ uplink sẽ hiển thị "Chờ gán thông tin"
+            # Nếu payload không truyền đích danh khách hàng, để trống customer_name và emergency_phone
+            custom_cust_name = str(payload.get("customer_name") or "").strip()
+            custom_phone = str(payload.get("emergency_phone") or "").strip()
+            device_display_name = (
+                device_info.get("name")
+                or device_info.get("deviceName")
+                or payload.get("device_name")
+                or f"Thiết bị mới ({dev_eui_key[-6:]})"
+            )
             device = Device.objects.create(
                 dev_eui=dev_eui_key,
-                device_name=device_info.get("name") or device_info.get("deviceName") or payload.get("device_name") or f"Thiết bị {dev_eui_key[-6:]}",
+                device_name=device_display_name,
+                device_type=detected_device_type,
                 area=area_obj,
-                customer_name=payload.get("customer_name", "Đơn vị vận hành HC TECH IoT"),
-                emergency_phone=payload.get("emergency_phone", "0905111222"),
+                customer_name=custom_cust_name,
+                emergency_phone=custom_phone,
                 category_type=Device.CategoryType.CAP_CUU_Y_TE,
                 has_gps=bool(lat_dec is not None and lng_dec is not None),
                 latitude=lat_dec if lat_dec is not None else Decimal("16.05440700"),
                 longitude=lng_dec if lng_dec is not None else Decimal("108.20216700"),
-                connection_status=Device.ConnectionStatus.ONLINE,
+                connection_status=Device.ConnectionStatus.SOS if is_sos else Device.ConnectionStatus.ONLINE,
                 last_seen=reported_at,
             )
+            logger.info(f"[HCTech Webhook] Đã phát hiện thiết bị mới {dev_eui_key} -> Đưa vào danh sách chờ gán thông tin")
         elif area_obj and not device.area:
             device.area = area_obj
 
@@ -240,11 +445,13 @@ class HCTechWebhookHandler:
             if q_level: radio_parts.append(f"Chất lượng={q_level}")
             radio_quality_str = ", ".join(radio_parts)
 
+        paired_gps = device.parent_device if (device.parent_device and device.parent_device.has_gps) else None
         created_alert = None
+
         if is_sos:
             uplink_notes = (payload.get("notes") or metrics.get("notes") or "").strip()
-            if radio_quality_str and not uplink_notes:
-                uplink_notes = f"Tín hiệu vô tuyến: {radio_quality_str}"
+            if uplink_notes.startswith("Tín hiệu vô tuyến"):
+                uplink_notes = ""
 
             custom_type = payload.get("alert_type")
             if custom_type and custom_type in AlertLog.AlertType.values:
@@ -254,47 +461,142 @@ class HCTechWebhookHandler:
 
             device.connection_status = Device.ConnectionStatus.SOS
 
-            # Chống tạo trùng lặp AlertLog nếu thiết bị đã có cảnh báo đang mở trong 5 phút qua
-            existing_alert = AlertLog.objects.filter(
+            # Tạo mới AlertLog cho nút nhấn
+            created_alert = AlertLog.objects.create(
                 device=device,
-                status__in=[AlertLog.AlertStatus.NEW, AlertLog.AlertStatus.PROCESSING],
-                created_at__gte=timezone.now() - timedelta(minutes=5)
-            ).order_by('-created_at').first()
+                alert_type=final_alert_type,
+                status=AlertLog.AlertStatus.NEW,
+                latitude=device.latitude,
+                longitude=device.longitude,
+                address=device.address,
+                notes=uplink_notes or None,
+                area=device.area,
+            )
+            logger.info(f"[HCTech Webhook] 🚨 BÁO ĐỘNG SOS TỨC THÌ cho thiết bị {device.dev_eui} - Alert #{created_alert.id}")
 
-            if existing_alert:
-                created_alert = existing_alert
-                if uplink_notes and not existing_alert.notes:
-                    existing_alert.notes = uplink_notes
-                    existing_alert.save()
-            else:
-                created_alert = AlertLog.objects.create(
-                    device=device,
-                    alert_type=final_alert_type,
-                    status=AlertLog.AlertStatus.NEW,
-                    latitude=device.latitude,
-                    longitude=device.longitude,
-                    address=device.address,
-                    notes=uplink_notes or None,
-                    area=device.area,
+            # NẾU NÚT NHẤN ĐÃ GÁN CHO THIẾT BỊ GPS (VD: Tàu cá / Xe cứu hộ):
+            if paired_gps:
+                paired_gps.connection_status = Device.ConnectionStatus.SOS
+                paired_gps.save()
+
+                # Tạo AlertLog cho thiết bị GPS nếu chưa có cảnh báo đang mở
+                if not AlertLog.objects.filter(device=paired_gps, status=AlertLog.AlertStatus.NEW).exists():
+                    p_alert = AlertLog.objects.create(
+                        device=paired_gps,
+                        alert_type=AlertLog.AlertType.CUU_HO_BIEN,
+                        status=AlertLog.AlertStatus.NEW,
+                        latitude=paired_gps.latitude or device.latitude,
+                        longitude=paired_gps.longitude or device.longitude,
+                        address=paired_gps.address,
+                        notes=f"🚨 SOS kích hoạt từ nút nhấn liên kết: {device.device_name} ({device.dev_eui})",
+                        area=paired_gps.area,
+                    )
+                    logger.info(f"[HCTech Webhook] 🚨 Đã kích hoạt SOS cho GPS cha: {paired_gps.device_name} - Alert #{p_alert.id}")
+
+                # Ghi nhận điểm SOS trên hành trình Replay của thiết bị GPS cha
+                target_lat = paired_gps.latitude or lat_dec or device.latitude
+                target_lng = paired_gps.longitude or lng_dec or device.longitude
+                if target_lat is not None and target_lng is not None:
+                    lh_sos = LocationHistory.objects.create(
+                        device=paired_gps,
+                        latitude=target_lat,
+                        longitude=target_lng,
+                        speed=float(speed or 0.0),
+                        battery_level=paired_gps.battery_level,
+                        is_sos_point=True,
+                        packet_type='SOS',
+                        button_device=device,
+                    )
+                    LocationHistory.objects.filter(id=lh_sos.id).update(recorded_at=reported_at)
+                    logger.info(f"[HCTech Webhook] 📍 Đã lưu điểm SOS trên Replay của GPS {paired_gps.device_name} từ nút {device.device_name}")
+
+                # Phát sự kiện thời gian thực cho GPS cha tới Dashboard
+                broadcast_event("IOT_UPLINK", {
+                    "schema_version": schema_version,
+                    "event_id": f"paired_sos_{event_id}",
+                    "device_id": paired_gps.id,
+                    "dev_eui": paired_gps.dev_eui,
+                    "device_name": paired_gps.device_name,
+                    "device_type": paired_gps.device_type,
+                    "device_type_display": paired_gps.get_device_type_display(),
+                    "category_type": paired_gps.category_type,
+                    "category_type_display": paired_gps.get_category_type_display() if paired_gps.category_type else "Cấp Cứu/Y tế",
+                    "customer_name": paired_gps.customer_name,
+                    "emergency_phone": paired_gps.emergency_phone,
+                    "has_gps": paired_gps.has_gps,
+                    "connection_status": paired_gps.connection_status,
+                    "connection_status_display": paired_gps.get_connection_status_display(),
+                    "is_sos": True,
+                    "battery_level": paired_gps.battery_level,
+                    "latitude": float(paired_gps.latitude) if paired_gps.latitude else None,
+                    "longitude": float(paired_gps.longitude) if paired_gps.longitude else None,
+                    "notes": f"🚨 SOS từ nút nhấn: {device.device_name}",
+                    "reported_at": local_reported_at.strftime('%H:%M:%S %d/%m/%Y'),
+                })
+
+        elif is_newer_packet:
+            raw_event_text = str(metrics.get("event_type") or payload.get("event_type") or metrics.get("event") or payload.get("event") or "").strip().lower()
+            is_exit_event = any(kw in raw_event_text for kw in ("exit", "alarm stop", "alarm off", "cancel", "stop", "no event", "no trigger", "normal", "heartbeat"))
+            if is_exit_event:
+                device.connection_status = Device.ConnectionStatus.ONLINE
+                now_res = timezone.now()
+                AlertLog.objects.filter(device=device, status=AlertLog.AlertStatus.NEW).update(
+                    status=AlertLog.AlertStatus.RESOLVED,
+                    resolved_at=now_res,
+                    resolution_report="Đã hủy báo động tự động qua gói tin Event 1 Exit từ thiết bị."
                 )
-        elif is_newer_packet and device.connection_status == Device.ConnectionStatus.OFFLINE:
-            device.connection_status = Device.ConnectionStatus.ONLINE
+                logger.info(f"[HCTech Webhook] Nhận tín hiệu Event 1 Exit từ thiết bị {device.dev_eui} -> Khôi phục ONLINE và đóng cảnh báo")
+            elif device.connection_status == Device.ConnectionStatus.OFFLINE:
+                device.connection_status = Device.ConnectionStatus.ONLINE
+
+            # KHI NHẬN HEARTBEAT TỪ NÚT NHẤN ĐÃ GÁN VÀO GPS:
+            # "còn hearbeat thì hiện nút bình thường ko sos"
+            if paired_gps and not is_sos:
+                target_lat = paired_gps.latitude or device.latitude
+                target_lng = paired_gps.longitude or device.longitude
+                if target_lat is not None and target_lng is not None:
+                    lh_hb = LocationHistory.objects.create(
+                        device=paired_gps,
+                        latitude=target_lat,
+                        longitude=target_lng,
+                        speed=float(speed or 0.0),
+                        battery_level=paired_gps.battery_level,
+                        is_sos_point=False,
+                        packet_type='HEARTBEAT',
+                        button_device=device,
+                    )
+                    LocationHistory.objects.filter(id=lh_hb.id).update(recorded_at=reported_at)
+                    logger.info(f"[HCTech Webhook] 🔘 Đã lưu điểm Heartbeat bình thường cho nút {device.device_name} trên hành trình Replay GPS {paired_gps.device_name}")
 
         device.save()
 
-        # Lưu lịch sử tọa độ GPS phục vụ tính năng Replay hành trình
-        if device.has_gps and lat_dec is not None and lng_dec is not None:
+        # Lưu lịch sử tọa độ GPS cho chính thiết bị (nếu thiết bị có GPS và truyền tọa độ riêng)
+        if device.has_gps and lat_dec is not None and lng_dec is not None and not is_sos:
             lh = LocationHistory.objects.create(
                 device=device,
                 latitude=lat_dec,
                 longitude=lng_dec,
                 speed=float(speed or 0.0),
                 battery_level=device.battery_level,
-                is_sos_point=is_sos,
+                is_sos_point=False,
+                packet_type='PERIODIC',
+            )
+            LocationHistory.objects.filter(id=lh.id).update(recorded_at=reported_at)
+        elif device.has_gps and lat_dec is not None and lng_dec is not None and is_sos and not paired_gps:
+            lh = LocationHistory.objects.create(
+                device=device,
+                latitude=lat_dec,
+                longitude=lng_dec,
+                speed=float(speed or 0.0),
+                battery_level=device.battery_level,
+                is_sos_point=True,
+                packet_type='SOS',
             )
             LocationHistory.objects.filter(id=lh.id).update(recorded_at=reported_at)
 
         # Phát sự kiện thời gian thực qua SSE tới giao diện Dashboard (0ms delay)
+        is_pending = not bool(device.customer_name and device.customer_name.strip())
+        local_reported_at = timezone.localtime(reported_at)
         if trigger_sse:
             broadcast_event("IOT_UPLINK", {
                 "schema_version": schema_version,
@@ -302,7 +604,21 @@ class HCTechWebhookHandler:
                 "device_id": device.id,
                 "dev_eui": device.dev_eui,
                 "device_name": device.device_name,
+                "device_type": device.device_type,
+                "device_type_display": device.get_device_type_display(),
+                "category_type": device.category_type,
+                "category_type_display": device.get_category_type_display() if device.category_type else "Cấp Cứu/Y tế",
+                "customer_name": device.customer_name,
+                "emergency_phone": device.emergency_phone,
+                "is_pending_assignment": is_pending,
+                "parent_device_id": device.parent_device.id if device.parent_device else None,
+                "parent_device_name": device.parent_device.device_name if device.parent_device else None,
+                "group_name": device.group_name or "",
+                "is_new_device": is_new_device,
+                "address": device.address or "",
+                "has_gps": device.has_gps,
                 "connection_status": device.connection_status,
+                "connection_status_display": device.get_connection_status_display(),
                 "is_sos": is_sos,
                 "battery_level": device.battery_level,
                 "latitude": float(device.latitude) if device.latitude else None,
@@ -314,7 +630,8 @@ class HCTechWebhookHandler:
                 "decode_status": decode_status,
                 "decode_reason": decode_reason,
                 "link_quality": radio_quality_str,
-                "reported_at": reported_at.isoformat(),
+                "reported_at": local_reported_at.strftime('%H:%M:%S %d/%m/%Y'),
+                "reported_at_iso": local_reported_at.isoformat(),
             })
 
         return {
@@ -426,16 +743,135 @@ def hctech_webhook_view(request):
     """
     Endpoint nhận Webhook trực tiếp từ nền tảng HC TECH IoT hoặc ChirpStack v4.
     Đường dẫn chuẩn: POST /api/webhook/uplink/
+    Yêu cầu bảo mật: Header 'Authorization: Bearer <token>' hoặc 'X-Webhook-Secret: <token>'
+    Tích hợp Live Webhook Ingestion Monitor: Đưa mọi chuỗi JSON nhận được lên Monitor Admin tức thời.
     """
+    raw_body_str = ""
+    try:
+        raw_body_str = request.body.decode("utf-8", errors="replace")
+    except Exception:
+        pass
+
+    client_ip = request.META.get("HTTP_X_FORWARDED_FOR") or request.META.get("REMOTE_ADDR") or "unknown"
+    if "," in client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+
+    auth_header = request.headers.get("Authorization", "").strip()
+    custom_header = request.headers.get("X-Webhook-Secret", "").strip()
+
+    token = ""
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    elif auth_header:
+        token = auth_header
+    elif custom_header:
+        token = custom_header
+
+    token_masked = f"{token[:6]}...{token[-4:]}" if len(token) > 10 else (token or "None")
+
+    expected_token = get_webhook_token(auto_generate_if_empty=True)
+    is_auth_ok = True
+    if expected_token:
+        is_auth_ok = bool(token and token == expected_token)
+
+    parsed_json = None
+    is_valid_json = False
+    parse_error = None
+    if raw_body_str:
+        try:
+            parsed_json = json.loads(raw_body_str)
+            is_valid_json = True
+        except Exception as e:
+            parse_error = str(e)
+
+    # Nhận diện sơ bộ thông tin gói tin để hiển thị nổi bật trên Monitor
+    preview_deveui = ""
+    preview_is_sos = False
+    if isinstance(parsed_json, dict):
+        preview_deveui = (
+            parsed_json.get("dev_eui") or parsed_json.get("devEui") or
+            (parsed_json.get("device") or {}).get("devEui") or
+            (parsed_json.get("deviceInfo") or {}).get("devEui") or ""
+        )
+        for k in ("is_sos", "sos", "alarm", "button_event", "buttonAction", "press", "event_type", "event"):
+            if k in parsed_json and is_truthy_sos(parsed_json[k]):
+                preview_is_sos = True
+                break
+        if not preview_is_sos and isinstance(parsed_json.get("measurements"), list):
+            for m in parsed_json["measurements"]:
+                if isinstance(m, dict) and m.get("name") in ("event_type", "event", "alarm", "sos", "is_sos", "button_event", "button"):
+                    if is_truthy_sos(m.get("value")):
+                        preview_is_sos = True
+                        break
+    elif isinstance(parsed_json, list) and len(parsed_json) > 0 and isinstance(parsed_json[0], dict):
+        preview_deveui = parsed_json[0].get("dev_eui") or parsed_json[0].get("devEui") or ""
+        for k in ("is_sos", "sos", "alarm", "button_event", "buttonAction", "press", "event_type", "event"):
+            if k in parsed_json[0] and is_truthy_sos(parsed_json[0][k]):
+                preview_is_sos = True
+                break
+        if not preview_is_sos and isinstance(parsed_json[0].get("measurements"), list):
+            for m in parsed_json[0]["measurements"]:
+                if isinstance(m, dict) and m.get("name") in ("event_type", "event", "alarm", "sos", "is_sos", "button_event", "button"):
+                    if is_truthy_sos(m.get("value")):
+                        preview_is_sos = True
+                        break
+
+    monitor_id = f"wh_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
+    now_vn = timezone.localtime(timezone.now())
+
+    initial_status_code = 200
+    if request.method != "POST":
+        initial_status_code = 405
+    elif not is_auth_ok:
+        initial_status_code = 401
+    elif not is_valid_json:
+        initial_status_code = 400
+
+    monitor_entry = {
+        "id": monitor_id,
+        "timestamp": now_vn.strftime("%H:%M:%S %d/%m/%Y"),
+        "time_only": now_vn.strftime("%H:%M:%S"),
+        "client_ip": client_ip,
+        "method": request.method,
+        "content_type": request.content_type,
+        "auth_status": "authorized" if is_auth_ok else "unauthorized",
+        "token_masked": token_masked,
+        "is_valid_json": is_valid_json,
+        "raw_body": raw_body_str,
+        "json_data": parsed_json,
+        "dev_eui": preview_deveui,
+        "is_sos": preview_is_sos,
+        "status_code": initial_status_code,
+        "status_message": "Đang phân tích & xử lý..." if initial_status_code == 200 else ("401 Unauthorized" if initial_status_code == 401 else ("400 Invalid JSON" if initial_status_code == 400 else "405 Method Not Allowed")),
+        "processed_count": 0,
+        "error_message": parse_error,
+        "headers": {
+            "Authorization": auth_header or None,
+            "X-Webhook-Secret": custom_header or None,
+            "Content-Type": request.content_type,
+            "User-Agent": request.headers.get("User-Agent")
+        }
+    }
+
+    # BẮT BUỘC: Đưa mọi chuỗi JSON nhận được lên Monitor Admin tức thời qua SSE
+    add_webhook_monitor_log(monitor_entry)
+    broadcast_event("WEBHOOK_MONITOR", monitor_entry)
+
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed. Chỉ nhận POST theo OpenAPI."}, status=405)
 
-    try:
-        body = json.loads(request.body)
-    except Exception:
-        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+    if not is_auth_ok:
+        logger.warning(f"[HCTech Webhook] 401 Unauthorized: Thiếu hoặc sai Authorization Bearer token từ {client_ip}")
+        return JsonResponse({
+            "status": "error",
+            "error": "Unauthorized",
+            "message": "Webhook yêu cầu xác thực. Vui lòng cung cấp Header 'Authorization: Bearer <token>' hợp lệ."
+        }, status=401)
 
-    events = body if isinstance(body, list) else (body.get("data") if isinstance(body.get("data"), list) else [body])
+    if not is_valid_json:
+        return JsonResponse({"error": "Invalid JSON body", "detail": parse_error}, status=400)
+
+    events = parsed_json if isinstance(parsed_json, list) else (parsed_json.get("data") if isinstance(parsed_json.get("data"), list) else [parsed_json])
     results = []
 
     for ev in events:
@@ -445,6 +881,18 @@ def hctech_webhook_view(request):
         except Exception as exc:
             logger.exception(f"[HCTech Webhook] Lỗi khi xử lý bản ghi: {exc}")
             results.append({"status": "error", "message": str(exc)})
+
+    # Cập nhật kết quả lên Monitor Admin
+    monitor_entry["status_code"] = 200
+    monitor_entry["status_message"] = f"Xử lý thành công {len(results)} bản ghi."
+    monitor_entry["processed_count"] = len(results)
+    monitor_entry["results"] = results
+    broadcast_event("WEBHOOK_MONITOR_UPDATE", {
+        "id": monitor_id,
+        "status_code": 200,
+        "status_message": monitor_entry["status_message"],
+        "results": results
+    })
 
     return JsonResponse({
         "status": "ok",
