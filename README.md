@@ -76,53 +76,56 @@ Hệ thống được phát triển theo kiến trúc hướng sự kiện thờ
 ## 🏗️ Kiến Trúc Hệ Thống (System Architecture)
 
 ```mermaid
-flowchart TD
-    subgraph LoRaWAN_Field ["Mạng Lưới Thiết Bị Ngoại Vi"]
-        DEV1["🚢 Tàu Cứu Hộ Hàng Hải"]
-        DEV2["🚨 Nút Bấm Khẩn Cấp"]
-        DEV3["📡 LoRaWAN Gateway"]
+flowchart TB
+    subgraph IOT_LAYER["1. TẦNG THIẾT BỊ IOT & NỀN TẢNG CLOUD"]
+        DEV_BUTTON["Nút Nhấn Khẩn Cấp (SOS)"]
+        DEV_GPS["Thiết Bị Định Vị GPS (Xe/Tàu)"]
+        DEV_GW["Trạm LoRaWAN Gateway"]
+        CLOUD_IOT["IoT LoRaWAN Platform (ChirpStack / Cloud)"]
+        DEV_BUTTON -->|LoRaWAN Uplink| CLOUD_IOT
+        DEV_GPS -->|LoRaWAN Uplink| CLOUD_IOT
+        DEV_GW -->|Status Uplink| CLOUD_IOT
     end
 
-    subgraph Cloud_Network ["Nền Tảng Đám Mây & Gateway"]
-        CS["ChirpStack v4 / LoRaWAN Server"]
-        HC_CLOUD["HC TECH IoT Platform (OpenAPI v1.2.0)"]
+    subgraph SERVER_INGESTION["2. TẦNG TIẾP NHẬN & XỬ LÝ (SERVER BACKEND)"]
+        WEBHOOK["Server_tenant/hctech_webhook.py\n(Webhook Receiver)"]
+        CLIENT["Server_tenant/hctech_client.py\n(Cloud Client & Downlink)"]
+        HB_THREAD["Server_tenant/apps.py\n(Heartbeat Checker Thread)"]
+        SSE_DISPATCH["Server_tenant/sse.py\n(Pub/Sub Event Broadcaster)"]
+        
+        CLOUD_IOT -->|HTTP POST JSON| WEBHOOK
+        CLIENT -->|HTTP Downlink / Sync| CLOUD_IOT
+        HB_THREAD -->|Kiểm tra timeout chu kỳ| WEBHOOK
     end
 
-    subgraph Backend_System ["Hệ Thống Trung Tâm (Django Backend)"]
-        WH["Webhook Ingestion (/api/webhook/uplink/)"]
-        DEDUP["24h Deduplication & Order Check"]
-        CLIENT["HCTechIoTClient (Downlink & Telemetry)"]
-        SSE["SSE Realtime Broadcast Engine"]
-        DJANGO["Django Core Engine (v6.1)"]
+    subgraph DATABASE_LAYER["3. TẦNG DỮ LIỆU (POSTGRESQL & MODELS)"]
+        DB[(PostgreSQL Database)]
+        MODELS["Server_tenant/models.py\n- Device\n- EmergencyAlert\n- GPSHistory\n- WebhookLog\n- CustomUser"]
+        WEBHOOK -->|Ghi log & Cập nhật| DB
+        HB_THREAD -->|Đổi trạng thái OFFLINE| DB
+        MODELS -.-> DB
     end
 
-    subgraph Storage ["Cơ Sở Dữ Liệu"]
-        PG[("PostgreSQL 15 Database")]
-        CACHE[("In-Memory / Redis Cache")]
+    subgraph WEB_LAYER["4. TẦNG ĐIỀU HƯỚNG & API (VIEWS & URLS)"]
+        URLS["Server_tenant/urls.py\n& tenant_site/urls.py"]
+        VIEWS["Server_tenant/views.py\n- Dashboard APIs\n- Device/Alert Management\n- Route Replay APIs\n- User Auth APIs"]
+        
+        URLS --> VIEWS
+        VIEWS <-->|Truy vấn & Cập nhật| DB
+        WEBHOOK -->|Push Event| SSE_DISPATCH
     end
 
-    subgraph Client_App ["Giao Diện Người Dùng"]
-        DASH["🖥️ Dashboard Giám Sát & Điều Phối"]
-        ADMIN["⚙️ Trung Tâm Quản Trị Hệ Thống (/admin/)"]
+    subgraph CLIENT_LAYER["5. TẦNG GIAO DIỆN NGƯỜI DÙNG (FRONTEND)"]
+        DASHBOARD["Server_tenant/templates/dashboard.html\n+ static/js/dashboard.js\n(Bảng Điều Khiển Bản Đồ GIS)"]
+        ADMIN["Server_tenant/templates/admin_portal.html\n(Trang Quản Trị Hệ Thống /admin/)"]
+        LOGIN["Server_tenant/templates/login.html\n(Màn Hình Đăng Nhập)"]
+        
+        VIEWS --> DASHBOARD
+        VIEWS --> ADMIN
+        VIEWS --> LOGIN
+        SSE_DISPATCH -.->|Real-time SSE Stream| DASHBOARD
+        SSE_DISPATCH -.->|Real-time Monitor Stream| ADMIN
     end
-
-    DEV1 -->|"LoRa RF 923MHz"| CS
-    DEV2 -->|"LoRa RF 923MHz"| CS
-    DEV3 -->|"LoRa RF 923MHz"| CS
-    CS -->|"HTTP Uplink"| HC_CLOUD
-    HC_CLOUD -->|"Webhook POST OutboundRecord"| WH
-    WH --> DEDUP
-    DEDUP --> DJANGO
-    DJANGO --> PG
-    DJANGO --> CACHE
-    DJANGO -->|"Phát tín hiệu IOT_UPLINK & DOWNLINK"| SSE
-    SSE -->|"SSE Stream 0ms"| DASH
-    SSE -->|"SSE Stream 0ms"| ADMIN
-    ADMIN -->|"Phát Lệnh Downlink"| CLIENT
-    CLIENT -->|"POST /devices/:id/commands"| HC_CLOUD
-    HC_CLOUD -->|"Downlink Queue"| CS
-    CS -->|"LoRa Downlink RX1/RX2"| DEV1
-    CS -->|"LoRa Downlink RX1/RX2"| DEV2
 ```
 
 ---

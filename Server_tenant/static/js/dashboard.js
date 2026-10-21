@@ -88,11 +88,18 @@ window.deviceMarkersMap = deviceMarkersMap;
 
 // Đóng / Mở Sidebar và tự động co giãn lại bản đồ
 function toggleSidebar() {
+    if (window.innerWidth <= 768 && typeof toggleMobileSidebar === 'function') {
+        toggleMobileSidebar();
+        return;
+    }
     const sidebar = document.getElementById('app-sidebar');
     if (!sidebar) return;
     sidebar.classList.toggle('sidebar-collapsed');
+    sidebar.classList.toggle('is-closed');
     setTimeout(() => {
-        map.invalidateSize();
+        if (typeof map !== 'undefined' && map) {
+            map.invalidateSize();
+        }
     }, 300);
 }
 
@@ -133,7 +140,7 @@ function startSiren() {
     if (!soundEnabled) return;
     try {
         if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
+            audioCtx.resume().catch(() => { });
         }
         playSirenBeep();
     } catch (e) {
@@ -366,7 +373,7 @@ async function refreshMapMarkers(forceFit = false) {
                     <span>${visual.prefixIcon} ${d.device_name}</span>
                     ${(d.connection_status === 'SOS' || d.connection_status === 'PROCESSING') ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">SOS</span>' : ''}
                 </div>
-                <div><strong>DevEUI:</strong> <span class="font-mono text-slate-700">${d.dev_eui}</span></div>
+                <div><strong>ID:</strong> <span class="font-mono text-slate-700">${d.dev_eui}</span></div>
                 <div><strong>Phân loại:</strong> <span class="font-semibold text-cyan-700">${visual.typeName}</span></div>
                 <div><strong>Chủ hộ/SĐT:</strong> ${d.customer_name} - ${d.emergency_phone}</div>
                 <div><strong>Tọa độ/Vị trí:</strong> ${d.has_gps ? d.latitude + ', ' + d.longitude : d.address}</div>
@@ -544,7 +551,7 @@ function showMapTab(keepView = false) {
         if (typeof closeMobileSidebar === 'function') {
             closeMobileSidebar();
         }
-    } catch (e) {}
+    } catch (e) { }
 
     if (typeof map !== 'undefined' && map) {
         map.invalidateSize();
@@ -1116,26 +1123,321 @@ function closeAddDeviceModal() {
 }
 
 // ================= GÁN THÔNG TIN CHO THIẾT BỊ MỚI / SỬA THÔNG TIN =================
+let assignMiniMap = null;
+let assignMiniMarker = null;
+let assignGeoDebounceTimer = null;
+let lastSuggestedResults = [];
+
 function toggleAssignGpsFields() {
     const hasGps = document.getElementById('assign-has-gps')?.value === 'true';
     const addrLabel = document.getElementById('assign-address-label');
-    const latInput = document.getElementById('assign-lat');
-    const lngInput = document.getElementById('assign-lng');
+    const addrInput = document.getElementById('assign-address');
     if (addrLabel) {
         addrLabel.innerText = hasGps ? "Cảng neo đậu / Khu vực hoạt động:" : "Địa chỉ lắp đặt / Nhà ở cơ sở:";
     }
-    if (hasGps) {
-        if (latInput && !latInput.value) latInput.placeholder = "Tự động lấy qua định vị GPS khi phát tin";
-        if (lngInput && !lngInput.value) lngInput.placeholder = "Tự động lấy qua định vị GPS khi phát tin";
-    } else {
-        if (latInput && !latInput.value) latInput.placeholder = "16.054407 (Vĩ độ cố định)";
-        if (lngInput && !lngInput.value) lngInput.placeholder = "108.202167 (Kinh độ cố định)";
+    if (addrInput) {
+        addrInput.placeholder = hasGps
+            ? "Ví dụ: Cảng Tiên Sa, Bến thuyền Sơn Trà, Cửa Đại, Vịnh Đà Nẵng..."
+            : "Ví dụ: Số 123 đường Bạch Đằng, P. Hải Châu 1, Đà Nẵng...";
     }
     const pairContainer = document.getElementById('assign-pairing-container');
     if (pairContainer) {
         pairContainer.style.display = hasGps ? 'none' : 'block';
     }
 }
+
+// Khởi tạo bản đồ Mini trong popup gán thông tin thiết bị
+function initAssignMiniMap(initialLat, initialLng) {
+    const mapEl = document.getElementById('assign-mini-map');
+    if (!mapEl) return;
+
+    const defaultLat = 16.0544;
+    const defaultLng = 108.2022;
+    const hasInitialCoords = (initialLat !== undefined && initialLat !== null && initialLat !== '' && !isNaN(initialLat) &&
+        initialLng !== undefined && initialLng !== null && initialLng !== '' && !isNaN(initialLng));
+
+    const lat = hasInitialCoords ? parseFloat(initialLat) : defaultLat;
+    const lng = hasInitialCoords ? parseFloat(initialLng) : defaultLng;
+
+    if (!assignMiniMap) {
+        assignMiniMap = L.map('assign-mini-map', {
+            center: [lat, lng],
+            zoom: hasInitialCoords ? 15 : 12,
+            zoomControl: true,
+            attributionControl: false
+        });
+
+        L.tileLayer('https://{s}.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}', {
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps',
+            maxZoom: 20
+        }).addTo(assignMiniMap);
+
+        const pinIcon = L.divIcon({
+            className: 'hc-custom-assign-pin',
+            html: `<div style="width:28px;height:28px;border-radius:50%;background:#0891b2;color:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(8,145,178,0.85);border:2px solid #ffffff;font-size:13px;cursor:grab;">
+                     <i class="fa-solid fa-location-dot"></i>
+                   </div>`,
+            iconSize: [28, 28],
+            iconAnchor: [14, 28]
+        });
+
+        assignMiniMarker = L.marker([lat, lng], {
+            draggable: true,
+            icon: pinIcon
+        }).addTo(assignMiniMap);
+
+        // Kéo ghim trực tiếp trên bản đồ
+        assignMiniMarker.on('dragend', function (e) {
+            const pos = e.target.getLatLng();
+            setAssignCoords(pos.lat, pos.lng, true);
+        });
+
+        // Bấm trực tiếp lên bản đồ để chọn vị trí
+        assignMiniMap.on('click', function (e) {
+            setAssignCoords(e.latlng.lat, e.latlng.lng, true);
+        });
+    } else {
+        assignMiniMap.setView([lat, lng], hasInitialCoords ? 15 : 12);
+        if (assignMiniMarker) {
+            assignMiniMarker.setLatLng([lat, lng]);
+        }
+    }
+
+    updateAssignCoordsBadge(hasInitialCoords ? lat : null, hasInitialCoords ? lng : null);
+
+    // Bắt buộc tính lại kích thước để tránh bản đồ bị xám khi hiển thị trong modal
+    setTimeout(() => {
+        if (assignMiniMap) assignMiniMap.invalidateSize();
+    }, 250);
+}
+
+// Cập nhật tọa độ vào hidden inputs và ghim bản đồ
+function setAssignCoords(lat, lng, doReverseGeocode = false) {
+    const latInput = document.getElementById('assign-lat');
+    const lngInput = document.getElementById('assign-lng');
+
+    if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) {
+        if (latInput) latInput.value = '';
+        if (lngInput) lngInput.value = '';
+        updateAssignCoordsBadge(null, null);
+        return;
+    }
+
+    const flat = parseFloat(Number(lat).toFixed(6));
+    const flng = parseFloat(Number(lng).toFixed(6));
+
+    if (latInput) latInput.value = flat;
+    if (lngInput) lngInput.value = flng;
+
+    updateAssignCoordsBadge(flat, flng);
+
+    if (assignMiniMarker) {
+        assignMiniMarker.setLatLng([flat, flng]);
+    }
+    if (assignMiniMap) {
+        assignMiniMap.panTo([flat, flng]);
+    }
+
+    if (doReverseGeocode) {
+        fetchReverseGeocode(flat, flng);
+    }
+}
+
+function updateAssignCoordsBadge(lat, lng) {
+    const badge = document.getElementById('assign-coords-badge');
+    if (!badge) return;
+    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+        badge.innerHTML = `<i class="fa-solid fa-check mr-1"></i>Đã gán: ${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+        badge.className = 'assigned';
+    } else {
+        badge.innerHTML = `<i class="fa-solid fa-location-crosshairs mr-1"></i>Chưa chọn vị trí`;
+        badge.className = 'unassigned';
+    }
+}
+
+function centerAssignMiniMap() {
+    const latVal = parseFloat(document.getElementById('assign-lat')?.value);
+    const lngVal = parseFloat(document.getElementById('assign-lng')?.value);
+    if (!isNaN(latVal) && !isNaN(lngVal) && assignMiniMap) {
+        assignMiniMap.setView([latVal, lngVal], 16);
+    } else if (assignMiniMap) {
+        assignMiniMap.setView([16.0544, 108.2022], 12);
+    }
+}
+
+// Gọi API reverse geocode khi người dùng click/kéo ghim trên bản đồ
+async function fetchReverseGeocode(lat, lng) {
+    const statusEl = document.getElementById('assign-geo-status');
+    const addrInput = document.getElementById('assign-address');
+    const clearBtn = document.getElementById('btn-clear-assign-address');
+    if (statusEl) {
+        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lấy tên địa chỉ...';
+        statusEl.classList.remove('hidden');
+    }
+    try {
+        const res = await fetch(`/api/geo/reverse/?lat=${lat}&lng=${lng}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.display_name) {
+            if (addrInput) addrInput.value = data.display_name;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.warn("Reverse geocode failed:", err);
+    } finally {
+        if (statusEl) statusEl.classList.add('hidden');
+    }
+}
+
+// Xử lý khi người dùng gõ tìm địa chỉ hoặc cảng neo đậu
+function onAssignAddressInput(val) {
+    const clearBtn = document.getElementById('btn-clear-assign-address');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !val.trim());
+    }
+
+    if (assignGeoDebounceTimer) clearTimeout(assignGeoDebounceTimer);
+
+    const query = val.trim();
+    if (query.length < 2) {
+        hideAssignAddressSuggestions();
+        return;
+    }
+
+    assignGeoDebounceTimer = setTimeout(() => {
+        fetchAddressSuggestions(query);
+    }, 280);
+}
+
+function onAssignAddressFocus() {
+    const val = (document.getElementById('assign-address')?.value || '').trim();
+    if (val.length >= 2 && lastSuggestedResults.length > 0) {
+        renderAssignAddressSuggestions(lastSuggestedResults);
+    }
+}
+
+function clearAssignAddress() {
+    const addrInput = document.getElementById('assign-address');
+    if (addrInput) {
+        addrInput.value = '';
+        addrInput.focus();
+    }
+    const clearBtn = document.getElementById('btn-clear-assign-address');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    hideAssignAddressSuggestions();
+}
+
+async function fetchAddressSuggestions(q) {
+    const statusEl = document.getElementById('assign-geo-status');
+    if (statusEl) {
+        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tìm gợi ý...';
+        statusEl.classList.remove('hidden');
+    }
+
+    try {
+        const res = await fetch(`/api/geo/suggest/?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.results && data.results.length > 0) {
+            lastSuggestedResults = data.results;
+            renderAssignAddressSuggestions(data.results);
+        } else {
+            renderEmptySuggestions();
+        }
+    } catch (err) {
+        console.warn("Suggest error:", err);
+        renderEmptySuggestions();
+    } finally {
+        if (statusEl) statusEl.classList.add('hidden');
+    }
+}
+
+function renderAssignAddressSuggestions(items) {
+    const box = document.getElementById('assign-address-suggestions');
+    if (!box) return;
+
+    if (!items || items.length === 0) {
+        renderEmptySuggestions();
+        return;
+    }
+
+    let html = '';
+    items.forEach((item, idx) => {
+        const isHarbor = item.is_harbor;
+        const iconClass = isHarbor ? 'fa-solid fa-anchor' : 'fa-solid fa-location-dot';
+        const typeClass = isHarbor ? 'harbor' : 'location';
+        const badgeLabel = isHarbor
+            ? '<span class="text-[9px] font-bold text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30 ml-1.5 shrink-0">Cảng / Bến</span>'
+            : '';
+
+        const titleText = escapeHtml(item.name || item.display_name.split(',')[0]);
+        const subText = escapeHtml(item.display_name);
+
+        html += `
+        <div class="hc-geo-item ${typeClass}" onclick="selectAssignAddress(${idx})">
+          <div class="geo-icon">
+            <i class="${iconClass}"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <span class="geo-title truncate">${titleText}</span>
+              ${badgeLabel}
+            </div>
+            <div class="geo-subtitle line-clamp-1">${subText}</div>
+          </div>
+        </div>`;
+    });
+
+    box.innerHTML = html;
+    box.classList.remove('hidden');
+}
+
+function renderEmptySuggestions() {
+    const box = document.getElementById('assign-address-suggestions');
+    if (!box) return;
+    box.innerHTML = `
+      <div class="p-3 text-center text-xs hc-text-muted">
+        <i class="fa-solid fa-circle-info mr-1 text-cyan-400"></i>
+        Không tìm thấy gợi ý trùng khớp. Bạn có thể bấm trực tiếp lên bản đồ bên dưới để chọn vị trí.
+      </div>
+    `;
+    box.classList.remove('hidden');
+}
+
+function hideAssignAddressSuggestions() {
+    const box = document.getElementById('assign-address-suggestions');
+    if (box) box.classList.add('hidden');
+}
+
+function selectAssignAddress(index) {
+    const item = lastSuggestedResults[index];
+    if (!item) return;
+
+    const addrInput = document.getElementById('assign-address');
+    if (addrInput) addrInput.value = item.display_name;
+
+    const clearBtn = document.getElementById('btn-clear-assign-address');
+    if (clearBtn) clearBtn.classList.remove('hidden');
+
+    setAssignCoords(item.lat, item.lng, false);
+    hideAssignAddressSuggestions();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+document.addEventListener('click', function (e) {
+    const group = document.getElementById('assign-address-group');
+    if (group && !group.contains(e.target)) {
+        hideAssignAddressSuggestions();
+    }
+});
 
 function openAssignDeviceModal(deviceId, devEui, deviceName, customerName, phone, categoryType, address, hasGps, lat, lng, parentId, groupName, heartbeatInterval) {
     const modal = document.getElementById('assign-device-modal');
@@ -1171,10 +1473,18 @@ function openAssignDeviceModal(deviceId, devEui, deviceName, customerName, phone
     if (groupInput) groupInput.value = groupName || '';
     if (hbInput) hbInput.value = (heartbeatInterval !== undefined && heartbeatInterval !== null && heartbeatInterval !== '') ? heartbeatInterval : 300;
 
+    const clearBtn = document.getElementById('btn-clear-assign-address');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !(address && address.trim()));
+
     toggleAssignGpsFields();
 
     modal.classList.remove('hidden');
-    // Focus vào ô tên người quản lý nếu đã có tên thiết bị, hoặc ô tên thiết bị
+
+    // Khởi tạo bản đồ mini với tọa độ thiết bị (hoặc mặc định)
+    const initLat = (lat !== undefined && lat !== null && lat !== 'None' && lat !== '') ? parseFloat(lat) : null;
+    const initLng = (lng !== undefined && lng !== null && lng !== 'None' && lng !== '') ? parseFloat(lng) : null;
+    initAssignMiniMap(initLat, initLng);
+
     setTimeout(() => {
         if (custInput && !custInput.value) {
             custInput.focus();
@@ -1187,6 +1497,7 @@ function openAssignDeviceModal(deviceId, devEui, deviceName, customerName, phone
 function closeAssignDeviceModal() {
     const modal = document.getElementById('assign-device-modal');
     if (modal) modal.classList.add('hidden');
+    hideAssignAddressSuggestions();
 }
 
 async function submitAssignDevice(e) {
@@ -1326,6 +1637,12 @@ function handleDeviceRowClick(event, deviceId) {
 
 // Đăng ký toàn cục vào window
 window.toggleAssignGpsFields = toggleAssignGpsFields;
+window.onAssignAddressInput = onAssignAddressInput;
+window.onAssignAddressFocus = onAssignAddressFocus;
+window.clearAssignAddress = clearAssignAddress;
+window.selectAssignAddress = selectAssignAddress;
+window.centerAssignMiniMap = centerAssignMiniMap;
+window.closeAssignDeviceModal = closeAssignDeviceModal;
 // Lưu danh sách thiết bị mới nhất để dùng nhanh cho modal gán thiết bị
 let latestDevicesList = [];
 
@@ -1432,7 +1749,7 @@ async function submitNewDevice() {
 function openQuickPairModal(deviceId, deviceName, parentId, groupName) {
     const modal = document.getElementById('quick-pair-modal');
     if (!modal) return;
-    
+
     const idInput = document.getElementById('quick-pair-dev-id');
     const nameEl = document.getElementById('quick-pair-dev-name');
     const parentSelect = document.getElementById('quick-pair-parent-id') || document.getElementById('quick-pair-gps-id');
@@ -1440,7 +1757,7 @@ function openQuickPairModal(deviceId, deviceName, parentId, groupName) {
 
     if (idInput) idInput.value = deviceId || '';
     if (nameEl) nameEl.innerText = deviceName || ('Thiết bị #' + deviceId);
-    
+
     if (parentSelect) {
         parentSelect.value = parentId || '';
         // Ẩn / vô hiệu hóa chính thiết bị đang chọn để không tự gán vào chính nó
@@ -2138,13 +2455,13 @@ function initDashboard() {
     // Kích hoạt AudioContext khi người dùng tương tác lần đầu (tuân thủ Browser Autoplay Policy)
     document.addEventListener('click', () => {
         if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
+            audioCtx.resume().catch(() => { });
         }
     }, { once: false, passive: true });
 
     document.addEventListener('keydown', (e) => {
         if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
+            audioCtx.resume().catch(() => { });
         }
         if (e.key === 'Escape') {
             closeManualSOSModal();

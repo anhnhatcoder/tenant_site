@@ -22,6 +22,9 @@ urlpatterns = [
     path('api/users/delete/', views.api_delete_user, name='api_delete_user'),
     path('api/users/<int:user_id>/delete/', views.api_delete_user, name='api_delete_user_by_id'),
 
+    path('api/geo/suggest/', views.api_geo_suggest, name='api_geo_suggest'),
+    path('api/geo/reverse/', views.api_geo_reverse, name='api_geo_reverse'),
+
     path('api/webhook/uplink/', hctech_webhook_view, name='webhook_iot_uplink'),
     path('api/hctech/sync/', api_sync_from_hctech, name='api_sync_from_hctech'),
 

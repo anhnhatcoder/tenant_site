@@ -48,34 +48,27 @@
       class="h-16 hc-surface border-b px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4 shrink-0"
     >
       <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
-        <!-- NÚT MỞ MENU TRÊN ĐIỆN THOẠI (CHỈ HIỂN THỊ DƯỚI 768PX) -->
-        <button
-          type="button"
-          onclick="toggleMobileSidebar()"
-          class="md:hidden flex items-center justify-center w-9 h-9 rounded-xl hc-input shrink-0"
-          title="Mở menu điều hướng"
-        >
-          <i class="fa-solid fa-bars text-sm text-cyan-400"></i>
-        </button>
-
-        <!-- BẤM VÀO LOGO ĐỂ ĐÓNG / MỞ SIDEBAR (DI CHUỘT VÀO SẼ CHUYỂN THÀNH BIỂU TƯỢNG TASKBAR) -->
+        <!-- NÚT ĐÓNG / MỞ SIDEBAR RIÊNG BIỆT (TASKBAR TOGGLE) -->
         <button
           type="button"
           id="btn-toggle-sidebar"
-          onclick="toggleSidebarByLogo()"
-          class="hc-logo-toggle-btn shrink-0 focus:outline-none"
-          title="Đóng / Mở Menu Điều Hướng"
+          onclick="toggleSidebarMenu()"
+          class="hc-sidebar-toggle-btn focus:outline-none"
+          title="Đóng / Mở menu điều hướng"
           aria-label="Đóng hoặc mở menu điều hướng"
         >
+          <i class="fa-solid fa-bars text-sm sm:text-base"></i>
+        </button>
+
+        <!-- LOGO THƯƠNG HIỆU RIÊNG BIỆT (KHÔNG KIÊM NÚT BẤM SIDEBAR) -->
+        <div class="shrink-0 flex items-center justify-center">
           <img
             src="{% static 'images/logo.jpg' %}"
-            alt="HC Logo"
-            class="hc-logo-img"
+            alt="HCTECH Logo"
+            class="hc-brand-logo"
+            title="HCTECH Solutions"
           />
-          <div class="hc-taskbar-icon">
-            <i class="fa-solid fa-bars"></i>
-          </div>
-        </button>
+        </div>
 
         <!-- TIÊU ĐỀ HỆ THỐNG (CHỈ HIỂN THỊ THÔNG TIN, KHÔNG KÍCH HOẠT ĐÓNG/MỞ SIDEBAR) -->
         <div class="truncate select-none">
@@ -236,7 +229,7 @@
     ></div>
 
     <div class="flex h-[calc(100vh-4rem)] relative">
-      <!-- SIDEBAR MENU (Trên PC giữ nguyên chiều rộng và thu gọn bằng logo; Trên di động là Drawer trượt thông minh) -->
+      <!-- SIDEBAR MENU (Thu gọn/mở rộng bằng nút toggle sidebar riêng; Trên di động là Drawer trượt thông minh) -->
       <aside
         id="app-sidebar"
         class="hc-surface border-r flex flex-col justify-between p-3.5 overflow-y-auto shrink-0"
@@ -518,7 +511,6 @@
                     <option value="">Tất cả trạng thái</option>
                     <option value="ONLINE">🟢 Bình thường</option>
                     <option value="SOS">🔴 Đang phát SOS</option>
-                    <option value="PROCESSING">🟡 Đang xử lý</option>
                     <option value="OFFLINE">⚪ Mất kết nối</option>
                   </select>
                 </div>
@@ -2189,29 +2181,85 @@
             </div>
           </div>
 
-          <!-- Address -->
-          <div id="assign-address-group">
-            <label id="assign-address-label" class="block font-semibold mb-1 hc-text-muted">Địa chỉ lắp đặt / Khu vực hoạt động:</label>
-            <input type="text" id="assign-address" placeholder="Số nhà, tên đường, phường/xã, quận/huyện..." class="w-full hc-input" />
+          <!-- Address & Map Autocomplete Suggestion -->
+          <div id="assign-address-group" class="relative">
+            <div class="flex items-center justify-between mb-1">
+              <label id="assign-address-label" class="block font-semibold hc-text-muted">
+                Địa chỉ lắp đặt / Khu vực hoạt động:
+              </label>
+              <span id="assign-geo-status" class="text-[10px] text-cyan-400 hidden font-medium">
+                <i class="fa-solid fa-spinner fa-spin"></i> Đang tìm gợi ý...
+              </span>
+            </div>
+            <div class="relative">
+              <input
+                type="text"
+                id="assign-address"
+                placeholder="Nhập địa chỉ, tên cảng neo đậu hoặc khu vực..."
+                class="w-full hc-input pr-8 text-xs"
+                autocomplete="off"
+                oninput="onAssignAddressInput(this.value)"
+                onfocus="onAssignAddressFocus()"
+              />
+              <button
+                type="button"
+                id="btn-clear-assign-address"
+                onclick="clearAssignAddress()"
+                class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-400 text-xs p-1 cursor-pointer transition"
+                title="Xóa địa chỉ"
+              >
+                <i class="fa-solid fa-circle-xmark"></i>
+              </button>
+            </div>
+
+            <!-- Gợi ý địa chỉ xổ xuống (Dropdown Suggestions) -->
+            <div
+              id="assign-address-suggestions"
+              class="hidden absolute left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto rounded-xl hc-surface border shadow-2xl p-1 z-[1060]"
+              style="border-color: var(--border-color); background-color: var(--bg-surface);"
+            >
+              <!-- Danh sách gợi ý từ bản đồ do JS kết xuất -->
+            </div>
           </div>
 
-          <!-- Coordinates (Lat / Lng) -->
-          <div id="assign-coords-group" class="grid grid-cols-2 gap-2.5">
-            <div>
-              <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Vĩ độ (Lat):</label>
-              <div class="relative">
-                <input type="number" step="any" id="assign-lat" placeholder="16.054407" class="w-full hc-input font-mono text-xs pr-7" />
-                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°N</span>
-              </div>
+          <!-- Bản đồ Mini trực quan & Chấm vị trí -->
+          <div id="assign-map-container" class="space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="hc-text-muted flex items-center gap-1.5 font-semibold">
+                <i class="fa-solid fa-map-location-dot text-cyan-400"></i>
+                <span>Gợi ý bản đồ & Vị trí chọn:</span>
+              </span>
+              <span id="assign-coords-badge" class="font-mono text-[10px] text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded-full">
+                Chưa chọn vị trí
+              </span>
             </div>
-            <div>
-              <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Kinh độ (Lng):</label>
-              <div class="relative">
-                <input type="number" step="any" id="assign-lng" placeholder="108.202167" class="w-full hc-input font-mono text-xs pr-7" />
-                <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°E</span>
-              </div>
+
+            <!-- Khung bản đồ Leaflet Mini -->
+            <div
+              id="assign-mini-map"
+              class="w-full h-44 rounded-xl border relative overflow-hidden z-10"
+              style="border-color: var(--border-color); min-height: 170px;"
+            ></div>
+
+            <div class="flex items-center justify-between text-[10px] hc-text-muted">
+              <span>
+                <i class="fa-solid fa-hand-pointer text-cyan-400 mr-1"></i>
+                Bấm trực tiếp lên bản đồ hoặc kéo ghim để chọn vị trí.
+              </span>
+              <button
+                type="button"
+                onclick="centerAssignMiniMap()"
+                class="text-cyan-400 hover:underline font-medium shrink-0 flex items-center gap-1 cursor-pointer"
+                title="Đưa bản đồ về vị trí ghim"
+              >
+                <i class="fa-solid fa-crosshairs"></i> Về giữa
+              </button>
             </div>
           </div>
+
+          <!-- Hidden Coordinates (Không còn hiển thị ô nhập số theo yêu cầu) -->
+          <input type="hidden" id="assign-lat" />
+          <input type="hidden" id="assign-lng" />
 
           <div class="flex items-center justify-end gap-2.5 pt-3 border-t" style="border-color: var(--border-color)">
             <button type="button" onclick="closeAssignDeviceModal()" class="px-4 py-2 rounded-lg font-semibold border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition">Hủy bỏ</button>
@@ -2325,10 +2373,10 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="{% static 'js/dashboard.js' %}?v={% now 'U' %}"></script>
 
-    <!-- Script trực tiếp xử lý Đóng/Mở Sidebar bằng Logo, giữ cố định Popup thiết bị & Xóa tài khoản -->
+    <!-- Script trực tiếp xử lý Đóng/Mở Sidebar, giữ cố định Popup thiết bị & Xóa tài khoản -->
     <script>
       // 1. Đóng/mở Sidebar: Trên mobile mở/đóng Drawer, trên PC co giãn bình thường
-      function toggleSidebarByLogo() {
+      function toggleSidebarMenu() {
         if (window.innerWidth <= 768) {
           toggleMobileSidebar();
           return;
@@ -2336,12 +2384,14 @@
         const sidebar = document.getElementById("app-sidebar");
         if (!sidebar) return;
         sidebar.classList.toggle("is-closed");
+        sidebar.classList.toggle("sidebar-collapsed");
         setTimeout(() => {
           if (typeof map !== "undefined" && map) {
             map.invalidateSize();
           }
         }, 280);
       }
+      const toggleSidebarByLogo = toggleSidebarMenu;
 
       function openMobileSidebar() {
         const sidebar = document.getElementById("app-sidebar");

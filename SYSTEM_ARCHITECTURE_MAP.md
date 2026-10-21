@@ -213,6 +213,37 @@ sequenceDiagram
 
 ---
 
+### 3.5. Luồng Gán Thông Tin Thiết Bị & Gợi Ý Địa Chỉ / Cảng Neo Đậu Trên Bản Đồ
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Quản trị viên
+    participant UI as Modal Gán Thông Tin (dashboard.js)
+    participant Geo as views.py (api_geo_suggest / api_geo_reverse)
+    participant MiniMap as Leaflet Mini Map
+    participant View as views.py (api_update_device)
+    participant DB as PostgreSQL
+
+    User->>UI: Gõ tên địa chỉ hoặc cảng neo đậu (ví dụ: "Cảng Tiên Sa")
+    UI->>Geo: GET /api/geo/suggest/?q=...
+    Geo-->>UI: Danh sách gợi ý kèm tọa độ & icon phân loại (Cảng/Nhà ở)
+    User->>UI: Nhấp chọn một địa chỉ gợi ý từ danh sách
+    UI->>UI: Điền đầy đủ địa chỉ & Lưu tọa độ vào trường ẩn (Không cần nhập tay)
+    UI->>MiniMap: Di chuyển ghim (marker) đến vị trí chọn & zoom cận cảnh
+    opt Tinh chỉnh vị trí trực tiếp
+        User->>MiniMap: Bấm hoặc kéo ghim trực tiếp trên bản đồ
+        MiniMap->>Geo: GET /api/geo/reverse/?lat=...&lng=...
+        Geo-->>UI: Tự động cập nhật tên địa chỉ theo vị trí mới
+    end
+    User->>UI: Nhấn "Lưu thông tin"
+    UI->>View: POST /api/devices/{id}/update/
+    View->>DB: Cập nhật Device (name, customer, address, lat, lng, has_gps)
+    View-->>UI: Trả về kết quả thành công & cập nhật bản đồ chính
+```
+
+---
+
 ## 4. TỔNG KẾT MỐI QUAN HỆ GIỮA CÁC FILE
 
 ```

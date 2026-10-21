@@ -6,6 +6,9 @@ import math
 import queue
 import time
 import uuid
+import urllib.request
+import urllib.parse
+from decimal import Decimal
 from datetime import timedelta
 
 logger = logging.getLogger(__name__)
@@ -782,6 +785,134 @@ def api_update_profile(request):
         'phone_number': request.user.phone_number or '',
         'email': request.user.email or ''
     })
+
+
+@csrf_exempt
+def api_geo_suggest(request):
+    """
+    Gợi ý địa chỉ và tọa độ bản đồ (Geocoding Autocomplete).
+    Tối ưu hóa tìm kiếm địa chỉ nhà ở, cơ sở và cảng neo đậu khu vực hoạt động.
+    """
+    q = request.GET.get('q', '').strip()
+    if not q or len(q) < 2:
+        return JsonResponse({'status': 'success', 'results': []})
+
+    results = []
+    seen = set()
+
+    # 1. Thử qua Photon Geocoding API (Rất nhanh, chuyên dụng cho search-as-you-type)
+    try:
+        encoded_q = urllib.parse.quote(q)
+        url = f"https://photon.komoot.io/api/?q={encoded_q}&limit=7"
+        req = urllib.request.Request(url, headers={'User-Agent': 'HCTech-Emergency-Platform/1.0'})
+        with urllib.request.urlopen(req, timeout=2.5) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            for f in data.get('features', []):
+                p = f.get('properties', {})
+                coords = f.get('geometry', {}).get('coordinates', [])
+                if len(coords) < 2:
+                    continue
+                lng, lat = float(coords[0]), float(coords[1])
+                name = p.get('name') or ''
+                parts = []
+                for k in ['name', 'street', 'district', 'city', 'state', 'country']:
+                    v = p.get(k)
+                    if v and v not in parts:
+                        parts.append(v)
+                display_name = ', '.join(parts) if parts else name
+                if not display_name:
+                    continue
+
+                key = f"{round(lat, 5)}_{round(lng, 5)}"
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                txt_lower = (name + ' ' + display_name).lower()
+                is_harbor = any(w in txt_lower for w in ['cảng', 'cang', 'bến', 'ben', 'thuyền', 'port', 'harbor', 'marina', 'dock', 'ferry', 'neo đậu', 'neo dau'])
+
+                results.append({
+                    'name': name or display_name.split(',')[0],
+                    'display_name': display_name,
+                    'lat': lat,
+                    'lng': lng,
+                    'is_harbor': is_harbor
+                })
+    except Exception as e:
+        logger.warning(f"Photon API error: {e}")
+
+    # 2. Nếu Photon không có kết quả, fallback sang Nominatim
+    if not results:
+        try:
+            encoded_q = urllib.parse.quote(q)
+            url = f"https://nominatim.openstreetmap.org/search?format=json&q={encoded_q}&countrycodes=vn&addressdetails=1&limit=6"
+            req = urllib.request.Request(url, headers={'User-Agent': 'HCTech-Emergency-Platform/1.0'})
+            with urllib.request.urlopen(req, timeout=3.0) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                for item in data:
+                    lat = float(item.get('lat', 0))
+                    lng = float(item.get('lon', 0))
+                    name = item.get('name') or ''
+                    display_name = item.get('display_name') or ''
+                    key = f"{round(lat, 5)}_{round(lng, 5)}"
+                    if key in seen:
+                        continue
+                    seen.add(key)
+
+                    txt_lower = (name + ' ' + display_name).lower()
+                    is_harbor = any(w in txt_lower for w in ['cảng', 'cang', 'bến', 'ben', 'thuyền', 'port', 'harbor', 'marina', 'dock', 'ferry', 'neo đậu', 'neo dau'])
+
+                    results.append({
+                        'name': name or display_name.split(',')[0],
+                        'display_name': display_name,
+                        'lat': lat,
+                        'lng': lng,
+                        'is_harbor': is_harbor
+                    })
+        except Exception as e:
+            logger.warning(f"Nominatim fallback error: {e}")
+
+    return JsonResponse({'status': 'success', 'results': results})
+
+
+@csrf_exempt
+def api_geo_reverse(request):
+    """
+    Reverse geocoding: Nhận tọa độ lat/lng và trả về tên địa chỉ tương ứng khi click trên bản đồ.
+    """
+    lat = request.GET.get('lat')
+    lng = request.GET.get('lng') or request.GET.get('lon')
+    if not lat or not lng:
+        return JsonResponse({'status': 'error', 'message': 'Thiếu tọa độ lat/lng'}, status=400)
+
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lng}&addressdetails=1"
+        req = urllib.request.Request(url, headers={'User-Agent': 'HCTech-Emergency-Platform/1.0'})
+        with urllib.request.urlopen(req, timeout=3.0) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            display_name = data.get('display_name', '')
+            name = data.get('name') or ''
+            return JsonResponse({
+                'status': 'success',
+                'name': name or (display_name.split(',')[0] if display_name else ''),
+                'display_name': display_name,
+                'lat': float(data.get('lat', lat)),
+                'lng': float(data.get('lon', lng))
+            })
+    except Exception as e:
+        logger.warning(f"Reverse geocode error: {e}")
+        try:
+            flat = round(float(lat), 5)
+            flng = round(float(lng), 5)
+        except Exception:
+            flat, flng = lat, lng
+        return JsonResponse({
+            'status': 'success',
+            'name': f"Tọa độ {flat}, {flng}",
+            'display_name': f"Vị trí bản đồ: {flat}, {flng}",
+            'lat': float(lat),
+            'lng': float(lng)
+        })
 
 
 @csrf_exempt
