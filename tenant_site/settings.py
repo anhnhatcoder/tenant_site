@@ -158,7 +158,11 @@ AUTH_USER_MODEL = 'Server_tenant.User'
 
 HCTECH_IOT_BASE_URL = "https://iot-staging.hctech.com.vn/api/public/v1"
 
-HCTECH_IOT_API_TOKEN = "iot_RmsRJUHfZHzHk8d1mCWwSKK5kbstP9mgD1HCaUiWXCk"
+HCTECH_IOT_API_TOKEN = "iot_D5OQRcs684jPvQWjNoU4ig5nXRWC0BaYfDv3od9lxER"
 
 
 HCTECH_WEBHOOK_SECRET = os.environ.get('HCTECH_WEBHOOK_SECRET', '')
+
+# Thời gian chống trùng lặp cảnh báo báo động (Alert Deduplication Cooldown)
+ALERT_COOLDOWN_SECONDS = int(os.environ.get('ALERT_COOLDOWN_SECONDS', 30))
+

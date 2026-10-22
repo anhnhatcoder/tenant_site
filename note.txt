@@ -1,0 +1,25 @@
+ban đầu chọn tên thiết bị ,chủ sở hũ, số điện thoại,  vị trí
+chọn nhóm thiết bị là http , mqtt , hay lorawan (gọi api get /groups để lấy group_id)
+từ nhóm đã chọn phần device profile sẽ sổ ra list package tương đương với nhóm( gọi api get /packages để lấy danh sách device profile )
+trong package sẽ chứa device profile cho thiết bị, người dùng sẽ chọn device profile phù hợp cho thiết bị 
+chọn OTAA
+nhập DevEUI và Appkey
+rồi gọi api post /devices 
+body request cho create device
+{
+  "group_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "package_version_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", #là device profile ta chọn
+  "dev_eui": "string",
+  "name": "string",
+  "activation": {
+    "app_key": "string"
+  }
+}
+Bạn có thể tùy chỉnh thời gian chống trùng báo động này (ví dụ tăng lên 60s hoặc giảm xuống 15s) bất cứ lúc nào thông qua biến 
+
+ALERT_COOLDOWN_SECONDS
+
+
+LƯU Ý QUAN TRỌNG:
+- Tuyệt đối không gọi API DELETE /devices lên HC TECH IoT Platform để tránh làm mất dữ liệu trên IoT Platform.
+- Mọi thao tác quản lý/dọn dẹp danh mục thiết bị chỉ thực hiện ở phạm vi cơ sở dữ liệu cục bộ của Tenant Web.

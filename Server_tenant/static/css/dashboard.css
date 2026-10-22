@@ -1,19 +1,5 @@
 /* ================= BẢNG MÀU CHỦ ĐỀ LOGO HC TECHNOLOGY SOLUTIONS ================= */
 :root,
-body.theme-dark {
-  --hc-cyan: #22ece9;
-  --hc-cyan-hover: #06b6d4;
-  --hc-cyan-soft: rgba(34, 236, 233, 0.14);
-  --hc-navy-deep: #041523;
-  --bg-main: #041523;
-  --bg-surface: #072238;
-  --bg-input: #041829;
-  --border-color: #114264;
-  --text-primary: #f0fdfa;
-  --text-secondary: #8ab4cc;
-  --shadow-card: 0 6px 20px rgba(0, 0, 0, 0.35);
-}
-
 body.theme-light {
   --hc-cyan: #0891b2;
   --hc-cyan-hover: #0e7490;
@@ -26,6 +12,20 @@ body.theme-light {
   --text-primary: #062338;
   --text-secondary: #475569;
   --shadow-card: 0 4px 14px rgba(6, 35, 56, 0.06);
+}
+
+body.theme-dark {
+  --hc-cyan: #22ece9;
+  --hc-cyan-hover: #06b6d4;
+  --hc-cyan-soft: rgba(34, 236, 233, 0.14);
+  --hc-navy-deep: #041523;
+  --bg-main: #041523;
+  --bg-surface: #072238;
+  --bg-input: #041829;
+  --border-color: #114264;
+  --text-primary: #f0fdfa;
+  --text-secondary: #8ab4cc;
+  --shadow-card: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
 body.hc-body {

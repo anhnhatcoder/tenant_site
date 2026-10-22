@@ -143,7 +143,7 @@ def dashboard_view(request):
     alerts = list(AlertLog.objects.select_related('device', 'acknowledged_by', 'resolved_by')[:50])
 
     for d in devices:
-        d.heartbeat_interval = d.heartbeat_interval or 300
+        d.heartbeat_interval = d.heartbeat_interval or 60
         if d.last_seen:
             local_seen = timezone.localtime(d.last_seen)
             d.last_seen_display = local_seen.strftime('%d/%m/%Y %H:%M:%S')
@@ -329,7 +329,7 @@ def api_dashboard_state(request):
             'paired_buttons_count': d.paired_devices.filter(is_active=True).count(),
             'connection_status_display': d.get_connection_status_display(),
             'battery_level': d.battery_level,
-            'heartbeat_interval': d.heartbeat_interval or 300,
+            'heartbeat_interval': d.heartbeat_interval or 60,
             'last_seen': local_last_seen.strftime('%d/%m/%Y %H:%M:%S') if local_last_seen else 'Chưa kết nối'
         })
 
@@ -562,6 +562,268 @@ def api_update_device(request, device_id):
         }
     })
 
+@login_required
+def api_hctech_groups(request):
+    """
+    GET /api/hctech/groups/
+    Lấy danh mục các nhóm từ nền tảng HC TECH IoT Platform (GET /groups).
+    """
+    try:
+        client = HCTechIoTClient()
+        groups_res = client.get_groups(limit=100)
+        groups = groups_res.get("data", [])
+        return JsonResponse({"status": "success", "data": groups})
+    except Exception as e:
+        logger.error(f"[api_hctech_groups] Lỗi: {e}")
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+@login_required
+def api_hctech_packages(request):
+    """
+    GET /api/hctech/packages/
+    Lấy danh mục các gói hồ sơ (Packages/Device Profiles) từ HC TECH IoT (GET /packages).
+    Hỗ trợ lọc theo group_type (lorawan, http, mqtt) hoặc group_id nếu có.
+    Nếu khóa API chưa có phạm vi 'devices:manage', trả về danh mục profile chuẩn kèm thông báo.
+    """
+    client = HCTechIoTClient()
+    group_type = request.GET.get('group_type', '').strip().lower()
+
+    # Danh mục Package / Device Profile chuẩn hóa trên hệ thống HC TECH (dùng đúng package_version_id)
+    fallback_profiles = [
+        {
+            "id": "01a13431-3aeb-7490-97fc-a1107822e2c3",
+            "package_version_id": "01a13431-3aeb-7490-97fc-a1107822e2c3",
+            "package_id": "01a115a0-5c5a-7579-8ef3-2158f56a118b",
+            "name": "Mokosmart LW013-SB - v1.1.0 (Nút nhấn mokosmart)",
+            "connection_type": "lorawan",
+            "device_profile": "mokosmart-lw013-sb (v1.1.0)",
+            "version": "1.1.0",
+            "has_gps": False,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": True,
+            "uplink_interval": 60,
+            "description": "Nút nhấn khẩn cấp Mokosmart LW013-SB phiên bản v1.1.0 (Chu kỳ 60s)"
+        },
+        {
+            "id": "01a115a0-5c5b-7743-a303-80c7cef20162",
+            "package_version_id": "01a115a0-5c5b-7743-a303-80c7cef20162",
+            "package_id": "01a115a0-5c5a-7579-8ef3-2158f56a118b",
+            "name": "Mokosmart LW013-SB - v1.0.0",
+            "connection_type": "lorawan",
+            "device_profile": "mokosmart-lw013-sb (v1.0.0)",
+            "version": "1.0.0",
+            "has_gps": False,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": True,
+            "uplink_interval": 60,
+            "description": "Nút nhấn khẩn cấp Mokosmart LW013-SB phiên bản v1.0.0 (Chu kỳ 60s)"
+        },
+        {
+            "id": "01a13425-128d-77d6-959d-6d93dbbcdb85",
+            "package_version_id": "01a13425-128d-77d6-959d-6d93dbbcdb85",
+            "package_id": "01a115a0-59d6-7543-800c-cfb7b94cb976",
+            "name": "Milesight WS101 - v1.1.0 (Nút nhấn khẩn cấp)",
+            "connection_type": "lorawan",
+            "device_profile": "milesight-ws101 (v1.1.0)",
+            "version": "1.1.0",
+            "has_gps": False,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": True,
+            "uplink_interval": 60,
+            "description": "Nút bấm khẩn cấp Milesight WS101 phiên bản v1.1.0 (Chu kỳ 60s)"
+        },
+        {
+            "id": "01a115a0-59d7-76d6-ac2b-094f68ba88eb",
+            "package_version_id": "01a115a0-59d7-76d6-ac2b-094f68ba88eb",
+            "package_id": "01a115a0-59d6-7543-800c-cfb7b94cb976",
+            "name": "Milesight WS101 - v1.0.0",
+            "connection_type": "lorawan",
+            "device_profile": "milesight-ws101 (v1.0.0)",
+            "version": "1.0.0",
+            "has_gps": False,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": True,
+            "uplink_interval": 60,
+            "description": "Nút bấm khẩn cấp Milesight WS101 phiên bản v1.0.0 (Chu kỳ 60s)"
+        },
+        {
+            "id": "01a115a0-54ff-7349-9a96-163064007c8d",
+            "package_version_id": "01a115a0-54ff-7349-9a96-163064007c8d",
+            "package_id": "01a115a0-54fe-753c-b17b-dee8f162d1a4",
+            "name": "Mokosmart LW006 - v1.0.0 (GPS Tracker)",
+            "connection_type": "lorawan",
+            "device_profile": "mokosmart-lw006 (v1.0.0)",
+            "version": "1.0.0",
+            "has_gps": True,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": True,
+            "uplink_interval": 600,
+            "description": "Thiết bị định vị GPS ngoài trời Mokosmart LW006 (Chu kỳ 600s)"
+        },
+        {
+            "id": "01a115a0-576c-7b72-b19d-62e656c6b201",
+            "package_version_id": "01a115a0-576c-7b72-b19d-62e656c6b201",
+            "package_id": "01a115a0-576b-7b0a-8a66-7d5afc50ccaf",
+            "name": "Mokosmart LW001-BG PRO - v1.0.0 (GPS Tracker)",
+            "connection_type": "lorawan",
+            "device_profile": "mokosmart-lw001-bg-pro (v1.0.0)",
+            "version": "1.0.0",
+            "has_gps": True,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": True,
+            "uplink_interval": 600,
+            "description": "Thiết bị giám sát vị trí di động GPS LoRaWAN (Chu kỳ 600s)"
+        },
+        {
+            "id": "01a115a0-51b8-7486-95c8-5e99bd5dea37",
+            "package_version_id": "01a115a0-51b8-7486-95c8-5e99bd5dea37",
+            "package_id": "01a115a0-51b7-7a4f-95b7-ef60831f0f9f",
+            "name": "Mokosmart LW003-B PRO - v1.0.0 (Cảm biến dò quét BLE / Nút nhấn)",
+            "connection_type": "lorawan",
+            "device_profile": "mokosmart-lw003-b-pro (v1.0.0)",
+            "version": "1.0.0",
+            "has_gps": False,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": True,
+            "uplink_interval": 10,
+            "description": "Thiết bị dò quét BLE Mokosmart LW003-B PRO (Chu kỳ 10s)"
+        },
+        {
+            "id": "01a161a8-a30c-7807-9090-3702e463c92a-ver",
+            "package_version_id": "01a161a8-a30c-7807-9090-3702e463c92a-ver",
+            "package_id": "01a161a8-a30c-7807-9090-3702e463c92a-pkg",
+            "name": "HTTP Standard Sensor Profile (v1.0.0)",
+            "connection_type": "http",
+            "device_profile": "HTTP-Standard-v1",
+            "version": "1.0.0",
+            "has_gps": False,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": False,
+            "uplink_interval": 60,
+            "description": "Hồ sơ thiết bị kết nối giao thức HTTP Webhook (Chu kỳ 60s)"
+        },
+        {
+            "id": "01a161a8-c9b7-794b-9e72-df6b4dfef6ad-ver",
+            "package_version_id": "01a161a8-c9b7-794b-9e72-df6b4dfef6ad-ver",
+            "package_id": "01a161a8-c9b7-794b-9e72-df6b4dfef6ad-pkg",
+            "name": "MQTT Standard Telemetry Profile (v1.0.0)",
+            "connection_type": "mqtt",
+            "device_profile": "MQTT-Standard-v1",
+            "version": "1.0.0",
+            "has_gps": False,
+            "device_type": "NUT_NHAN",
+            "device_class": "A",
+            "supports_otaa": False,
+            "uplink_interval": 60,
+            "description": "Hồ sơ thiết bị kết nối giao thức MQTT Broker (Chu kỳ 60s)"
+        }
+    ]
+
+    try:
+        pkg_res = client.get_packages()
+        raw_items = pkg_res.get("items") if isinstance(pkg_res.get("items"), list) else (
+            pkg_res.get("data") if isinstance(pkg_res.get("data"), list) else (
+                pkg_res if isinstance(pkg_res, list) else []
+            )
+        )
+        if isinstance(raw_items, list) and raw_items:
+            flattened_profiles = []
+            for p in raw_items:
+                p_id = p.get("id")
+                p_code = p.get("code") or ""
+                p_vendor = p.get("vendor") or ""
+                p_model = p.get("model") or p_code or "Thiết bị"
+                p_conn = (p.get("connection_type") or "lorawan").lower()
+
+                # Xác định thuộc tính mặc định theo phần cứng
+                is_tracker = any(x in (p_code + p_model).lower() for x in ("lw001", "lw006", "tracker", "gps"))
+                hb = 600 if is_tracker else 60
+                dev_type = "NUT_NHAN"
+                dev_cls = "A"
+
+                versions = p.get("versions") or []
+                if versions and isinstance(versions, list):
+                    for v in versions:
+                        # QUAN TRỌNG: ID của Device Profile dùng để tạo thiết bị chính là ID của package version (package_version_id)
+                        v_id = v.get("id")
+                        v_ver = v.get("version") or "1.0.0"
+                        v_status = v.get("status") or "published"
+                        
+                        # Lấy chính xác uplink_interval từ endpoint GET /packages/{package_version_id}
+                        actual_uplink = client.get_package_version_uplink_interval(package_version_id=v_id) or hb
+                        
+                        disp_title = f"{p_vendor} {p_model} - v{v_ver}" if p_vendor else f"{p_model} - v{v_ver}"
+                        if p_code:
+                            disp_title += f" ({p_code})"
+
+                        flattened_profiles.append({
+                            "id": v_id,  # Luôn trả về package_version_id
+                            "package_version_id": v_id,  # Chính là ID của package version
+                            "package_id": p_id,
+                            "code": p_code,
+                            "vendor": p_vendor,
+                            "model": p_model,
+                            "version": v_ver,
+                            "version_status": v_status,
+                            "name": disp_title,
+                            "connection_type": p_conn,
+                            "device_profile": f"{p_model} v{v_ver}",
+                            "has_gps": is_tracker,
+                            "device_type": dev_type,
+                            "device_class": dev_cls,
+                            "supports_otaa": True,
+                            "uplink_interval": actual_uplink,
+                            "description": f"Hồ sơ {p_vendor} {p_model} phiên bản v{v_ver} (Chu kỳ {actual_uplink}s)"
+                        })
+                else:
+                    flattened_profiles.append({
+                        "id": p_id,
+                        "package_version_id": p_id,
+                        "package_id": p_id,
+                        "code": p_code,
+                        "name": f"{p_vendor} {p_model} ({p_code})",
+                        "connection_type": p_conn,
+                        "has_gps": is_tracker,
+                        "device_type": dev_type,
+                        "device_class": dev_cls,
+                        "supports_otaa": True,
+                        "uplink_interval": hb,
+                    })
+
+            if group_type:
+                flattened_profiles = [p for p in flattened_profiles if p.get("connection_type") == group_type]
+
+            return JsonResponse({"status": "success", "source": "api", "data": flattened_profiles})
+    except HCTechAPIError as e:
+        logger.warning(f"[api_hctech_packages] IoT API trả lỗi: {e}")
+        filtered = fallback_profiles
+        if group_type:
+            filtered = [p for p in fallback_profiles if p.get('connection_type') == group_type]
+        return JsonResponse({
+            "status": "warning",
+            "source": "fallback",
+            "error_code": e.error_code,
+            "message": f"Lỗi truy vấn API IoT ({e.error_code}). Hệ thống tự động nạp catalog Device Profile mẫu.",
+            "data": filtered
+        })
+    except Exception as e:
+        logger.error(f"[api_hctech_packages] Lỗi khác: {e}")
+
+    filtered = fallback_profiles
+    if group_type:
+        filtered = [p for p in fallback_profiles if p.get('connection_type') == group_type]
+    return JsonResponse({"status": "warning", "source": "fallback", "data": filtered})
+
+
 @csrf_exempt
 def api_register_device(request):
     if request.method != 'POST':
@@ -572,66 +834,158 @@ def api_register_device(request):
 
     try:
         data = json.loads(request.body)
-        dev_eui = data.get('dev_eui', '').strip().upper()
-        device_name = data.get('device_name', '').strip()
-        device_type = data.get('device_type', 'NUT_NHAN')
-        category_type = data.get('category_type', 'CAP_CUU_Y_TE')
-        customer_name = data.get('customer_name', '').strip() or 'Demo LoRaWAN'
-        emergency_phone = data.get('emergency_phone', '').strip() or '0905123456'
-        has_gps = bool(data.get('has_gps', False))
+        
+        # 1. Các thông tin định danh & liên hệ ban đầu
+        name = (data.get('name') or data.get('device_name') or '').strip()
+        customer_name = data.get('customer_name', '').strip()
+        emergency_phone = data.get('emergency_phone', '').strip()
         address = data.get('address', '').strip()
 
-        if not dev_eui or not device_name:
-            return JsonResponse({'status': 'error', 'message': 'Vui lòng nhập đầy đủ Tên thiết bị và Mã định danh ID/DevEUI!'}, status=400)
+        # 2. Nhóm thiết bị (group_id) & Device Profile (package_version_id)
+        group_id = str(data.get('group_id', '')).strip()
+        package_version_id = str(data.get('package_version_id', '')).strip()
 
-        if Device.objects.filter(dev_eui=dev_eui).exists():
-            return JsonResponse({'status': 'error', 'message': f'Mã DevEUI "{dev_eui}" đã tồn tại!'}, status=400)
+        # 3. Kích hoạt OTAA, DevEUI, AppKey
+        dev_eui = str(data.get('dev_eui', '')).strip().upper()
+        app_key = str(data.get('app_key', '')).strip()
+        activation_obj = data.get('activation')
+        if not app_key and isinstance(activation_obj, dict):
+            app_key = str(activation_obj.get('app_key', '')).strip()
 
+        # Validation bắt buộc theo đúng quy trình
+        if not name:
+            return JsonResponse({'status': 'error', 'message': 'Vui lòng nhập Tên thiết bị!'}, status=400)
+        if not group_id:
+            return JsonResponse({'status': 'error', 'message': 'Vui lòng chọn Nhóm thiết bị (Group)!'}, status=400)
+        if not package_version_id:
+            return JsonResponse({'status': 'error', 'message': 'Vui lòng chọn Device Profile (Package Version)!'}, status=400)
+        if not dev_eui:
+            return JsonResponse({'status': 'error', 'message': 'Vui lòng nhập DevEUI (16 ký tự Hex)!'}, status=400)
+        if not app_key:
+            return JsonResponse({'status': 'error', 'message': 'Vui lòng nhập AppKey (32 ký tự Hex) cho phương thức kích hoạt OTAA!'}, status=400)
+
+        # 4. Gửi request POST /devices tới IoT Platform theo đúng schema
+        # {
+        #   "group_id": "...",
+        #   "package_version_id": "...",
+        #   "dev_eui": "...",
+        #   "name": "...",
+        #   "activation": {
+        #     "app_key": "..."
+        #   }
+        # }
+        client = HCTechIoTClient()
+        iot_status_code = None
+        iot_response = {}
+
+        try:
+            iot_response = client.create_device(
+                name=name,
+                group_id=group_id,
+                package_version_id=package_version_id,
+                dev_eui=dev_eui,
+                app_key=app_key
+            )
+            iot_status_code = iot_response.get('_status_code', 201)
+        except HCTechAPIError as api_err:
+            iot_status_code = api_err.status_code
+            logger.error(f"[api_register_device] IoT Platform từ chối ({api_err.status_code}): {api_err.message}")
+            return JsonResponse({
+                'status': 'error',
+                'iot_status_code': api_err.status_code,
+                'error_code': api_err.error_code,
+                'message': f"IoT Platform trả về mã lỗi {api_err.status_code} ({api_err.error_code}): {api_err.message}. {api_err.remediation}".strip(),
+                'details': api_err.details
+            }, status=api_err.status_code if 400 <= api_err.status_code < 500 else 502)
+        except Exception as conn_err:
+            logger.error(f"[api_register_device] Không thể kết nối tới IoT Platform: {conn_err}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f"Lỗi kết nối tới IoT Platform: {str(conn_err)}"
+            }, status=503)
+
+        # 5. Dựa vào status code mà IoT platform trả về để xác định đã tạo thành công chưa
+        if not (200 <= (iot_status_code or 201) < 300):
+            return JsonResponse({
+                'status': 'error',
+                'iot_status_code': iot_status_code,
+                'message': f"IoT Platform phản hồi mã trạng thái không thành công: {iot_status_code}"
+            }, status=400)
+
+        # 6. Khi tạo thành công trên IoT Platform -> Cập nhật/Lưu vào Database Tenant
         try:
             lat = float(data.get('latitude')) if data.get('latitude') not in [None, '', 'NaN'] else 16.054407
             lng = float(data.get('longitude')) if data.get('longitude') not in [None, '', 'NaN'] else 108.202167
         except (ValueError, TypeError):
             lat, lng = 16.054407, 108.202167
 
-        parent_id = data.get('parent_device_id') if 'parent_device_id' in data else data.get('parent_id')
+        device_type = data.get('device_type', 'NUT_NHAN')
+        if not device_type or device_type not in (Device.DeviceType.NUT_NHAN, Device.DeviceType.GATEWAY, Device.DeviceType.CAMERA):
+            device_type = Device.DeviceType.NUT_NHAN
+        # Nếu tên thiết bị thể hiện là nút bấm ("nút", "nut") thì luôn đảm bảo lưu loại NUT_NHAN
+        if "nut" in name.lower() or "nút" in name.lower():
+            device_type = Device.DeviceType.NUT_NHAN
+        category_type = data.get('category_type', 'CAP_CUU_Y_TE')
+        has_gps = bool(data.get('has_gps', False))
+        group_name = str(data.get('group_name', '')).strip()
+
+        parent_id = data.get('parent_device_id') or data.get('parent_id')
         p_dev = None
         if parent_id and parent_id not in ('', 0, '0', 'none', 'null', None):
             try:
                 p_dev = Device.objects.get(id=int(parent_id))
             except (Device.DoesNotExist, ValueError):
                 pass
-        group_name = str(data.get('group_name', '')).strip()
 
-        hb_interval = data.get('heartbeat_interval') if 'heartbeat_interval' in data else data.get('uplink_interval')
+        # Lấy chính xác uplink_interval từ Package Version API GET /packages/{package_version_id}
+        exact_uplink = None
+        if package_version_id:
+            try:
+                exact_uplink = client.get_package_version_uplink_interval(package_version_id=package_version_id)
+            except Exception as e:
+                logger.warning(f"[api_register_device] Lỗi tra cứu package uplink: {e}")
+
+        hb_interval = exact_uplink or data.get('heartbeat_interval') or data.get('uplink_interval')
         try:
             hb_val = max(1, int(hb_interval)) if hb_interval else 300
         except (ValueError, TypeError):
             hb_val = 300
 
-        device = Device.objects.create(
+        device, created = Device.objects.update_or_create(
             dev_eui=dev_eui,
-            device_name=device_name,
-            device_type=device_type,
-            category_type=category_type,
-            customer_name=customer_name,
-            emergency_phone=emergency_phone,
-            has_gps=has_gps,
-            parent_device=p_dev,
-            group_name=group_name or None,
-            address=address if not has_gps else f'{lat}, {lng}',
-            latitude=lat,
-            longitude=lng,
-            heartbeat_interval=hb_val,
-            connection_status=Device.ConnectionStatus.ONLINE,
-            last_seen=timezone.now()
+            defaults={
+                'device_name': name,
+                'device_type': device_type,
+                'category_type': category_type,
+                'customer_name': customer_name or 'Chưa phân bổ',
+                'emergency_phone': emergency_phone or '0905123456',
+                'has_gps': has_gps,
+                'parent_device': p_dev,
+                'group_name': group_name or None,
+                'address': address if not has_gps else f'{lat}, {lng}',
+                'latitude': lat,
+                'longitude': lng,
+                'heartbeat_interval': hb_val,
+                'connection_status': Device.ConnectionStatus.ONLINE,
+                'last_seen': timezone.now()
+            }
         )
 
         if has_gps:
             LocationHistory.objects.create(device=device, latitude=lat, longitude=lng, speed=0.0, battery_level=100)
 
-        return JsonResponse({'status': 'success', 'message': f'Đã đăng ký thiết bị: {device_name}', 'device_id': device.id})
+        return JsonResponse({
+            'status': 'success',
+            'iot_status_code': iot_status_code,
+            'message': f'Đã tạo thiết bị "{name}" thành công trên IoT Platform (Mã HTTP: {iot_status_code})!',
+            'device_id': device.id,
+            'iot_data': iot_response
+        }, status=201)
+
     except Exception as e:
+        logger.exception("[api_register_device] Lỗi ngoại lệ")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 
 
 @csrf_exempt
@@ -1226,6 +1580,144 @@ def api_turn_off_emergency(request):
     })
 
 
+def perform_delete_alerts(alert_ids=None, delete_all=False):
+    """
+    Xóa từng bản ghi hoặc toàn bộ lịch sử báo động AlertLog.
+    Đồng thời đưa thiết bị liên quan về ONLINE nếu không còn cảnh báo mở,
+    và phát sóng sự kiện SSE thời gian thực.
+    """
+    if delete_all:
+        deleted_count, _ = AlertLog.objects.all().delete()
+        # Đưa các thiết bị đang SOS/PROCESSING về ONLINE
+        Device.objects.filter(connection_status__in=[Device.ConnectionStatus.SOS, Device.ConnectionStatus.PROCESSING]).update(
+            connection_status=Device.ConnectionStatus.ONLINE
+        )
+        broadcast_event("IOT_UPLINK", {
+            "all_alerts_cleared": True,
+            "reset_all": True,
+            "resolved": True,
+            "connection_status": "ONLINE"
+        })
+        return {
+            'deleted_count': deleted_count,
+            'deleted_ids': 'all',
+            'alert_total': 0,
+            'alert_new': 0,
+            'alert_processing': 0,
+            'alert_resolved': 0,
+            'alert_false': 0
+        }
+    else:
+        if not alert_ids:
+            return {
+                'deleted_count': 0,
+                'deleted_ids': [],
+                'alert_total': AlertLog.objects.count(),
+                'alert_new': AlertLog.objects.filter(status=AlertLog.AlertStatus.NEW).count(),
+                'alert_processing': AlertLog.objects.filter(status=AlertLog.AlertStatus.PROCESSING).count(),
+                'alert_resolved': AlertLog.objects.filter(status=AlertLog.AlertStatus.RESOLVED).count(),
+                'alert_false': AlertLog.objects.filter(status=AlertLog.AlertStatus.FALSE_ALARM).count(),
+            }
+        if isinstance(alert_ids, (int, str)):
+            alert_ids = [int(alert_ids)]
+        else:
+            alert_ids = [int(x) for x in alert_ids]
+
+        qs = AlertLog.objects.filter(id__in=alert_ids)
+        device_ids = list(qs.values_list('device_id', flat=True).distinct())
+        deleted_count, _ = qs.delete()
+
+        # Kiểm tra lại các thiết bị bị ảnh hưởng
+        for dev_id in device_ids:
+            if not dev_id:
+                continue
+            has_open_alerts = AlertLog.objects.filter(
+                device_id=dev_id,
+                status__in=[AlertLog.AlertStatus.NEW, AlertLog.AlertStatus.PROCESSING]
+            ).exists()
+            if not has_open_alerts:
+                dev = Device.objects.filter(id=dev_id).first()
+                if dev and dev.connection_status in [Device.ConnectionStatus.SOS, Device.ConnectionStatus.PROCESSING]:
+                    dev.connection_status = Device.ConnectionStatus.ONLINE
+                    dev.save(update_fields=['connection_status'])
+                    broadcast_event("IOT_UPLINK", {
+                        "dev_eui": dev.dev_eui,
+                        "device_name": dev.device_name,
+                        "connection_status": dev.connection_status,
+                        "is_sos": False,
+                        "battery_level": dev.battery_level,
+                        "latitude": float(dev.latitude) if dev.latitude else None,
+                        "longitude": float(dev.longitude) if dev.longitude else None,
+                        "resolved": True
+                    })
+
+        broadcast_event("IOT_UPLINK", {
+            "alert_deleted": True,
+            "deleted_ids": alert_ids
+        })
+
+        return {
+            'deleted_count': deleted_count,
+            'deleted_ids': alert_ids,
+            'alert_total': AlertLog.objects.count(),
+            'alert_new': AlertLog.objects.filter(status=AlertLog.AlertStatus.NEW).count(),
+            'alert_processing': AlertLog.objects.filter(status=AlertLog.AlertStatus.PROCESSING).count(),
+            'alert_resolved': AlertLog.objects.filter(status=AlertLog.AlertStatus.RESOLVED).count(),
+            'alert_false': AlertLog.objects.filter(status=AlertLog.AlertStatus.FALSE_ALARM).count(),
+        }
+
+
+@csrf_exempt
+def api_delete_alerts(request):
+    """
+    API xóa lịch sử báo động (xóa từng cái, chọn nhiều hoặc xóa toàn bộ).
+    Yêu cầu quyền Quản trị viên (Superuser hoặc SYSTEM_ADMIN / TENANT_ADMIN).
+    """
+    if not (hasattr(request, 'user') and request.user.is_authenticated and (
+        getattr(request.user, 'role', '') in [User.Role.SYSTEM_ADMIN, User.Role.TENANT_ADMIN] or getattr(request.user, 'is_superuser', False)
+    )):
+        return JsonResponse({'status': 'error', 'message': 'Chỉ Quản trị viên mới có quyền xóa lịch sử báo động!'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Phương thức không được hỗ trợ'}, status=405)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except Exception:
+        data = {}
+
+    action = data.get('action')
+    alert_id = data.get('alert_id')
+    alert_ids = data.get('alert_ids')
+
+    if action == 'delete_all' or data.get('all') is True:
+        res = perform_delete_alerts(delete_all=True)
+        return JsonResponse({
+            'status': 'success',
+            'message': f"Đã xóa toàn bộ {res['deleted_count']} bản ghi lịch sử báo động thành công!",
+            **res
+        })
+    elif alert_id:
+        res = perform_delete_alerts(alert_ids=[alert_id])
+        return JsonResponse({
+            'status': 'success',
+            'message': f"Đã xóa bản ghi sự cố #SOS-{alert_id} thành công!",
+            **res
+        })
+    elif alert_ids:
+        res = perform_delete_alerts(alert_ids=alert_ids)
+        return JsonResponse({
+            'status': 'success',
+            'message': f"Đã xóa thành công {res['deleted_count']} bản ghi sự cố đã chọn!",
+            **res
+        })
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Thiếu tham số ID cảnh báo cần xóa hoặc hành động!'}, status=400)
+
+
+
+
+
 
 @csrf_exempt
 def api_quick_pair_device(request, device_id):
@@ -1698,6 +2190,29 @@ def api_admin_action(request, action):
             'status': 'success',
             'message': f'Đã dọn dẹp {deleted_count} bản ghi sự cố đã hoàn tất cũ hơn {days} ngày.',
             'deleted_count': deleted_count
+        })
+
+    # 6b. DELETE SINGLE OR SELECTED ALERTS
+    elif action == 'delete_alert':
+        alert_id = data.get('alert_id')
+        alert_ids = data.get('alert_ids')
+        if not alert_id and not alert_ids:
+            return JsonResponse({'status': 'error', 'message': 'Thiếu ID bản ghi sự cố cần xóa!'}, status=400)
+        ids = [alert_id] if alert_id else alert_ids
+        res = perform_delete_alerts(alert_ids=ids)
+        return JsonResponse({
+            'status': 'success',
+            'message': f"Đã xóa thành công {res['deleted_count']} bản ghi sự cố!",
+            **res
+        })
+
+    # 6c. PURGE / CLEAR ALL ALERTS
+    elif action == 'clear_all_alerts':
+        res = perform_delete_alerts(delete_all=True)
+        return JsonResponse({
+            'status': 'success',
+            'message': f"Đã xóa sạch toàn bộ {res['deleted_count']} bản ghi lịch sử báo động trong hệ thống!",
+            **res
         })
 
     # 7. RESET ALL DEVICES TO ONLINE

@@ -8,13 +8,17 @@ class ServerTenantConfig(AppConfig):
     name = 'Server_tenant'
 
     def ready(self):
-        # 1. Chạy migrate tự động
-        try:
-            from django.core.management import call_command
-            call_command('migrate', interactive=False)
-            logger.info("[ServerTenantConfig] Auto migrate completed.")
-        except Exception as e:
-            logger.warning(f"[ServerTenantConfig] Auto migrate failed: {e}")
+        import sys
+        is_management_cmd = any(arg in sys.argv for arg in ('makemigrations', 'migrate', 'collectstatic', 'dbshell'))
+
+        # 1. Chạy migrate tự động (chỉ khi khởi động server thực sự, tránh lồng lệnh migrate)
+        if not is_management_cmd:
+            try:
+                from django.core.management import call_command
+                call_command('migrate', interactive=False)
+                logger.info("[ServerTenantConfig] Auto migrate completed.")
+            except Exception as e:
+                logger.warning(f"[ServerTenantConfig] Auto migrate failed: {e}")
 
         # 2. Đảm bảo DDL bổ sung trực tiếp nếu migrate bị nghẽn
         try:

@@ -8,7 +8,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# Múi giờ chuẩn theo tài liệu FR-11.19 (Asia/Ho_Chi_Minh, UTC+7)
+
 VN_TZ = dt_timezone(timedelta(hours=7))
 
 
@@ -444,3 +444,161 @@ class HCTechIoTClient:
         """
         res = self._request("DELETE", f"/devices/{device_uuid}/commands/{command_id}")
         return res.get("_success", True)
+    
+    # Các api bổ sung
+    def group_create(self, name: str, group_type: str, description: str = None):
+        payload = {
+            "name": name,
+            "type": group_type,
+        }
+        if description is not None:
+            payload["description"] = description
+
+        return self._request("POST", "/groups", json_body=payload)
+
+    def groupUpdate(self, group_id: str, name: str, description: str = None):
+        payload = {
+            "name": name,
+        }
+        if description is not None:
+            payload["description"] = description
+        return self._request("PATCH", f"/groups/{group_id}", json_body=payload)
+
+    def get_packages(self) -> Dict[str, Any]:
+        """
+        GET /packages — Catalog gói hồ sơ gán cho tenant để chọn khi tạo thiết bị (SRS 9.4.5, FR-08.1).
+        """
+        return self._request("GET", "/packages")
+
+    def packages(self):
+        """Alias cho get_packages()"""
+        return self.get_packages()
+
+    def get_package_detail(self, package_id: str):
+        return self._request("GET", f"/packages/{package_id}")
+
+    def packages_id(self, package_id: str):
+        """Alias cho get_package_detail()"""
+        return self.get_package_detail(package_id)
+
+    def get_package_version_uplink_interval(
+        self,
+        package_version_id: Optional[str] = None,
+        package_id: Optional[str] = None,
+        version: Optional[str] = None
+    ) -> Optional[int]:
+        """
+        Lấy chính xác chu kỳ gửi tin (uplink_interval) tính bằng giây từ endpoint:
+        GET /packages/{package_version_id}
+        Dữ liệu nằm trong object: response["lorawan"]["uplink_interval"].
+        Hỗ trợ cache 24h để tối ưu hiệu năng và tránh gọi API trùng lặp.
+        """
+        from django.core.cache import cache
+
+        # 1. Tra cứu trực tiếp theo package_version_id
+        target_version_id = package_version_id
+
+        # 2. Nếu không có version_id trực tiếp nhưng có package_id và version
+        if not target_version_id and package_id:
+            catalog_key = "hctech_cloud_packages_catalog"
+            catalog = cache.get(catalog_key)
+            if catalog is None:
+                try:
+                    cat_res = self.get_packages()
+                    catalog = cat_res.get("items") or cat_res.get("data") or (cat_res if isinstance(cat_res, list) else [])
+                    cache.set(catalog_key, catalog, 3600)
+                except Exception as cat_err:
+                    logger.warning(f"[HCTechClient] Lỗi tải catalog packages: {cat_err}")
+                    catalog = []
+
+            if isinstance(catalog, list):
+                for p in catalog:
+                    if str(p.get("id")) == str(package_id):
+                        p_versions = p.get("versions") or []
+                        for v in p_versions:
+                            if version:
+                                if str(v.get("version")) == str(version):
+                                    target_version_id = v.get("id")
+                                    break
+                            else:
+                                target_version_id = v.get("id")
+                                break
+                    if target_version_id:
+                        break
+
+        if not target_version_id:
+            return None
+
+        # 3. Tra cứu chi tiết package version từ API hoặc Cache
+        cache_key = f"hctech_pkg_ver_detail_{target_version_id}"
+        v_detail = cache.get(cache_key)
+        if v_detail is None:
+            try:
+                v_detail = self.get_package_detail(target_version_id)
+                cache.set(cache_key, v_detail, 86400)
+            except Exception as e:
+                logger.warning(f"[HCTechClient] Không thể lấy package detail cho version {target_version_id}: {e}")
+                v_detail = {}
+
+        if isinstance(v_detail, dict):
+            lw_conf = v_detail.get("lorawan", {})
+            if isinstance(lw_conf, dict):
+                up_int = lw_conf.get("uplink_interval")
+                if up_int is not None:
+                    try:
+                        val = int(up_int)
+                        if val > 0:
+                            return val
+                    except (ValueError, TypeError):
+                        pass
+
+        return None
+
+    def package_update(self, package_id: str, name: str, description: str = None):
+        payload = {
+            "name": name,
+        }
+        if description is not None:
+            payload["description"] = description
+        return self._request("PATCH", f"/packages/{package_id}", json_body=payload)
+
+    def create_device(
+        self,
+        name: str,
+        group_id: str,
+        package_version_id: str,
+        dev_eui: str,
+        app_key: Optional[str] = None,
+        activation: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """
+        POST /devices — Đăng ký thiết bị mới trên nền tảng HC TECH IoT Platform (SRS 9.4.5).
+        Body request:
+        {
+          "group_id": "...",
+          "package_version_id": "...",
+          "dev_eui": "...",
+          "name": "...",
+          "activation": {
+            "app_key": "..."
+          }
+        }
+        """
+        payload: Dict[str, Any] = {
+            "group_id": str(group_id),
+            "package_version_id": str(package_version_id),
+            "dev_eui": str(dev_eui).strip().upper(),
+            "name": str(name).strip(),
+        }
+        if activation is not None:
+            payload["activation"] = activation
+        elif app_key:
+            payload["activation"] = {
+                "app_key": str(app_key).strip()
+            }
+        return self._request("POST", "/devices", json_body=payload)
+
+
+    
+
+        

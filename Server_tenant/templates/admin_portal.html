@@ -29,13 +29,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script>
     (function() {
-      const saved = localStorage.getItem('hc_admin_theme') || (localStorage.getItem('hc_dashboard_theme') === 'light' ? 'light' : 'dark');
-      if (saved === 'light') {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-      } else {
+      const saved = localStorage.getItem('hc_admin_theme') || (localStorage.getItem('hc_dashboard_theme') === 'dark' ? 'dark' : 'light');
+      if (saved === 'dark') {
         document.documentElement.classList.remove('light');
         document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
       }
     })();
   </script>
@@ -447,7 +447,7 @@
 
       <!-- Theme toggle -->
       <button onclick="toggleTheme()" class="p-1.5 sm:p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-amber-400 transition" title="Chuyển đổi giao diện Sáng / Tối">
-        <i id="theme-icon" class="fa-solid fa-sun text-xs sm:text-sm"></i>
+        <i id="theme-icon" class="fa-solid fa-moon text-xs sm:text-sm"></i>
       </button>
 
       <!-- User badge & logout -->
@@ -536,9 +536,9 @@
           </div>
           <div class="text-2xl font-black text-white" id="stat-alert-total">{{ alert_total }}</div>
           <div class="mt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/60 pt-2">
-            <span class="text-red-400 font-bold">{{ alert_new }} Mới</span>
-            <span class="text-amber-400 font-semibold">{{ alert_processing }} Xử lý</span>
-            <span class="text-emerald-400 font-semibold">{{ alert_resolved }} Xong</span>
+            <span class="text-red-400 font-bold" id="stat-alert-new">{{ alert_new }} Mới</span>
+            <span class="text-amber-400 font-semibold" id="stat-alert-processing">{{ alert_processing }} Xử lý</span>
+            <span class="text-emerald-400 font-semibold" id="stat-alert-resolved">{{ alert_resolved }} Xong</span>
           </div>
         </div>
 
@@ -692,28 +692,38 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Recent Alerts -->
         <div class="glass-panel rounded-2xl p-5 border border-slate-800 space-y-3">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between flex-wrap gap-2">
             <h3 class="text-sm font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
-              Sự Cố Gần Nhất ({{ recent_alerts|length }})
+              <span id="recent-alerts-heading">Sự Cố Gần Nhất ({{ recent_alerts|length }})</span>
             </h3>
-            <a href="/export/alerts/csv/" class="text-xs text-cyan-400 hover:underline flex items-center gap-1 font-semibold">
-              <i class="fa-solid fa-file-csv"></i> Tải CSV
-            </a>
+            <div class="flex items-center gap-2">
+              {% if recent_alerts %}
+              <button type="button" onclick="confirmClearAllAlerts()" id="btn-clear-all-alerts-overview"
+                class="px-2.5 py-1 rounded-lg bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title="Xóa toàn bộ lịch sử báo động trong hệ thống">
+                <i class="fa-solid fa-trash-can"></i> Xóa Toàn Bộ
+              </button>
+              {% endif %}
+              <a href="/export/alerts/csv/" class="text-xs text-cyan-400 hover:underline flex items-center gap-1 font-semibold">
+                <i class="fa-solid fa-file-csv"></i> Tải CSV
+              </a>
+            </div>
           </div>
           <div class="table-responsive-container custom-scrollbar">
-            <table class="w-full text-left text-xs min-w-[480px]">
+            <table class="w-full text-left text-xs min-w-[500px]">
               <thead class="text-slate-500 border-b border-slate-800 text-[11px] uppercase">
                 <tr>
                   <th class="pb-2">Mã SOS</th>
                   <th class="pb-2">Thiết Bị</th>
                   <th class="pb-2">Trạng Thái</th>
-                  <th class="pb-2 text-right">Thời Gian</th>
+                  <th class="pb-2">Thời Gian</th>
+                  <th class="pb-2 text-right">Thao Tác</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-800/60">
+              <tbody id="admin-recent-alerts-tbody" class="divide-y divide-slate-800/60">
                 {% for log in recent_alerts %}
-                <tr class="hover:bg-slate-800/30 transition">
+                <tr id="admin-alert-row-{{ log.id }}" class="hover:bg-slate-800/30 transition">
                   <td class="py-2 font-mono font-bold text-red-400">#SOS-{{ log.id }}</td>
                   <td class="py-2 text-slate-200">{{ log.device.device_name }}</td>
                   <td class="py-2">
@@ -725,11 +735,18 @@
                     <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Đã xử lý</span>
                     {% endif %}
                   </td>
-                  <td class="py-2 text-right text-slate-400 font-mono text-[11px]">{{ log.created_at|date:"H:i:s d/m" }}</td>
+                  <td class="py-2 text-slate-400 font-mono text-[11px]">{{ log.created_at|date:"H:i:s d/m" }}</td>
+                  <td class="py-2 text-right">
+                    <button type="button" onclick="confirmDeleteSingleAlert({{ log.id }})" 
+                      class="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
+                      title="Xóa bản ghi sự cố #SOS-{{ log.id }}">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </td>
                 </tr>
                 {% empty %}
-                <tr>
-                  <td colspan="4" class="py-4 text-center text-slate-500">Chưa có bản ghi sự cố nào.</td>
+                <tr id="admin-empty-alerts-row">
+                  <td colspan="5" class="py-4 text-center text-slate-500">Chưa có bản ghi sự cố nào.</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -1489,7 +1506,7 @@
           </div>
           <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
             <div class="text-slate-400 text-[11px]">Bảng Sự Cố (AlertLog)</div>
-            <div class="text-xl font-bold text-amber-400 mt-1">{{ alert_total }} bản ghi</div>
+            <div class="text-xl font-bold text-amber-400 mt-1" id="stat-db-alert-total">{{ alert_total }} bản ghi</div>
           </div>
           <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800">
             <div class="text-slate-400 text-[11px]">Hành Trình (LocationHistory)</div>
@@ -1507,7 +1524,7 @@
       </div>
 
       <!-- DATABASE MAINTENANCE COMMANDS -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Cleanup GPS Points -->
         <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4 flex flex-col justify-between">
           <div>
@@ -1560,6 +1577,28 @@
 
             <button onclick="executeAlertsCleanup()" class="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-600/20 transition flex items-center justify-center gap-2">
               <i class="fa-solid fa-trash-can"></i> Dọn Dẹp Sự Cố Đã Đóng
+            </button>
+          </div>
+        </div>
+
+        <!-- Purge / Delete All Alerts -->
+        <div class="glass-panel rounded-2xl p-6 border border-red-500/30 bg-red-950/10 space-y-4 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-red-400 flex items-center gap-2">
+              <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+              Xóa Toàn Bộ Lịch Sử Báo Động (Purge All Alerts)
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Xóa vĩnh viễn 100% tất cả các bản ghi sự cố báo động trong hệ thống và khôi phục trạng thái thiết bị.</p>
+          </div>
+
+          <div class="space-y-3 pt-2">
+            <div class="text-[11px] text-red-300/80 bg-red-950/40 p-2.5 rounded-xl border border-red-900/50 flex items-center gap-2">
+              <i class="fa-solid fa-circle-exclamation text-red-400 shrink-0"></i>
+              <span>Lưu ý: Thao tác này không thể hoàn tác sau khi thực hiện.</span>
+            </div>
+
+            <button onclick="confirmClearAllAlerts()" class="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md shadow-red-600/20 transition flex items-center justify-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-trash-can"></i> Xóa Sạch Toàn Bộ Báo Động
             </button>
           </div>
         </div>
@@ -2766,6 +2805,102 @@
         closeConfirmModal();
         runAdminAction('cleanup_alerts', { days: parseInt(days) });
       };
+    }
+
+    // 14b. XÓA ĐƠN LẺ HOẶC TOÀN BỘ LỊCH SỬ BÁO ĐỘNG (ADMIN ACTION)
+    function confirmDeleteSingleAlert(alertId) {
+      confirmAction(
+        'delete_alert',
+        `Xóa bản ghi sự cố #SOS-${alertId}`,
+        `Bạn có chắc chắn muốn xóa vĩnh viễn bản ghi sự cố #SOS-${alertId} khỏi cơ sở dữ liệu không?`
+      );
+      document.getElementById('confirm-modal-btn').onclick = async () => {
+        closeConfirmModal();
+        await executeDeleteAlert(alertId);
+      };
+    }
+
+    async function executeDeleteAlert(alertId) {
+      const res = await runAdminAction('delete_alert', { alert_id: alertId });
+      if (res && res.status === 'success') {
+        const row = document.getElementById(`admin-alert-row-${alertId}`);
+        if (row) {
+          row.style.transition = 'all 0.3s ease';
+          row.style.opacity = '0';
+          setTimeout(() => {
+            row.remove();
+            const tbody = document.getElementById('admin-recent-alerts-tbody');
+            if (tbody && tbody.querySelectorAll('tr[id^="admin-alert-row-"]').length === 0) {
+              tbody.innerHTML = `
+                <tr id="admin-empty-alerts-row">
+                  <td colspan="5" class="py-4 text-center text-slate-500">Chưa có bản ghi sự cố nào.</td>
+                </tr>
+              `;
+              const btnClear = document.getElementById('btn-clear-all-alerts-overview');
+              if (btnClear) btnClear.remove();
+            }
+            updateAlertMetrics(res);
+          }, 300);
+        } else {
+          updateAlertMetrics(res);
+        }
+      }
+    }
+
+    function confirmClearAllAlerts() {
+      confirmAction(
+        'clear_all_alerts',
+        'Xóa Sạch TOÀN BỘ Lịch Sử Báo Động',
+        'CẢNH BÁO NGUY HIỂM: Thao tác này sẽ xóa vĩnh viễn TOÀN BỘ các bản ghi sự cố báo động trong hệ thống và đưa thiết bị về trạng thái ONLINE. Bạn có chắc chắn muốn xóa không?'
+      );
+      document.getElementById('confirm-modal-btn').onclick = async () => {
+        closeConfirmModal();
+        await executeClearAllAlerts();
+      };
+    }
+
+    async function executeClearAllAlerts() {
+      const res = await runAdminAction('clear_all_alerts', {});
+      if (res && res.status === 'success') {
+        const tbody = document.getElementById('admin-recent-alerts-tbody');
+        if (tbody) {
+          tbody.innerHTML = `
+            <tr id="admin-empty-alerts-row">
+              <td colspan="5" class="py-4 text-center text-slate-500">Chưa có bản ghi sự cố nào.</td>
+            </tr>
+          `;
+        }
+        const btnClear = document.getElementById('btn-clear-all-alerts-overview');
+        if (btnClear) btnClear.remove();
+        updateAlertMetrics(res);
+      }
+    }
+
+    function updateAlertMetrics(res) {
+      if (!res) return;
+      if (res.alert_total !== undefined) {
+        const el = document.getElementById('stat-alert-total');
+        if (el) el.innerText = res.alert_total;
+        const elDb = document.getElementById('stat-db-alert-total');
+        if (elDb) elDb.innerText = `${res.alert_total} bản ghi`;
+        const heading = document.getElementById('recent-alerts-heading');
+        if (heading) {
+          const count = document.querySelectorAll('#admin-recent-alerts-tbody tr[id^="admin-alert-row-"]').length;
+          heading.innerText = `Sự Cố Gần Nhất (${count})`;
+        }
+      }
+      if (res.alert_new !== undefined) {
+        const el = document.getElementById('stat-alert-new');
+        if (el) el.innerText = `${res.alert_new} Mới`;
+      }
+      if (res.alert_processing !== undefined) {
+        const el = document.getElementById('stat-alert-processing');
+        if (el) el.innerText = `${res.alert_processing} Xử lý`;
+      }
+      if (res.alert_resolved !== undefined) {
+        const el = document.getElementById('stat-alert-resolved');
+        if (el) el.innerText = `${res.alert_resolved} Xong`;
+      }
     }
 
     // 15. GIẢ LẬP PHÁT CẢNH BÁO KHẨN CẤP

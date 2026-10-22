@@ -272,16 +272,32 @@ def _broadcast_device_status_update(device: Device):
     })
 
 
+def get_device_offline_timeout(interval: int) -> int:
+    """
+    Tính thời gian chờ ngầm trước khi xác định thiết bị Mất kết nối (OFFLINE):
+    - Thiết bị gửi liên tục (chu kỳ ngắn <= 120 giây, ví dụ nút nhấn 60s, gateway 10s):
+      Server ngầm đợi thêm x3 thời gian (ví dụ 60s -> đợi 180s) để bù độ trễ mạng hoặc gói tin LoRaWAN đến trễ.
+    - Thiết bị lâu lâu gửi (chu kỳ dài > 120 giây, ví dụ GPS Tracker 300s, 600s, 1800s):
+      Server ngầm đợi thêm x2 thời gian (ví dụ 600s -> đợi 1200s, 1800s -> đợi 3600s).
+    """
+    safe_interval = max(1, int(interval)) if interval else 60
+    if safe_interval <= 120:
+        return safe_interval * 3
+    return safe_interval * 2
+
+
 def evaluate_device_connection_statuses(now=None, broadcast=True) -> Dict[str, Any]:
     """
     Kiểm tra và cập nhật trạng thái hoạt động (ONLINE / OFFLINE) của các thiết bị
-    dựa vào thời gian nhận phản hồi cuối (last_seen) so với chu kỳ heartbeat_interval (giây).
+    dựa vào thời gian nhận phản hồi cuối (last_seen) so với thời gian chờ ngầm (timeout):
+    - Thiết bị gửi liên tục (chu kỳ <= 120s): ngầm đợi x3 chu kỳ (ví dụ 60s -> đợi 180s).
+    - Thiết bị lâu lâu gửi (chu kỳ > 120s): ngầm đợi x2 chu kỳ (ví dụ 600s -> đợi 1200s).
     
     Quy tắc:
     - Bỏ qua thiết bị đang ở trạng thái khẩn cấp (SOS, PROCESSING) hoặc bảo trì (MAINTENANCE).
-    - Thiết bị không có last_seen hoặc (now - last_seen).total_seconds() > heartbeat_interval:
+    - Thiết bị không có last_seen hoặc (now - last_seen).total_seconds() > timeout_seconds:
       -> Chuyển thành OFFLINE.
-    - Thiết bị có last_seen và (now - last_seen).total_seconds() <= heartbeat_interval:
+    - Thiết bị có last_seen và (now - last_seen).total_seconds() <= timeout_seconds:
       -> Khôi phục thành ONLINE.
     - Tự động phát SSE IOT_UPLINK nếu có thay đổi trạng thái.
     """
@@ -300,8 +316,9 @@ def evaluate_device_connection_statuses(now=None, broadcast=True) -> Dict[str, A
     turned_online = []
 
     for d in devices:
-        interval = d.heartbeat_interval if (d.heartbeat_interval and d.heartbeat_interval > 0) else 300
-        is_timed_out = (d.last_seen is None) or ((now - d.last_seen).total_seconds() > interval)
+        interval = d.heartbeat_interval if (d.heartbeat_interval and d.heartbeat_interval > 0) else 60
+        timeout_seconds = get_device_offline_timeout(interval)
+        is_timed_out = (d.last_seen is None) or ((now - d.last_seen).total_seconds() > timeout_seconds)
 
         if is_timed_out and d.connection_status != Device.ConnectionStatus.OFFLINE:
             d.connection_status = Device.ConnectionStatus.OFFLINE
@@ -535,19 +552,87 @@ class HCTechWebhookHandler:
 
         # Tìm hoặc tạo mới thiết bị trong Database
         device = Device.objects.filter(dev_eui__iexact=dev_eui_key).first()
+        if device and not device.is_active:
+            # Thiết bị trước đó bị vô hiệu hóa / ẩn -> Phục hồi hoạt động trở lại khi nhận tín hiệu mới
+            device.is_active = True
+            device.save(update_fields=['is_active'])
+            logger.info(f"[HCTech Webhook] Tái kích hoạt thiết bị {dev_eui_key} (is_active -> True) do nhận tín hiệu mới.")
+
         is_new_device = False
         if not device:
             is_new_device = True
-            # YÊU CẦU: Thiết bị mới nhận diện lần đầu từ uplink sẽ hiển thị "Chờ gán thông tin"
-            # Nếu payload không truyền đích danh khách hàng, để trống customer_name và emergency_phone
+            
+            # TỰ ĐỘNG TRA CỨU TỪ HC TECH IOT CLOUD API ĐỂ NẠP THÔNG TIN CHÍNH XÁC
+            cloud_name = None
+            cloud_hb = None
+            try:
+                from .hctech_client import HCTechIoTClient
+                c_client = HCTechIoTClient()
+                catalog_cache_key = "hctech_cloud_devices_list"
+                dev_list = cache.get(catalog_cache_key)
+                if dev_list is None:
+                    dev_res = c_client.get_devices()
+                    dev_list = dev_res.get("data", []) if isinstance(dev_res, dict) else []
+                    cache.set(catalog_cache_key, dev_list, 180)
+
+                clean_eui = dev_eui_key.strip().lower()
+                for d in dev_list:
+                    d_id = d.get("id")
+                    if not d_id:
+                        continue
+                    item_cache_key = f"hctech_cloud_dev_detail_{d_id}"
+                    d_detail = cache.get(item_cache_key)
+                    if d_detail is None:
+                        try:
+                            d_detail = c_client._request("GET", f"/devices/{d_id}")
+                            cache.set(item_cache_key, d_detail, 3600)
+                        except Exception:
+                            d_detail = {}
+                    
+                    d_id_str = str(d.get("id") or "").strip().lower()
+                    d_eui_str = str(d_detail.get("dev_eui") or d.get("dev_eui") or "").strip().lower()
+                    # Khớp theo cả Device UUID (như user chỉ định) hoặc Hardware DevEUI
+                    if clean_eui in (d_id_str, d_eui_str):
+                        cloud_name = d_detail.get("name") or d.get("name")
+                        p_ver_id = d_detail.get("package_version_id")
+                        if p_ver_id:
+                            cloud_hb = c_client.get_package_version_uplink_interval(package_version_id=p_ver_id)
+                        if not cloud_hb:
+                            offline_th = d_detail.get("offline_threshold") or {}
+                            if isinstance(offline_th, dict) and offline_th.get("seconds"):
+                                th_sec = int(offline_th["seconds"])
+                                cloud_hb = 60 if th_sec == 180 else th_sec
+                        logger.info(f"[HCTech Webhook] Khớp thiết bị Cloud API cho {clean_eui}: name='{cloud_name}', heartbeat={cloud_hb}s")
+                        break
+            except Exception as api_err:
+                logger.warning(f"[HCTech Webhook] Không thể tra cứu API IoT Cloud cho {dev_eui_key}: {api_err}")
+
+            if not cloud_hb:
+                pkg_data = payload.get("package") or {}
+                if isinstance(pkg_data, dict) and pkg_data.get("id"):
+                    try:
+                        from .hctech_client import HCTechIoTClient
+                        c_client = HCTechIoTClient()
+                        cloud_hb = c_client.get_package_version_uplink_interval(
+                            package_id=pkg_data.get("id"),
+                            version=pkg_data.get("version")
+                        )
+                        if cloud_hb:
+                            logger.info(f"[HCTech Webhook] Tra cứu uplink_interval từ package payload: {cloud_hb}s")
+                    except Exception as pkg_err:
+                        logger.warning(f"[HCTech Webhook] Lỗi tra cứu package uplink: {pkg_err}")
+
             custom_cust_name = str(payload.get("customer_name") or "").strip()
             custom_phone = str(payload.get("emergency_phone") or "").strip()
             device_display_name = (
-                device_info.get("name")
+                cloud_name
+                or device_info.get("name")
                 or device_info.get("deviceName")
                 or payload.get("device_name")
                 or f"Thiết bị mới ({dev_eui_key[-6:]})"
             )
+            final_heartbeat = cloud_hb or incoming_interval or 60
+
             device = Device.objects.create(
                 dev_eui=dev_eui_key,
                 device_name=device_display_name,
@@ -559,17 +644,34 @@ class HCTechWebhookHandler:
                 has_gps=bool(lat_dec is not None and lng_dec is not None),
                 latitude=lat_dec if lat_dec is not None else Decimal("16.05440700"),
                 longitude=lng_dec if lng_dec is not None else Decimal("108.20216700"),
-                heartbeat_interval=incoming_interval if incoming_interval else 300,
+                heartbeat_interval=final_heartbeat,
                 connection_status=Device.ConnectionStatus.SOS if is_sos else Device.ConnectionStatus.ONLINE,
                 last_seen=reported_at,
             )
-            logger.info(f"[HCTech Webhook] Đã phát hiện thiết bị mới {dev_eui_key} (Heartbeat={device.heartbeat_interval}s) -> Đưa vào danh sách chờ gán thông tin")
+            logger.info(f"[HCTech Webhook] Đã phát hiện và nạp thiết bị mới {dev_eui_key} (Name='{device.device_name}', Heartbeat={device.heartbeat_interval}s) -> Chờ gán thông tin")
         else:
             if area_obj and not device.area:
                 device.area = area_obj
-            if incoming_interval:
-                device.heartbeat_interval = incoming_interval
-                logger.info(f"[HCTech Webhook] Đã cập nhật chu kỳ heartbeat={incoming_interval}s cho thiết bị {device.dev_eui}")
+            
+            # Đồng bộ chính xác uplink_interval từ package version nếu có trong payload
+            pkg_data = payload.get("package") or {}
+            resolved_pkg_hb = None
+            if isinstance(pkg_data, dict) and pkg_data.get("id"):
+                try:
+                    from .hctech_client import HCTechIoTClient
+                    c_client = HCTechIoTClient()
+                    resolved_pkg_hb = c_client.get_package_version_uplink_interval(
+                        package_id=pkg_data.get("id"),
+                        version=pkg_data.get("version")
+                    )
+                except Exception:
+                    pass
+
+            target_interval = resolved_pkg_hb or incoming_interval
+            if target_interval and device.heartbeat_interval != target_interval:
+                device.heartbeat_interval = target_interval
+                device.save(update_fields=['heartbeat_interval'])
+                logger.info(f"[HCTech Webhook] Đã cập nhật chu kỳ heartbeat={target_interval}s từ package cho thiết bị {device.dev_eui}")
 
         # Đảm bảo gói tin cũ đến muộn (do Webhook không bảo đảm thứ tự - FR-11.22) không ghi đè tọa độ mới hơn
         is_newer_packet = (device.last_seen is None) or (reported_at >= device.last_seen)
@@ -617,18 +719,43 @@ class HCTechWebhookHandler:
 
             device.connection_status = Device.ConnectionStatus.SOS
 
-            # Tạo mới AlertLog cho nút nhấn
-            created_alert = AlertLog.objects.create(
+            # ==============================================================
+            # CHỐNG TRÙNG BÁO ĐỘNG (Alert Deduplication / Debounce Window):
+            # Trong vòng ALERT_COOLDOWN_SECONDS (mặc định 30 giây), nếu cùng một thiết bị
+            # gửi nhiều gói tin SOS (do nút nhấn gửi lại chùm sóng hoặc người dùng ấn liên tục),
+            # hệ thống sẽ gom vào cảnh báo hiện tại, KHÔNG tạo thêm AlertLog mới trùng lặp!
+            # ==============================================================
+            ALERT_COOLDOWN_SECONDS = getattr(settings, 'ALERT_COOLDOWN_SECONDS', 30)
+            now_dt = timezone.now()
+            recent_alert = AlertLog.objects.filter(
                 device=device,
-                alert_type=final_alert_type,
-                status=AlertLog.AlertStatus.NEW,
-                latitude=device.latitude,
-                longitude=device.longitude,
-                address=device.address,
-                notes=uplink_notes or None,
-                area=device.area,
-            )
-            logger.info(f"[HCTech Webhook] 🚨 BÁO ĐỘNG SOS TỨC THÌ cho thiết bị {device.dev_eui} - Alert #{created_alert.id}")
+                created_at__gte=now_dt - timedelta(seconds=ALERT_COOLDOWN_SECONDS)
+            ).order_by('-id').first()
+
+            if recent_alert:
+                diff_sec = (now_dt - recent_alert.created_at).total_seconds()
+                logger.info(
+                    f"[HCTech Webhook] 🛡️ Chống trùng báo động: Bỏ qua tạo mới AlertLog cho {device.dev_eui}. "
+                    f"Đã có Alert #{recent_alert.id} tạo cách đây {diff_sec:.1f}s (< {ALERT_COOLDOWN_SECONDS}s)."
+                )
+                if lat_dec is not None and lng_dec is not None:
+                    recent_alert.latitude = lat_dec
+                    recent_alert.longitude = lng_dec
+                    recent_alert.save(update_fields=['latitude', 'longitude'])
+                created_alert = recent_alert
+            else:
+                # Tạo mới AlertLog cho nút nhấn
+                created_alert = AlertLog.objects.create(
+                    device=device,
+                    alert_type=final_alert_type,
+                    status=AlertLog.AlertStatus.NEW,
+                    latitude=device.latitude,
+                    longitude=device.longitude,
+                    address=device.address,
+                    notes=uplink_notes or None,
+                    area=device.area,
+                )
+                logger.info(f"[HCTech Webhook] 🚨 BÁO ĐỘNG SOS TỨC THÌ cho thiết bị {device.dev_eui} - Alert #{created_alert.id}")
 
             # NẾU NÚT NHẤN ĐÃ GÁN CHO THIẾT BỊ GPS (VD: Tàu cá / Xe cứu hộ):
             if paired_gps:
@@ -946,10 +1073,11 @@ def hctech_webhook_view(request):
     preview_deveui = ""
     preview_is_sos = False
     if isinstance(parsed_json, dict):
+        dev_info = parsed_json.get("device") or parsed_json.get("deviceInfo") or {}
         preview_deveui = (
             parsed_json.get("dev_eui") or parsed_json.get("devEui") or
-            (parsed_json.get("device") or {}).get("devEui") or
-            (parsed_json.get("deviceInfo") or {}).get("devEui") or ""
+            dev_info.get("devEui") or dev_info.get("dev_eui") or
+            dev_info.get("id") or parsed_json.get("device_id") or ""
         )
         for k in ("is_sos", "sos", "alarm", "button_event", "buttonAction", "press", "event_type", "event"):
             if k in parsed_json and is_truthy_sos(parsed_json[k]):
@@ -962,7 +1090,12 @@ def hctech_webhook_view(request):
                         preview_is_sos = True
                         break
     elif isinstance(parsed_json, list) and len(parsed_json) > 0 and isinstance(parsed_json[0], dict):
-        preview_deveui = parsed_json[0].get("dev_eui") or parsed_json[0].get("devEui") or ""
+        dev_info = parsed_json[0].get("device") or parsed_json[0].get("deviceInfo") or {}
+        preview_deveui = (
+            parsed_json[0].get("dev_eui") or parsed_json[0].get("devEui") or
+            dev_info.get("devEui") or dev_info.get("dev_eui") or
+            dev_info.get("id") or parsed_json[0].get("device_id") or ""
+        )
         for k in ("is_sos", "sos", "alarm", "button_event", "buttonAction", "press", "event_type", "event"):
             if k in parsed_json[0] and is_truthy_sos(parsed_json[0][k]):
                 preview_is_sos = True

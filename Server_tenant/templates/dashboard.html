@@ -11,6 +11,14 @@
     tailwind.config = {
       darkMode: 'class',
     };
+    (function () {
+      const theme = localStorage.getItem('hc_dashboard_theme') || 'light';
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
   </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -39,7 +47,7 @@
   </style>
 </head>
 
-<body class="hc-body theme-dark font-sans overflow-hidden">
+<body class="hc-body theme-light font-sans overflow-hidden">
   <!-- HEADER TOPBAR -->
   <header class="h-16 hc-surface border-b px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4 shrink-0">
     <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
@@ -98,24 +106,29 @@
         title="{% if sos_count > 0 %}Đang có cảnh báo khẩn cấp - Bấm để tắt cảnh báo{% else %}Bấm để phát cảnh báo khẩn cấp thủ công{% endif %}">
         <i id="icon-header-emergency"
           class="fa-solid {% if sos_count > 0 %}fa-bell-slash{% else %}fa-bolt{% endif %} sm:mr-1.5"></i>
-        <span id="text-header-emergency" class="hidden xs:inline sm:inline">{% if sos_count > 0 %}Tắt cảnh báo{% else
-          %}Gửi thông báo khẩn{% endif %}</span>
+        <span id="text-header-emergency" class="hidden xs:inline sm:inline">{% if sos_count > 0 %}Tắt cảnh báo{% else %}Gửi thông báo khẩn{% endif %}</span>
       </button>
 
-      <!-- Nút âm báo: Giữ nguyên trên PC, ẩn trên header di động vì đã có trong menu drawer -->
-      <button id="btn-sound-toggle" onclick="toggleSoundSetting()"
-        class="hidden md:inline-flex hc-input hc-header-pill font-medium">
-        <i id="icon-sound" class="fa-solid fa-volume-high text-emerald-400 mr-1.5"></i>
-        <span id="text-sound">Âm báo: BẬT</span>
-      </button>
+      <!-- CỤM NÚT GỌN: ÂM BÁO & ĐỔI NỀN SÁNG/TỐI (CHỈ HIỂN THỊ ICON) -->
+      <div class="hc-input flex items-center p-0.5 rounded-lg border gap-0.5 shrink-0"
+        style="border-color: var(--border-color); background-color: var(--bg-input);"
+        title="Cài đặt nhanh: Âm báo & Giao diện">
+        <!-- Nút âm báo (bấm icon để bật/tắt) -->
+        <button id="btn-sound-toggle" type="button" onclick="toggleSoundSetting()"
+          class="w-7 h-7 rounded-md flex items-center justify-center transition hover:bg-slate-200 dark:hover:bg-slate-800 text-xs"
+          title="Âm báo: Đang BẬT (Bấm để bật/tắt)">
+          <i id="icon-sound" class="fa-solid fa-volume-high text-emerald-500"></i>
+        </button>
 
-      <!-- Nút đổi theme: Giữ nguyên trên PC, trên di động hiển thị icon gọn gàng -->
-      <button id="btn-theme-toggle" onclick="toggleTheme()"
-        class="hc-input hc-header-pill font-semibold hover:border-cyan-400 px-2.5 sm:px-3 shrink-0"
-        title="Chuyển đổi giao diện Sáng / Tối">
-        <i id="icon-theme" class="fa-solid fa-sun text-amber-400 sm:mr-1.5"></i>
-        <span id="text-theme" class="hidden sm:inline">Nền: TỐI</span>
-      </button>
+        <div class="h-3.5 w-px" style="background-color: var(--border-color);"></div>
+
+        <!-- Nút đổi nền Sáng / Tối (bấm icon để chuyển đổi) -->
+        <button id="btn-theme-toggle" type="button" onclick="toggleTheme()"
+          class="w-7 h-7 rounded-md flex items-center justify-center transition hover:bg-slate-200 dark:hover:bg-slate-800 text-xs"
+          title="Giao diện: Nền SÁNG (Bấm chuyển Tối)">
+          <i id="icon-theme" class="fa-solid fa-moon text-sky-600"></i>
+        </button>
+      </div>
 
       <!-- THÀNH PHẦN TÀI KHOẢN THU GỌN VÀ MENU MỞ RỘNG (DROPDOWN) -->
       <div id="user-menu-container" class="relative inline-block text-left shrink-0">
@@ -137,8 +150,7 @@
           <div class="hc-user-dropdown-header">
             <div class="flex items-center justify-between gap-1 mb-1">
               <span class="user-title truncate">{{ current_user_display }}</span>
-              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 {{ role_badge_cls }}">{{ user_role_label
-                }}</span>
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0 {{ role_badge_cls }}">{{ user_role_label }}</span>
             </div>
             <div class="user-subtitle font-mono truncate">@{{ current_username }}</div>
           </div>
@@ -197,8 +209,7 @@
               <div class="text-[10px] hc-text-muted font-mono truncate">{{ current_username }}</div>
             </div>
           </div>
-          <span class="px-2 py-0.5 rounded text-[10px] font-bold shrink-0 {{ role_badge_cls }}">{{ user_role_label
-            }}</span>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold shrink-0 {{ role_badge_cls }}">{{ user_role_label }}</span>
         </div>
         <div class="grid grid-cols-2 gap-2 pt-1 text-xs">
           <button type="button" onclick="toggleSoundSetting()"
@@ -558,8 +569,7 @@
                 </div>
               </div>
               <div>
-                <div class="flex justify-between mb-1"><span>Đang xử lý</span><strong id="stat-alert-proc">{{ alert_proc
-                    }} vụ</strong></div>
+                <div class="flex justify-between mb-1"><span>Đang xử lý</span><strong id="stat-alert-proc">{{ alert_proc }} vụ</strong></div>
                 <div class="w-full h-2.5 hc-input rounded-full overflow-hidden">
                   <div id="stat-bar-proc" class="bg-amber-500 h-full transition-all duration-300"
                     data-width="{{ pct_proc }}"></div>
@@ -574,8 +584,7 @@
                 </div>
               </div>
               <div>
-                <div class="flex justify-between mb-1"><span>Báo động giả</span><strong id="stat-alert-false">{{
-                    alert_false }} vụ</strong></div>
+                <div class="flex justify-between mb-1"><span>Báo động giả</span><strong id="stat-alert-false">{{ alert_false }} vụ</strong></div>
                 <div class="w-full h-2.5 hc-input rounded-full overflow-hidden">
                   <div id="stat-bar-false" class="bg-slate-400 h-full transition-all duration-300"
                     data-width="{{ pct_false }}"></div>
@@ -666,8 +675,7 @@
           </div>
           <div class="hc-stat-card">
             <div class="text-xs font-bold hc-text-muted">Tổng cộng</div>
-            <div class="text-2xl font-extrabold text-cyan-500"><span id="devcard-total-devices">{{ total_devices
-                }}</span></div>
+            <div class="text-2xl font-extrabold text-cyan-500"><span id="devcard-total-devices">{{ total_devices }}</span></div>
             <div class="text-xs hc-text-muted">thiết bị thuộc Tenant</div>
           </div>
         </div>
@@ -768,13 +776,11 @@
                       onclick="event.stopPropagation()" /></td>
                   <td class="p-3.5 whitespace-nowrap row-type">
                     <span
-                      class="inline-block whitespace-nowrap {{ d.type_bg }} text-white px-3 py-1 rounded-full text-[11px] font-bold">{{
-                      d.type_label }}</span>
+                      class="inline-block whitespace-nowrap {{ d.type_bg }} text-white px-3 py-1 rounded-full text-[11px] font-bold">{{ d.type_label }}</span>
                   </td>
                   <td class="p-3.5 whitespace-nowrap row-cat">
                     <span
-                      class="inline-block whitespace-nowrap border {{ d.cat_cls }} px-3 py-0.5 rounded-full text-[11px] font-semibold">{{
-                      d.cat_label }}</span>
+                      class="inline-block whitespace-nowrap border {{ d.cat_cls }} px-3 py-0.5 rounded-full text-[11px] font-semibold">{{ d.cat_label }}</span>
                   </td>
                   <td class="p-3.5 font-bold row-name text-cyan-400 hover:text-cyan-300">
                     <div class="flex items-center gap-1.5">
@@ -790,8 +796,7 @@
                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[11px] font-bold"
                         title="Cùng nhà với: {{ d.parent_name }}{% if d.group_name_display %} • Nhóm: {{ d.group_name_display }}{% endif %}">
                         <i class="fa-solid fa-house-user text-cyan-400"></i>
-                        <span class="truncate max-w-[130px]">{% if d.group_name_display %}{{ d.group_name_display }}{%
-                          else %}Cùng: {{ d.parent_name }}{% endif %}</span>
+                        <span class="truncate max-w-[130px]">{% if d.group_name_display %}{{ d.group_name_display }}{% else %}Cùng: {{ d.parent_name }}{% endif %}</span>
                       </span>
                       {% if is_admin %}
                       <button type="button"
@@ -807,8 +812,7 @@
                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-bold"
                         title="Thiết bị cùng nhà: {% for b in d.paired_sub_devices %}{{ b.device_name }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                         <i class="fa-solid fa-house text-purple-400"></i>
-                        <span>{% if d.group_name_display %}{{ d.group_name_display }} • {% endif %}{{ d.paired_sub_count
-                          }} thiết bị cùng nhà</span>
+                        <span>{% if d.group_name_display %}{{ d.group_name_display }} • {% endif %}{{ d.paired_sub_count }} thiết bị cùng nhà</span>
                       </span>
                       {% if is_admin %}
                       <button type="button"
@@ -902,9 +906,9 @@
                     </span>
                     {% endif %}
                     <div class="text-[10px] hc-text-muted mt-1 font-mono flex items-center gap-1"
-                      title="Chu kỳ Heartbeat: {{ d.heartbeat_interval|default:300 }}s • Phản hồi cuối: {{ d.last_seen_display }}">
+                      title="Chu kỳ Heartbeat: {{ d.heartbeat_interval|default:60 }}s • Phản hồi cuối: {{ d.last_seen_display }}">
                       <i class="fa-solid fa-heart-pulse text-rose-400 text-[9px]"></i>
-                      <span>{{ d.heartbeat_interval|default:300 }}s</span>
+                      <span>{{ d.heartbeat_interval|default:60 }}s</span>
                       <span class="text-slate-600">•</span>
                       <span>{{ d.last_seen_display }}</span>
                     </div>
@@ -932,12 +936,21 @@
               Lịch sử sự kiện & Báo cáo cứu hộ
             </h2>
           </div>
-          {% if is_admin %}
-          <a href="/export/alerts/csv/" class="hc-btn-primary px-4 py-2 rounded-lg text-xs flex items-center space-x-2">
-            <i class="fa-solid fa-file-excel"></i>
-            <span>Xuất Báo Cáo Excel / CSV (Tenant Admin)</span>
-          </a>
-          {% endif %}
+          <div class="flex items-center gap-2 flex-wrap">
+            {% if is_admin %}
+            <button type="button" onclick="confirmClearAllAlertsDashboard()"
+              id="btn-clear-all-alerts-dashboard"
+              class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/40 hover:border-red-500 px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Xóa toàn bộ lịch sử báo động trong hệ thống">
+              <i class="fa-solid fa-trash-can"></i>
+              <span>Xóa Toàn Bộ Lịch Sử</span>
+            </button>
+            <a href="/export/alerts/csv/" class="hc-btn-primary px-4 py-2 rounded-lg text-xs flex items-center space-x-2">
+              <i class="fa-solid fa-file-excel"></i>
+              <span>Xuất Báo Cáo Excel / CSV</span>
+            </a>
+            {% endif %}
+          </div>
         </div>
 
         <div class="hc-surface rounded-xl border overflow-hidden">
@@ -993,17 +1006,26 @@
                     <div><strong>Kết quả:</strong> <span>{{ log.report_display }}</span></div>
                   </td>
                   <td class="p-3.5 whitespace-nowrap">
-                    {% if log.is_open %}
-                    <button type="button" data-id="{{ log.id }}" data-name="{{ log.device.device_name }}"
-                      data-eui="{{ log.device.dev_eui }}"
-                      onclick="openCoordinationModal(this.dataset.id, this.dataset.name, this.dataset.eui)"
-                      class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm cursor-pointer">
-                      Điều phối / Đóng hồ sơ
-                    </button>
-                    {% else %}
-                    <span class="text-emerald-500 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>Đã đóng
-                      băng</span>
-                    {% endif %}
+                    <div class="flex items-center gap-2">
+                      {% if log.is_open %}
+                      <button type="button" data-id="{{ log.id }}" data-name="{{ log.device.device_name }}"
+                        data-eui="{{ log.device.dev_eui }}"
+                        onclick="openCoordinationModal(this.dataset.id, this.dataset.name, this.dataset.eui)"
+                        class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-xs transition shadow-sm cursor-pointer">
+                        Điều phối / Đóng hồ sơ
+                      </button>
+                      {% else %}
+                      <span class="text-emerald-500 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>Đã đóng băng</span>
+                      {% endif %}
+                      {% if is_admin %}
+                      <button type="button" 
+                        onclick="deleteSingleAlertDashboard({{ log.id }})" 
+                        class="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer" 
+                        title="Xóa bản ghi sự cố #SOS-{{ log.id }}">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                      {% endif %}
+                    </div>
                   </td>
                 </tr>
                 {% empty %}
@@ -1093,8 +1115,7 @@
                     <td class="p-3.5 font-mono font-bold">{{ u.username }}</td>
                     <td class="p-3.5">{{ u.display_name }}</td>
                     <td class="p-3.5">
-                      <span class="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-500 font-bold text-[11px]">{{
-                        u.get_role_display }}</span>
+                      <span class="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-500 font-bold text-[11px]">{{ u.get_role_display }}</span>
                     </td>
                     <td class="p-3.5">{{ u.phone_display }}</td>
                     <td class="p-3.5 text-right">
@@ -1279,152 +1300,297 @@
     </div>
   </div>
 
-  <!-- MODAL THÊM MỚI THIẾT BỊ -->
+  <!-- MODAL THÊM MỚI THIẾT BỊ (CHUẨN HÓA THEO HC TECH IOT PLATFORM) -->
+  <!-- MODAL TẠO THIẾT BỊ MỚI (CHUẨN GIAO DIỆN ENTERPRISE - ĐỒNG BỘ THEME SÁNG/TỐI) -->
   <div id="add-device-modal"
-    class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
     <div
-      class="hc-surface border rounded-2xl max-w-lg w-full p-4 sm:p-6 space-y-3.5 text-xs max-h-[92vh] flex flex-col overflow-hidden shadow-2xl">
-      <div class="flex items-center justify-between border-b pb-3 shrink-0" style="border-color: var(--border-color)">
-        <h3 class="text-base font-extrabold">
-          <i class="fa-solid fa-plus-circle text-cyan-400 mr-1.5"></i> Đăng Ký
-          Thiết Bị Mới
-        </h3>
-        <button onclick="closeAddDeviceModal()" class="text-slate-400 hover:text-white text-lg">
+      class="hc-surface border rounded-xl max-w-xl w-full text-xs max-h-[92vh] flex flex-col overflow-hidden shadow-2xl"
+      style="border-color: var(--border-color); background-color: var(--bg-surface);">
+      
+      <!-- Header Modal -->
+      <div class="flex items-center justify-between px-5 py-3.5 border-b shrink-0" style="border-color: var(--border-color);">
+        <div>
+          <h3 class="text-sm font-bold" style="color: var(--text-primary);">Tạo Thiết Bị Mới</h3>
+          <p class="text-[11px]" style="color: var(--text-secondary);">Đăng ký thiết bị và đồng bộ thông số lên hệ thống IoT</p>
+        </div>
+        <button type="button" onclick="closeAddDeviceModal()"
+          class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-base"
+          title="Đóng">
           &times;
         </button>
       </div>
-      <div class="overflow-y-auto space-y-3 pr-1 flex-1">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-          <div>
-            <label class="block hc-text-muted mb-1">Loại thiết bị *</label>
-            <select id="reg-device-type" class="w-full hc-input rounded-lg px-3 py-2">
-              <option value="NUT_NHAN">Nút nhấn LoRaWAN</option>
-              <option value="CAMERA">Camera giám sát</option>
-              <option value="GATEWAY">Gateway LoRa</option>
-            </select>
+
+      <!-- Nội dung cuộn -->
+      <div class="overflow-y-auto px-5 py-4 space-y-4 flex-1">
+        <!-- Khung hiển thị thông báo trạng thái -->
+        <div id="reg-device-status-msg" class="hidden p-3 rounded-lg text-xs font-medium transition-all"></div>
+
+        <!-- MỤC 1: THÔNG TIN CƠ BẢN -->
+        <div class="space-y-3">
+          <div class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--text-secondary);">
+            1. Thông tin thiết bị & Đơn vị quản lý
           </div>
-          <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Lĩnh vực cảnh báo <span
-                class="text-rose-400">*</span></label>
-            <select id="reg-category-type" class="w-full hc-input">
-              <option value="CAP_CUU_Y_TE">Cấp Cứu / Y tế</option>
-              <option value="AN_NINH">An Ninh</option>
-              <option value="CHAY">Báo Cháy</option>
-            </select>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-          <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Tên thiết bị <span
-                class="text-rose-400">*</span></label>
-            <input id="reg-name" type="text" placeholder="Tên phương tiện hoặc vị trí..." class="w-full hc-input" />
-          </div>
-          <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Mã ID / DevEUI <span
-                class="text-rose-400">*</span></label>
-            <input id="reg-deveui" type="text" placeholder="16 ký tự Hex (vd: cf8b03ffff6430c5)"
-              class="w-full hc-input font-mono" />
-          </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-          <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Chủ sở hữu / Đơn vị <span
-                class="text-rose-400">*</span></label>
-            <input id="reg-owner" type="text" placeholder="Họ và tên người phụ trách" class="w-full hc-input" />
-          </div>
-          <div>
-            <label class="block font-semibold mb-1 hc-text-muted">SĐT Khẩn cấp <span
-                class="text-rose-400">*</span></label>
-            <input id="reg-phone" type="tel" placeholder="09xx xxx xxx" class="w-full hc-input" />
-          </div>
-        </div>
-        <div>
-          <label class="block font-semibold mb-1 hc-text-muted flex items-center justify-between">
-            <span><i class="fa-solid fa-heart-pulse text-rose-400 mr-1"></i> Chu kỳ Heartbeat / Uplink: <span
-                class="text-rose-400">*</span></span>
-            <span class="text-[10px] text-cyan-400">Kiểm tra Online/Offline</span>
-          </label>
-          <div class="flex gap-2">
-            <div class="relative flex-1">
-              <input id="reg-heartbeat-interval" type="number" min="5" step="1" value="300" placeholder="300"
-                class="w-full hc-input font-mono pr-12" />
-              <span
-                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-[11px] font-mono pointer-events-none">giây</span>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+                Tên thiết bị <span class="text-rose-500">*</span>
+              </label>
+              <input id="reg-name" type="text" placeholder="vd: Nút khẩn cấp Trạm Y Tế, Tracker 01..." class="w-full hc-input" />
             </div>
-            <select onchange="if(this.value){ document.getElementById('reg-heartbeat-interval').value = this.value; }"
-              class="hc-input text-xs text-slate-300 shrink-0 cursor-pointer w-32" title="Chọn nhanh chu kỳ heartbeat">
-              <option value="">Chọn nhanh</option>
-              <option value="60">1 phút (60s)</option>
-              <option value="120">2 phút (120s)</option>
-              <option value="300" selected>5 phút (300s)</option>
-              <option value="600">10 phút (600s)</option>
-              <option value="1800">30 phút (1800s)</option>
-              <option value="3600">1 giờ (3600s)</option>
+            <div>
+              <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+                Chủ sở hữu / Đơn vị <span class="text-rose-500">*</span>
+              </label>
+              <input id="reg-owner" type="text" placeholder="vd: Nguyễn Văn A, Ban Quản Lý..." class="w-full hc-input" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+                SĐT liên hệ khẩn cấp <span class="text-rose-500">*</span>
+              </label>
+              <input id="reg-phone" type="tel" placeholder="vd: 0905123456" class="w-full hc-input" />
+            </div>
+            <div>
+              <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+                Lĩnh vực cảnh báo
+              </label>
+              <select id="reg-category-type" class="w-full hc-input">
+                <option value="CAP_CUU_Y_TE" selected>Cấp Cứu / Y Tế</option>
+                <option value="AN_NINH">An Ninh - Cứu Nạn</option>
+                <option value="CHAY">Báo Cháy</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t" style="border-color: var(--border-color);"></div>
+
+        <!-- MỤC 2: NHÓM & DEVICE PROFILE (GET /groups & GET /packages) -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--text-secondary);">
+              2. Nhóm thiết bị & Gói cấu hình (Device Profile)
+            </span>
+            <span id="reg-group-type-badge" class="hidden px-2 py-0.5 rounded text-[10px] font-semibold border"
+              style="border-color: var(--border-color); background-color: var(--bg-input); color: var(--text-primary);"></span>
+          </div>
+
+          <div>
+            <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+              Nhóm thiết bị (Group) <span class="text-rose-500">*</span>
+            </label>
+            <select id="reg-group-id" onchange="handleHCTechGroupChange()" class="w-full hc-input font-medium cursor-pointer">
+              <option value="">⏳ Đang nạp danh sách nhóm...</option>
             </select>
           </div>
-          <p class="text-[10px] hc-text-muted mt-1">Quá thời gian này không nhận được uplink, server sẽ đánh dấu thiết
-            bị Offline.</p>
-        </div>
-        <div>
-          <label class="block font-semibold mb-1 hc-text-muted">Chế độ định vị</label>
-          <select id="reg-has-gps" onchange="toggleStaticAddressField()" class="w-full hc-input">
-            <option value="false">Thiết bị cố định (Không GPS - Nhà ở, cơ sở)</option>
-            <option value="true">
-              Thiết bị GPS (Phương tiện di chuyển / Di động)
-            </option>
-          </select>
-        </div>
-        <div id="reg-pairing-container" class="p-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 space-y-2">
-          <label class="block font-semibold text-cyan-300 text-xs">
-            <i class="fa-solid fa-link mr-1"></i> Gán cùng nhà / Thiết bị liên kết:
-          </label>
-          <select id="reg-parent-id" class="w-full hc-input text-xs">
-            <option value="">-- Hoạt động độc lập (Không gán) --</option>
-            {% for other in devices %}
-            <option value="{{ other.id }}">
-              {% if other.device_type == 'GATEWAY' %}📡 Trạm Gateway:
-              {% elif other.device_type == 'CAMERA' %}📹 Camera:
-              {% elif other.has_gps %}📍 Thiết bị GPS:
-              {% else %}🔔 Nút nhấn:{% endif %}
-              {{ other.device_name }} ({{ other.dev_eui }})
-            </option>
-            {% endfor %}
-          </select>
-          <input type="text" id="reg-group-name" placeholder="Tên nhà hoặc vị trí nhóm lắp đặt (Tùy chọn)"
-            class="w-full hc-input text-xs" />
-        </div>
-        <div id="address-only-field">
-          <label class="block font-semibold mb-1 hc-text-muted">Địa chỉ lắp đặt</label>
-          <input id="reg-address" type="text" placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-            class="w-full hc-input" />
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+
           <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Vĩ độ (Lat)</label>
+            <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+              Gói cấu hình tương ứng (Device Profile) <span class="text-rose-500">*</span>
+            </label>
+            <select id="reg-package-version-id" onchange="handleHCTechPackageChange()" class="w-full hc-input font-medium cursor-pointer">
+              <option value="">-- Vui lòng chọn Nhóm thiết bị trước --</option>
+            </select>
+          </div>
+
+          <!-- Dải thông số tự động đọc từ Device Profile (Heartbeat, Class, OTAA) -->
+          <div id="reg-package-specs-container" class="p-2.5 rounded-lg border space-y-1"
+            style="background-color: var(--bg-input); border-color: var(--border-color);">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]" style="color: var(--text-primary);">
+              <div>
+                <span style="color: var(--text-secondary);">Chu kỳ gửi tin (Heartbeat):</span>
+                <strong id="reg-spec-heartbeat" class="ml-1 text-cyan-600 dark:text-cyan-400 font-mono">300s</strong>
+              </div>
+              <div>
+                <span style="color: var(--text-secondary);">Device Class:</span>
+                <strong id="reg-spec-class" class="ml-1 font-mono">A</strong>
+              </div>
+              <div>
+                <span style="color: var(--text-secondary);">Kích hoạt:</span>
+                <strong id="reg-spec-otaa" class="ml-1 font-mono">OTAA</strong>
+              </div>
+            </div>
+            <p id="reg-package-desc" class="text-[10px]" style="color: var(--text-secondary);">
+              Thông số kết nối và chu kỳ heartbeat được tự động gán từ gói cấu hình.
+            </p>
+          </div>
+        </div>
+
+        <div class="border-t" style="border-color: var(--border-color);"></div>
+
+        <!-- MỤC 3: PHƯƠNG THỨC KÍCH HOẠT OTAA & DevEUI, AppKey -->
+        <div class="space-y-3">
+          <div class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--text-secondary);">
+            3. Khóa bảo mật kích hoạt mạng (OTAA)
+          </div>
+
+          <div>
+            <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+              Phương thức kích hoạt
+            </label>
+            <select id="reg-activation-type" class="w-full hc-input font-medium">
+              <option value="OTAA" selected>OTAA (Over-the-Air Activation) - Tiêu chuẩn khuyến nghị</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+                DevEUI (16 ký tự Hex) <span class="text-rose-500">*</span>
+              </label>
+              <input id="reg-deveui" type="text" maxlength="32" placeholder="Ví dụ: CF8B03FFFF6430C5"
+                oninput="this.value = this.value.toUpperCase().replace(/[^0-9A-F]/g, '')"
+                class="w-full hc-input font-mono font-semibold uppercase" />
+            </div>
+            <div>
+              <label class="block font-medium mb-1" style="color: var(--text-secondary);">
+                AppKey (32 ký tự Hex) <span class="text-rose-500">*</span>
+              </label>
+              <div class="relative">
+                <input id="reg-appkey" type="password" maxlength="64" placeholder="32 ký tự Hex AppKey"
+                  oninput="this.value = this.value.toUpperCase().replace(/[^0-9A-F]/g, '')"
+                  class="w-full hc-input font-mono pr-8 uppercase" />
+                <button type="button" onclick="togglePasswordVisibility('reg-appkey', this)"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1">
+                  <i class="fa-solid fa-eye text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t" style="border-color: var(--border-color);"></div>
+
+        <!-- MỤC 4: ĐỊA CHỈ LẮP ĐẶT & BẢN ĐỒ VỊ TRÍ GỢI Ý (Ở CUỐI CÙNG) -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--text-secondary);">
+              4. Vị trí lắp đặt & Địa chỉ bản đồ
+            </span>
+            <span id="reg-coords-badge" class="font-mono text-[10px] px-2.5 py-0.5 rounded-full border"
+              style="border-color: var(--border-color); background-color: var(--bg-input); color: var(--text-secondary);">
+              Chưa chọn vị trí
+            </span>
+          </div>
+
+          <!-- Ô nhập địa chỉ & Gợi ý tự động -->
+          <div id="reg-address-group" class="relative">
+            <div class="flex items-center justify-between mb-1">
+              <label id="reg-address-label" class="block font-medium" style="color: var(--text-secondary);">
+                Địa chỉ lắp đặt / Khu vực hoạt động:
+              </label>
+              <span id="reg-geo-status" class="text-[10px] text-cyan-600 dark:text-cyan-400 hidden font-medium">
+                <i class="fa-solid fa-spinner fa-spin"></i> Đang tìm gợi ý...
+              </span>
+            </div>
             <div class="relative">
-              <input id="reg-lat" type="number" step="any" value="16.054407"
-                class="w-full hc-input font-mono text-xs pr-7" />
-              <span
-                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°N</span>
+              <input type="text" id="reg-address" placeholder="Nhập địa chỉ, tên tòa nhà hoặc khu vực..."
+                class="w-full hc-input pr-8 text-xs" autocomplete="off" oninput="onRegAddressInput(this.value)"
+                onfocus="onRegAddressFocus()" onkeydown="onRegAddressKeyDown(event)" />
+              <button type="button" id="btn-clear-reg-address" onclick="clearRegAddress()"
+                class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 text-xs p-1 cursor-pointer transition"
+                title="Xóa địa chỉ">
+                <i class="fa-solid fa-circle-xmark"></i>
+              </button>
+            </div>
+
+            <!-- Gợi ý địa chỉ xổ xuống (Dropdown Suggestions) -->
+            <div id="reg-address-suggestions"
+              class="hidden absolute left-0 right-0 top-full mt-1 max-h-52 overflow-y-auto rounded-xl border shadow-xl p-1 z-[1060]"
+              style="border-color: var(--border-color); background-color: var(--bg-surface);">
             </div>
           </div>
-          <div>
-            <label class="block font-semibold mb-1 hc-text-muted">Tọa độ Kinh độ (Lng)</label>
-            <div class="relative">
-              <input id="reg-lng" type="number" step="any" value="108.202167"
-                class="w-full hc-input font-mono text-xs pr-7" />
-              <span
-                class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 pointer-events-none">°E</span>
+
+          <!-- Bản đồ Mini Leaflet để chọn vị trí trực quan -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-medium" style="color: var(--text-secondary);">
+                Bấm trực tiếp hoặc kéo ghim trên bản đồ để chọn tọa độ:
+              </span>
+              <button type="button" onclick="centerRegMiniMap()"
+                class="text-cyan-600 dark:text-cyan-400 hover:underline font-medium shrink-0 flex items-center gap-1 cursor-pointer text-[10px]"
+                title="Đưa bản đồ về vị trí ghim và phóng to">
+                <i class="fa-solid fa-crosshairs"></i> Về giữa & Phóng to
+              </button>
             </div>
+
+            <div id="reg-mini-map" class="w-full h-56 rounded-lg border relative overflow-hidden z-10"
+              style="border-color: var(--border-color); min-height: 220px;"></div>
           </div>
+
+          <!-- Tọa độ ngầm & Hidden Heartbeat Interval -->
+          <input type="hidden" id="reg-lat" value="16.054407" />
+          <input type="hidden" id="reg-lng" value="108.202167" />
+          <input type="hidden" id="reg-heartbeat-interval" value="300" />
         </div>
+
+        <div class="border-t" style="border-color: var(--border-color);"></div>
+
+        <!-- MỤC 5: CẤU HÌNH BỔ SUNG & LIÊN KẾT NHÀ (TÙY CHỌN) -->
+        <details class="rounded-lg border p-3 text-xs group"
+          style="background-color: var(--bg-input); border-color: var(--border-color);">
+          <summary class="font-semibold cursor-pointer flex items-center justify-between select-none"
+            style="color: var(--text-primary);">
+            <span>Cấu hình bổ sung (Chế độ thiết bị & Liên kết cùng nhà)</span>
+            <i class="fa-solid fa-chevron-down text-[10px] transition-transform group-open:rotate-180" style="color: var(--text-secondary);"></i>
+          </summary>
+          <div class="space-y-3 pt-3 mt-2 border-t" style="border-color: var(--border-color);">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-medium mb-1" style="color: var(--text-secondary);">Chế độ thiết bị</label>
+                <select id="reg-device-type" class="w-full hc-input">
+                  <option value="NUT_NHAN">Nút nhấn cứu hộ LoRaWAN</option>
+                  <option value="GATEWAY">Trạm Gateway LoRaWAN</option>
+                  <option value="CAMERA">Camera giám sát</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-medium mb-1" style="color: var(--text-secondary);">Chế độ định vị</label>
+                <select id="reg-has-gps" onchange="toggleStaticAddressField()" class="w-full hc-input">
+                  <option value="false">Thiết bị cố định (Không GPS)</option>
+                  <option value="true">Thiết bị GPS (Di động / Tự gửi tọa độ)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-2 pt-1 border-t" style="border-color: var(--border-color);">
+              <label class="block font-medium" style="color: var(--text-secondary);">
+                Gán cùng nhà / Thiết bị liên kết:
+              </label>
+              <select id="reg-parent-id" class="w-full hc-input text-xs">
+                <option value="">-- Hoạt động độc lập (Không gán) --</option>
+                {% for other in devices %}
+                <option value="{{ other.id }}">
+                  {% if other.device_type == 'GATEWAY' %}Trạm Gateway:
+                  {% elif other.device_type == 'CAMERA' %}Camera:
+                  {% elif other.has_gps %}Thiết bị GPS:
+                  {% else %}Nút nhấn:{% endif %}
+                  {{ other.device_name }} ({{ other.dev_eui }})
+                </option>
+                {% endfor %}
+              </select>
+              <input type="text" id="reg-group-name" placeholder="Tên nhà hoặc vị trí nhóm lắp đặt (Tùy chọn)" class="w-full hc-input text-xs" />
+            </div>
+          </div>
+        </details>
       </div>
-      <div class="flex justify-end space-x-3 pt-3 border-t shrink-0" style="border-color: var(--border-color)">
-        <button onclick="closeAddDeviceModal()" class="hc-input px-4 py-2 rounded-lg">
-          Hủy
+
+      <!-- Footer Buttons: Chuẩn Enterprise -->
+      <div class="flex items-center justify-end gap-2.5 px-5 py-3 border-t shrink-0"
+        style="border-color: var(--border-color); background-color: var(--bg-surface);">
+        <button type="button" onclick="closeAddDeviceModal()"
+          class="px-4 py-2 rounded-lg font-medium text-xs border transition hover:bg-slate-100 dark:hover:bg-slate-800"
+          style="border-color: var(--border-color); color: var(--text-secondary);">
+          Hủy bỏ
         </button>
-        <button onclick="submitNewDevice()" class="hc-btn-primary px-5 py-2 rounded-lg">
-          Lưu & Đồng Bộ IoT
+        <button type="button" id="reg-btn-submit" onclick="submitNewDevice()"
+          class="px-5 py-2 rounded-lg font-semibold text-xs text-white transition cursor-pointer shadow-sm"
+          style="background-color: var(--hc-cyan, #0891b2);">
+          Tạo Thiết Bị (POST /devices)
         </button>
       </div>
     </div>
@@ -1915,8 +2081,7 @@
               {% elif other.device_type == 'CAMERA' %}📹 Camera:
               {% elif other.has_gps %}📍 Thiết bị GPS:
               {% else %}🔔 Nút nhấn:{% endif %}
-              {{ other.device_name }} ({{ other.dev_eui }}){% if other.customer_name %} - {{ other.customer_name }}{%
-              endif %}
+              {{ other.device_name }} ({{ other.dev_eui }}){% if other.customer_name %} - {{ other.customer_name }}{% endif %}
             </option>
             {% endfor %}
           </select>
@@ -1984,6 +2149,9 @@
     </button>
   </nav>
 
+  <script>
+    window.IS_ADMIN = {% if is_admin %}true{% else %}false{% endif %};
+  </script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="{% static 'js/dashboard.js' %}?v={% now 'U' %}"></script>
 

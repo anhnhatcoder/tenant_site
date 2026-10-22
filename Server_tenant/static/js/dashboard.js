@@ -162,17 +162,22 @@ function toggleSoundSetting() {
     soundEnabled = !soundEnabled;
     const soundText = soundEnabled ? "Âm báo: BẬT" : "Âm báo: TẮT";
     const soundClass = soundEnabled
-        ? "fa-solid fa-volume-high text-emerald-400 mr-1.5"
-        : "fa-solid fa-volume-xmark text-slate-400 mr-1.5";
+        ? "fa-solid fa-volume-high text-emerald-500"
+        : "fa-solid fa-volume-xmark text-slate-400";
     const t1 = document.getElementById('text-sound');
     if (t1) t1.innerText = soundText;
     const i1 = document.getElementById('icon-sound');
     if (i1) i1.className = soundClass;
 
+    const btnSound = document.getElementById('btn-sound-toggle');
+    if (btnSound) {
+        btnSound.title = soundEnabled ? "Âm báo: Đang BẬT (Bấm để tắt)" : "Âm báo: Đang TẮT (Bấm để bật)";
+    }
+
     const t2 = document.getElementById('mobile-text-sound');
     if (t2) t2.innerText = soundEnabled ? "Âm: BẬT" : "Âm: TẮT";
     const i2 = document.getElementById('mobile-icon-sound');
-    if (i2) i2.className = soundEnabled ? "fa-solid fa-volume-high text-emerald-400" : "fa-solid fa-volume-xmark text-slate-400";
+    if (i2) i2.className = soundEnabled ? "fa-solid fa-volume-high text-emerald-500" : "fa-solid fa-volume-xmark text-slate-400";
 
     if (!soundEnabled) stopSiren();
 }
@@ -1110,17 +1115,352 @@ function exportRouteKML() {
 
 // ================= 6. ĐĂNG KÝ THIẾT BỊ, CHUYỂN TAB & THỐNG KÊ =================
 function toggleStaticAddressField() {
-    const hasGps = document.getElementById('reg-has-gps').value === 'true';
-    const addrGroup = document.getElementById('address-only-field');
-    if (addrGroup) addrGroup.style.display = hasGps ? 'none' : 'block';
+    const hasGps = document.getElementById('reg-has-gps')?.value === 'true';
+    const addrLabel = document.getElementById('reg-address-label');
+    const addrInput = document.getElementById('reg-address');
+    if (addrLabel) {
+        addrLabel.innerText = hasGps ? "Cảng neo đậu / Khu vực hoạt động:" : "Địa chỉ lắp đặt / Nhà ở cơ sở:";
+    }
+    if (addrInput) {
+        addrInput.placeholder = hasGps
+            ? "Ví dụ: Cảng Tiên Sa, Bến thuyền Sơn Trà, Cửa Đại, Vịnh Đà Nẵng..."
+            : "Ví dụ: Số 123 đường Bạch Đằng, P. Hải Châu 1, Đà Nẵng...";
+    }
 }
 
 function openAddDeviceModal() {
-    document.getElementById('add-device-modal').classList.remove('hidden');
+    const modal = document.getElementById('add-device-modal');
+    if (modal) modal.classList.remove('hidden');
+    const statusMsg = document.getElementById('reg-device-status-msg');
+    if (statusMsg) statusMsg.classList.add('hidden');
+    const devTypeEl = document.getElementById('reg-device-type');
+    if (devTypeEl) devTypeEl.value = 'NUT_NHAN';
+    loadHCTechGroupsAndPackages();
+    setTimeout(() => {
+        initRegMiniMap(16.054407, 108.202167);
+    }, 250);
 }
 function closeAddDeviceModal() {
-    document.getElementById('add-device-modal').classList.add('hidden');
+    const modal = document.getElementById('add-device-modal');
+    if (modal) modal.classList.add('hidden');
 }
+
+// ================= BẢN ĐỒ & TỌA ĐỘ KHI TẠO THIẾT BỊ MỚI =================
+let regMiniMap = null;
+let regMiniMarker = null;
+let regGeoDebounceTimer = null;
+let regLastSuggestedResults = [];
+
+function initRegMiniMap(initialLat, initialLng) {
+    const mapEl = document.getElementById('reg-mini-map');
+    if (!mapEl) return;
+
+    const defaultLat = 16.054407;
+    const defaultLng = 108.202167;
+    const hasInitialCoords = (initialLat !== undefined && initialLat !== null && initialLat !== '' && !isNaN(initialLat) &&
+        initialLng !== undefined && initialLng !== null && initialLng !== '' && !isNaN(initialLng));
+
+    const lat = hasInitialCoords ? parseFloat(initialLat) : defaultLat;
+    const lng = hasInitialCoords ? parseFloat(initialLng) : defaultLng;
+
+    if (!regMiniMap) {
+        regMiniMap = L.map('reg-mini-map', {
+            center: [lat, lng],
+            zoom: hasInitialCoords ? 15 : 13,
+            zoomControl: true,
+            attributionControl: false
+        });
+
+        L.tileLayer('https://{s}.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}', {
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps',
+            maxZoom: 20
+        }).addTo(regMiniMap);
+
+        const pinIcon = L.divIcon({
+            className: 'hc-custom-reg-pin',
+            html: `<div style="width:26px;height:26px;border-radius:50%;background:#0284c7;color:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(2,132,199,0.4);border:2px solid #ffffff;font-size:12px;cursor:grab;">
+                     <i class="fa-solid fa-location-dot"></i>
+                   </div>`,
+            iconSize: [26, 26],
+            iconAnchor: [13, 26]
+        });
+
+        regMiniMarker = L.marker([lat, lng], {
+            draggable: true,
+            icon: pinIcon
+        }).addTo(regMiniMap);
+
+        // Kéo ghim trực tiếp trên bản đồ
+        regMiniMarker.on('dragend', function (e) {
+            const pos = e.target.getLatLng();
+            setRegCoords(pos.lat, pos.lng, true);
+        });
+
+        // Bấm trực tiếp lên bản đồ để chọn vị trí
+        regMiniMap.on('click', function (e) {
+            setRegCoords(e.latlng.lat, e.latlng.lng, true);
+        });
+    } else {
+        regMiniMap.setView([lat, lng], hasInitialCoords ? 15 : 13);
+        if (regMiniMarker) {
+            regMiniMarker.setLatLng([lat, lng]);
+        }
+    }
+
+    updateRegCoordsBadge(lat, lng);
+
+    setTimeout(() => {
+        if (regMiniMap) regMiniMap.invalidateSize();
+    }, 250);
+}
+
+function setRegCoords(lat, lng, doReverseGeocode = false, zoomLevel = null) {
+    const latInput = document.getElementById('reg-lat');
+    const lngInput = document.getElementById('reg-lng');
+
+    if (lat === null || lng === null || isNaN(lat) || isNaN(lng)) {
+        if (latInput) latInput.value = '';
+        if (lngInput) lngInput.value = '';
+        updateRegCoordsBadge(null, null);
+        return;
+    }
+
+    const flat = parseFloat(Number(lat).toFixed(6));
+    const flng = parseFloat(Number(lng).toFixed(6));
+
+    if (latInput) latInput.value = flat;
+    if (lngInput) lngInput.value = flng;
+
+    updateRegCoordsBadge(flat, flng);
+
+    if (regMiniMarker) {
+        regMiniMarker.setLatLng([flat, flng]);
+    }
+    if (regMiniMap) {
+        const targetZoom = zoomLevel || Math.max(regMiniMap.getZoom(), 17);
+        if (typeof regMiniMap.flyTo === 'function') {
+            regMiniMap.flyTo([flat, flng], targetZoom, { duration: 1.0 });
+        } else {
+            regMiniMap.setView([flat, flng], targetZoom);
+        }
+    }
+
+    if (doReverseGeocode) {
+        fetchRegReverseGeocode(flat, flng);
+    }
+}
+
+function updateRegCoordsBadge(lat, lng) {
+    const badge = document.getElementById('reg-coords-badge');
+    if (!badge) return;
+    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+        badge.innerHTML = `<i class="fa-solid fa-location-dot mr-1"></i>${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+        badge.className = 'font-mono text-[10px] px-2.5 py-0.5 rounded-full border border-sky-500/40 text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40';
+    } else {
+        badge.innerHTML = `<i class="fa-solid fa-location-crosshairs mr-1"></i>Chưa chọn vị trí`;
+        badge.className = 'font-mono text-[10px] px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60';
+    }
+}
+
+function centerRegMiniMap() {
+    const latVal = parseFloat(document.getElementById('reg-lat')?.value);
+    const lngVal = parseFloat(document.getElementById('reg-lng')?.value);
+    if (!isNaN(latVal) && !isNaN(lngVal) && regMiniMap) {
+        if (typeof regMiniMap.flyTo === 'function') {
+            regMiniMap.flyTo([latVal, lngVal], 17, { duration: 0.8 });
+        } else {
+            regMiniMap.setView([latVal, lngVal], 17);
+        }
+    } else if (regMiniMap) {
+        regMiniMap.setView([16.054407, 108.202167], 13);
+    }
+}
+
+async function fetchRegReverseGeocode(lat, lng) {
+    const statusEl = document.getElementById('reg-geo-status');
+    const addrInput = document.getElementById('reg-address');
+    const clearBtn = document.getElementById('btn-clear-reg-address');
+    if (statusEl) {
+        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang lấy tên địa chỉ...';
+        statusEl.classList.remove('hidden');
+    }
+    try {
+        const res = await fetch(`/api/geo/reverse/?lat=${lat}&lng=${lng}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.display_name) {
+            if (addrInput) addrInput.value = data.display_name;
+            if (clearBtn) clearBtn.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.warn("Reg reverse geocode failed:", err);
+    } finally {
+        if (statusEl) statusEl.classList.add('hidden');
+    }
+}
+
+function onRegAddressInput(val) {
+    const clearBtn = document.getElementById('btn-clear-reg-address');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !val.trim());
+    }
+
+    if (regGeoDebounceTimer) clearTimeout(regGeoDebounceTimer);
+
+    const query = val.trim();
+    if (query.length < 2) {
+        hideRegAddressSuggestions();
+        return;
+    }
+
+    regGeoDebounceTimer = setTimeout(() => {
+        fetchRegAddressSuggestions(query);
+    }, 280);
+}
+
+function onRegAddressFocus() {
+    const val = (document.getElementById('reg-address')?.value || '').trim();
+    if (val.length >= 2 && regLastSuggestedResults.length > 0) {
+        renderRegAddressSuggestions(regLastSuggestedResults);
+    }
+}
+
+function clearRegAddress() {
+    const addrInput = document.getElementById('reg-address');
+    if (addrInput) {
+        addrInput.value = '';
+        addrInput.focus();
+    }
+    const clearBtn = document.getElementById('btn-clear-reg-address');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    hideRegAddressSuggestions();
+}
+
+async function fetchRegAddressSuggestions(q) {
+    const statusEl = document.getElementById('reg-geo-status');
+    if (statusEl) {
+        statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tìm gợi ý...';
+        statusEl.classList.remove('hidden');
+    }
+
+    try {
+        const res = await fetch(`/api/geo/suggest/?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.results && data.results.length > 0) {
+            regLastSuggestedResults = data.results;
+            renderRegAddressSuggestions(data.results);
+        } else {
+            renderRegEmptySuggestions();
+        }
+    } catch (err) {
+        console.warn("Reg suggest error:", err);
+        renderRegEmptySuggestions();
+    } finally {
+        if (statusEl) statusEl.classList.add('hidden');
+    }
+}
+
+function renderRegAddressSuggestions(items) {
+    const box = document.getElementById('reg-address-suggestions');
+    if (!box) return;
+
+    if (!items || items.length === 0) {
+        renderRegEmptySuggestions();
+        return;
+    }
+
+    let html = '';
+    items.forEach((item, idx) => {
+        const isHarbor = item.is_harbor;
+        const iconClass = isHarbor ? 'fa-solid fa-anchor' : 'fa-solid fa-location-dot';
+        const typeClass = isHarbor ? 'harbor' : 'location';
+        const badgeLabel = isHarbor
+            ? '<span class="text-[9px] font-bold text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30 ml-1.5 shrink-0">Cảng / Bến</span>'
+            : '';
+
+        const titleText = escapeHtml(item.name || item.display_name.split(',')[0]);
+        const subText = escapeHtml(item.display_name);
+
+        html += `
+        <div class="hc-geo-item ${typeClass}" onclick="selectRegAddress(${idx})">
+          <div class="geo-icon">
+            <i class="${iconClass}"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <span class="geo-title truncate">${titleText}</span>
+              ${badgeLabel}
+            </div>
+            <div class="geo-subtitle line-clamp-1">${subText}</div>
+          </div>
+        </div>`;
+    });
+
+    box.innerHTML = html;
+    box.classList.remove('hidden');
+}
+
+function renderRegEmptySuggestions() {
+    const box = document.getElementById('reg-address-suggestions');
+    if (!box) return;
+    box.innerHTML = `
+      <div class="p-3 text-center text-xs hc-text-muted">
+        <i class="fa-solid fa-circle-info mr-1 text-cyan-400"></i>
+        Không tìm thấy gợi ý trùng khớp. Bạn có thể bấm trực tiếp lên bản đồ bên dưới để chọn vị trí.
+      </div>
+    `;
+    box.classList.remove('hidden');
+}
+
+function hideRegAddressSuggestions() {
+    const box = document.getElementById('reg-address-suggestions');
+    if (box) box.classList.add('hidden');
+}
+
+function selectRegAddress(index) {
+    const item = regLastSuggestedResults[index];
+    if (!item) return;
+
+    const addrInput = document.getElementById('reg-address');
+    if (addrInput) addrInput.value = item.display_name;
+
+    const clearBtn = document.getElementById('btn-clear-reg-address');
+    if (clearBtn) clearBtn.classList.remove('hidden');
+
+    // Zoom to vị trí địa chỉ được chọn lên mức 17 rất rõ ràng và chi tiết
+    setRegCoords(item.lat, item.lng, false, 17);
+    hideRegAddressSuggestions();
+}
+
+async function onRegAddressKeyDown(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = (document.getElementById('reg-address')?.value || '').trim();
+        if (!val) return;
+        if (regLastSuggestedResults && regLastSuggestedResults.length > 0) {
+            selectRegAddress(0);
+        } else {
+            const statusEl = document.getElementById('reg-geo-status');
+            if (statusEl) {
+                statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang định vị...';
+                statusEl.classList.remove('hidden');
+            }
+            try {
+                const res = await fetch(`/api/geo/suggest/?q=${encodeURIComponent(val)}`);
+                const data = await res.json();
+                if (data.status === 'success' && data.results && data.results.length > 0) {
+                    regLastSuggestedResults = data.results;
+                    selectRegAddress(0);
+                }
+            } catch (err) {
+                console.warn("Reg geocode enter err:", err);
+            } finally {
+                if (statusEl) statusEl.classList.add('hidden');
+            }
+        }
+    }
+}
+
 
 // ================= GÁN THÔNG TIN CHO THIẾT BỊ MỚI / SỬA THÔNG TIN =================
 let assignMiniMap = null;
@@ -1437,6 +1777,10 @@ document.addEventListener('click', function (e) {
     if (group && !group.contains(e.target)) {
         hideAssignAddressSuggestions();
     }
+    const regGroup = document.getElementById('reg-address-group');
+    if (regGroup && !regGroup.contains(e.target)) {
+        hideRegAddressSuggestions();
+    }
 });
 
 function openAssignDeviceModal(deviceId, devEui, deviceName, customerName, phone, categoryType, address, hasGps, lat, lng, parentId, groupName, heartbeatInterval) {
@@ -1707,42 +2051,349 @@ window.zoomToDeviceOnMap = zoomToDeviceOnMap;
 window.handleDeviceRowClick = handleDeviceRowClick;
 
 
-async function submitNewDevice() {
-    const parentIdVal = document.getElementById('reg-parent-id')?.value;
-    const payload = {
-        device_type: document.getElementById('reg-device-type')?.value || 'NUT_NHAN',
-        category_type: document.getElementById('reg-category-type')?.value || 'CAP_CUU_Y_TE',
-        device_name: document.getElementById('reg-name').value.trim(),
-        dev_eui: document.getElementById('reg-deveui').value.trim(),
-        customer_name: document.getElementById('reg-owner').value.trim(),
-        emergency_phone: document.getElementById('reg-phone').value.trim(),
-        has_gps: document.getElementById('reg-has-gps').value === 'true',
-        address: document.getElementById('reg-address').value.trim(),
-        latitude: parseFloat(document.getElementById('reg-lat').value) || 16.054407,
-        longitude: parseFloat(document.getElementById('reg-lng').value) || 108.202167,
-        heartbeat_interval: parseInt(document.getElementById('reg-heartbeat-interval')?.value) || 300,
-        parent_device_id: parentIdVal ? parseInt(parentIdVal) : null,
-        group_name: document.getElementById('reg-group-name')?.value?.trim() || ''
-    };
+// ================= QUẢN LÝ TẠO THIẾT BỊ THEO CHUẨN HC TECH IOT PLATFORM =================
+let hctechGroupsList = [];
+let hctechPackagesList = [];
 
-    if (!payload.device_name || !payload.dev_eui) {
-        return alert("Vui lòng nhập đầy đủ Tên thiết bị và Mã ID/DevEUI!");
-    }
+async function loadHCTechGroupsAndPackages() {
+    const groupSelect = document.getElementById('reg-group-id');
+    const pkgSelect = document.getElementById('reg-package-version-id');
+    if (!groupSelect || !pkgSelect) return;
 
-    const res = await fetch('/api/devices/register/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (res.ok && result.status === 'success') {
-        sessionStorage.setItem('active_hc_tab', 'devices');
-        alert("✅ " + result.message);
-        location.reload();
-    } else {
-        alert("❌ " + (result.message || "Không thể đăng ký thiết bị"));
+    groupSelect.innerHTML = '<option value="">⏳ Đang nạp danh sách nhóm từ IoT Platform...</option>';
+    pkgSelect.innerHTML = '<option value="">-- Vui lòng chọn Nhóm thiết bị trước --</option>';
+
+    try {
+        const [resG, resP] = await Promise.all([
+            fetch('/api/hctech/groups/'),
+            fetch('/api/hctech/packages/')
+        ]);
+        const dataG = await resG.json();
+        const dataP = await resP.json();
+
+        hctechGroupsList = dataG.data || [];
+        hctechPackagesList = dataP.data || [];
+
+        // Render danh sách groups
+        groupSelect.innerHTML = '<option value="">-- Chọn Nhóm thiết bị (Group) --</option>';
+        if (hctechGroupsList.length === 0) {
+            groupSelect.innerHTML += '<option value="" disabled>Không có nhóm nào khả dụng</option>';
+        } else {
+            hctechGroupsList.forEach(g => {
+                const typeBadge = (g.type || 'lorawan').toUpperCase();
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.dataset.type = (g.type || 'lorawan').toLowerCase();
+                opt.dataset.name = g.name || '';
+                opt.innerText = `[${typeBadge}] ${g.name || 'Nhóm ' + g.id} (${g.device_count || 0} thiết bị)`;
+                groupSelect.appendChild(opt);
+            });
+        }
+
+        // Tự động chọn nhóm đầu tiên nếu có
+        if (hctechGroupsList.length > 0) {
+            groupSelect.selectedIndex = 1;
+            handleHCTechGroupChange();
+        }
+    } catch (err) {
+        console.error("Lỗi khi tải groups hoặc packages:", err);
+        groupSelect.innerHTML = '<option value="">❌ Lỗi kết nối IoT Platform</option>';
     }
 }
+
+function handleHCTechGroupChange() {
+    const groupSelect = document.getElementById('reg-group-id');
+    const pkgSelect = document.getElementById('reg-package-version-id');
+    const groupTypeBadge = document.getElementById('reg-group-type-badge');
+    if (!groupSelect || !pkgSelect) return;
+
+    const selectedOpt = groupSelect.options[groupSelect.selectedIndex];
+    const groupType = selectedOpt?.dataset?.type || '';
+
+    if (groupTypeBadge) {
+        if (groupType) {
+            groupTypeBadge.classList.remove('hidden');
+            groupTypeBadge.innerText = groupType.toUpperCase();
+            if (groupType === 'lorawan') {
+                groupTypeBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
+            } else if (groupType === 'http') {
+                groupTypeBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            } else {
+                groupTypeBadge.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            }
+        } else {
+            groupTypeBadge.classList.add('hidden');
+        }
+    }
+
+    if (!groupSelect.value) {
+        pkgSelect.innerHTML = '<option value="">-- Vui lòng chọn Nhóm thiết bị trước --</option>';
+        return;
+    }
+
+    // Lọc packages tương thích với nhóm đã chọn
+    const filteredPackages = hctechPackagesList.filter(p => {
+        if (!p.connection_type && !p.type) return true;
+        const pType = (p.connection_type || p.type || '').toLowerCase();
+        return pType === groupType || !groupType;
+    });
+
+    pkgSelect.innerHTML = '<option value="">-- Chọn Device Profile phù hợp --</option>';
+    const listToRender = filteredPackages.length > 0 ? filteredPackages : hctechPackagesList;
+
+    listToRender.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.package_version_id || p.id;
+        opt.dataset.hasGps = p.has_gps ? 'true' : 'false';
+        opt.dataset.deviceType = p.device_type || 'NUT_NHAN';
+        opt.dataset.desc = p.description || '';
+        opt.dataset.uplinkInterval = p.uplink_interval || p.heartbeat_interval || 300;
+        opt.dataset.deviceClass = p.device_class || 'A';
+        opt.dataset.supportsOtaa = (p.supports_otaa !== false) ? 'true' : 'false';
+        if (p.name) {
+            opt.innerText = p.name;
+        } else {
+            const verText = p.version ? ` (v${p.version})` : '';
+            const profName = p.device_profile ? ` • ${p.device_profile}` : '';
+            opt.innerText = `${p.model || p.code || 'Gói cấu hình'}${profName}${verText}`;
+        }
+        pkgSelect.appendChild(opt);
+    });
+
+    if (pkgSelect.options.length > 1) {
+        pkgSelect.selectedIndex = 1;
+        handleHCTechPackageChange();
+    }
+}
+
+function handleHCTechPackageChange() {
+    const pkgSelect = document.getElementById('reg-package-version-id');
+    const descEl = document.getElementById('reg-package-desc');
+    const gpsSelect = document.getElementById('reg-has-gps');
+    const deviceTypeSelect = document.getElementById('reg-device-type');
+    const specHb = document.getElementById('reg-spec-heartbeat');
+    const specClass = document.getElementById('reg-spec-class');
+    const specOtaa = document.getElementById('reg-spec-otaa');
+    const hiddenHb = document.getElementById('reg-heartbeat-interval');
+    if (!pkgSelect) return;
+
+    const selectedOpt = pkgSelect.options[pkgSelect.selectedIndex];
+    if (!selectedOpt || !selectedOpt.value) return;
+
+    const desc = selectedOpt.dataset?.desc;
+    if (descEl) {
+        if (desc) {
+            descEl.innerText = desc;
+            descEl.classList.remove('hidden');
+        } else {
+            descEl.innerText = "Thông số kết nối và chu kỳ heartbeat được tự động gán từ gói cấu hình.";
+        }
+    }
+
+    // Tự động nhận diện chu kỳ gửi tin Heartbeat (uplink_interval), Class và OTAA từ package
+    const uplinkSec = parseInt(selectedOpt.dataset?.uplinkInterval) || 300;
+    const devClass = selectedOpt.dataset?.deviceClass || 'A';
+    const isOtaa = selectedOpt.dataset?.supportsOtaa !== 'false';
+
+    if (specHb) specHb.innerText = `${uplinkSec}s`;
+    if (specClass) specClass.innerText = devClass;
+    if (specOtaa) specOtaa.innerText = isOtaa ? 'OTAA' : 'Khác';
+    if (hiddenHb) hiddenHb.value = uplinkSec;
+
+    // Tự động nhận diện GPS và Device Type nếu Profile có định dạng tương ứng
+    if (selectedOpt.dataset?.hasGps === 'true' && gpsSelect) {
+        gpsSelect.value = 'true';
+        if (typeof toggleStaticAddressField === 'function') toggleStaticAddressField();
+    }
+    if (selectedOpt.dataset?.deviceType && deviceTypeSelect) {
+        if (selectedOpt.dataset.deviceType === 'CAMERA') {
+            deviceTypeSelect.value = 'CAMERA';
+        } else if (selectedOpt.dataset.deviceType === 'GATEWAY') {
+            deviceTypeSelect.value = 'GATEWAY';
+        } else {
+            deviceTypeSelect.value = 'NUT_NHAN';
+        }
+    }
+}
+
+function showRegStatus(msg, type) {
+    const statusMsg = document.getElementById('reg-device-status-msg');
+    if (!statusMsg) {
+        alert(msg);
+        return;
+    }
+    statusMsg.classList.remove(
+        'hidden',
+        'bg-rose-50', 'text-rose-700', 'border-rose-200', 'dark:bg-rose-950/40', 'dark:text-rose-300', 'dark:border-rose-800',
+        'bg-emerald-50', 'text-emerald-700', 'border-emerald-200', 'dark:bg-emerald-950/40', 'dark:text-emerald-300', 'dark:border-emerald-800',
+        'bg-sky-50', 'text-sky-700', 'border-sky-200', 'dark:bg-sky-950/40', 'dark:text-sky-300', 'dark:border-sky-800',
+        'bg-rose-500/20', 'text-rose-400', 'border-rose-500/40',
+        'bg-emerald-500/20', 'text-emerald-400', 'border-emerald-500/40',
+        'bg-cyan-500/20', 'text-cyan-400', 'border-cyan-500/40'
+    );
+    if (type === 'error') {
+        statusMsg.classList.add('bg-rose-50', 'text-rose-700', 'border', 'border-rose-200', 'dark:bg-rose-950/40', 'dark:text-rose-300', 'dark:border-rose-800');
+    } else if (type === 'success') {
+        statusMsg.classList.add('bg-emerald-50', 'text-emerald-700', 'border', 'border-emerald-200', 'dark:bg-emerald-950/40', 'dark:text-emerald-300', 'dark:border-emerald-800');
+    } else {
+        statusMsg.classList.add('bg-sky-50', 'text-sky-700', 'border', 'border-sky-200', 'dark:bg-sky-950/40', 'dark:text-sky-300', 'dark:border-sky-800');
+    }
+    statusMsg.innerHTML = msg;
+}
+
+async function submitNewDevice() {
+    const btnSubmit = document.getElementById('reg-btn-submit');
+
+    // 1. Lấy thông tin cơ bản, chủ sở hữu, vị trí
+    const name = document.getElementById('reg-name')?.value?.trim();
+    const customer_name = document.getElementById('reg-owner')?.value?.trim();
+    const emergency_phone = document.getElementById('reg-phone')?.value?.trim();
+    const address = document.getElementById('reg-address')?.value?.trim();
+    const latitude = parseFloat(document.getElementById('reg-lat')?.value) || 16.054407;
+    const longitude = parseFloat(document.getElementById('reg-lng')?.value) || 108.202167;
+
+    // 2. Nhóm thiết bị (group_id) & Device Profile (package_version_id)
+    const group_id = document.getElementById('reg-group-id')?.value;
+    const package_version_id = document.getElementById('reg-package-version-id')?.value;
+
+    // 3. Phương thức kích hoạt (OTAA) & DevEUI, AppKey
+    const dev_eui = document.getElementById('reg-deveui')?.value?.trim().toUpperCase();
+    const app_key = document.getElementById('reg-appkey')?.value?.trim();
+    const activation_type = document.getElementById('reg-activation-type')?.value || 'OTAA';
+
+    // 4. Các thông tin bổ sung
+    let device_type = document.getElementById('reg-device-type')?.value || 'NUT_NHAN';
+    if (name && (name.toLowerCase().includes('nút') || name.toLowerCase().includes('nut'))) {
+        device_type = 'NUT_NHAN';
+    }
+    const category_type = document.getElementById('reg-category-type')?.value || 'CAP_CUU_Y_TE';
+    const has_gps = document.getElementById('reg-has-gps')?.value === 'true';
+    const parentIdVal = document.getElementById('reg-parent-id')?.value;
+    const parent_device_id = parentIdVal ? parseInt(parentIdVal) : null;
+    const group_name = document.getElementById('reg-group-name')?.value?.trim() || '';
+    const heartbeat_interval = parseInt(document.getElementById('reg-heartbeat-interval')?.value) || 300;
+
+    // Validation các trường bắt buộc
+    if (!name) {
+        showRegStatus("Vui lòng nhập Tên thiết bị!", "error");
+        document.getElementById('reg-name')?.focus();
+        return;
+    }
+    if (!customer_name) {
+        showRegStatus("Vui lòng nhập Tên chủ sở hữu / Đơn vị quản lý!", "error");
+        document.getElementById('reg-owner')?.focus();
+        return;
+    }
+    if (!emergency_phone) {
+        showRegStatus("Vui lòng nhập Số điện thoại liên hệ khẩn cấp!", "error");
+        document.getElementById('reg-phone')?.focus();
+        return;
+    }
+    if (!group_id) {
+        showRegStatus("Vui lòng chọn Nhóm thiết bị (Group)!", "error");
+        document.getElementById('reg-group-id')?.focus();
+        return;
+    }
+    if (!package_version_id) {
+        showRegStatus("Vui lòng chọn Device Profile (Package Version)! ", "error");
+        document.getElementById('reg-package-version-id')?.focus();
+        return;
+    }
+    if (!dev_eui || dev_eui.length < 8) {
+        showRegStatus("Vui lòng nhập DevEUI hợp lệ (16 ký tự Hex, vd: CF8B03FFFF6430C5)!", "error");
+        document.getElementById('reg-deveui')?.focus();
+        return;
+    }
+    if (!app_key || app_key.length < 16) {
+        showRegStatus("Vui lòng nhập AppKey hợp lệ (32 ký tự Hex) cho phương thức kích hoạt OTAA!", "error");
+        document.getElementById('reg-appkey')?.focus();
+        return;
+    }
+
+    // Chuẩn bị body payload theo đúng hợp đồng HC TECH IoT Platform:
+    // {
+    //   "group_id": "...",
+    //   "package_version_id": "...",
+    //   "dev_eui": "...",
+    //   "name": "...",
+    //   "activation": {
+    //     "app_key": "..."
+    //   }
+    // }
+    const payload = {
+        name: name,
+        customer_name: customer_name,
+        emergency_phone: emergency_phone,
+        address: address,
+        latitude: latitude,
+        longitude: longitude,
+        group_id: group_id,
+        package_version_id: package_version_id,
+        dev_eui: dev_eui,
+        activation: {
+            app_key: app_key
+        },
+        app_key: app_key,
+        activation_type: activation_type,
+        device_type: device_type,
+        category_type: category_type,
+        has_gps: has_gps,
+        parent_device_id: parent_device_id,
+        group_name: group_name,
+        heartbeat_interval: heartbeat_interval
+    };
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Đang gọi API POST /devices...';
+    }
+    showRegStatus('<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang gửi yêu cầu tạo thiết bị tới HC TECH IoT Cloud (POST /devices)...', 'info');
+
+    try {
+        const res = await fetch('/api/devices/register/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        // Dựa vào status code để xác định đã tạo thành công chưa
+        if (res.ok && result.status === 'success') {
+            const codeInfo = result.iot_status_code ? ` (Mã HTTP: ${result.iot_status_code})` : '';
+            showRegStatus(`✅ ${result.message || 'Tạo thiết bị thành công!'}`, 'success');
+            setTimeout(() => {
+                sessionStorage.setItem('active_hc_tab', 'devices');
+                location.reload();
+            }, 1200);
+        } else {
+            const codeInfo = result.iot_status_code ? ` (Mã HTTP: ${result.iot_status_code})` : ` (Mã HTTP: ${res.status})`;
+            showRegStatus(`❌ Lỗi tạo thiết bị${codeInfo}: ${result.message || 'IoT Platform từ chối yêu cầu.'}`, 'error');
+        }
+    } catch (err) {
+        showRegStatus(`❌ Lỗi kết nối mạng: ${err.message}`, 'error');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-1.5"></i> Tạo & Kích Hoạt Thiết Bị (POST /devices)';
+        }
+    }
+}
+
+window.loadHCTechGroupsAndPackages = loadHCTechGroupsAndPackages;
+window.handleHCTechGroupChange = handleHCTechGroupChange;
+window.handleHCTechPackageChange = handleHCTechPackageChange;
+window.submitNewDevice = submitNewDevice;
+window.openAddDeviceModal = openAddDeviceModal;
+window.closeAddDeviceModal = closeAddDeviceModal;
+window.initRegMiniMap = initRegMiniMap;
+window.setRegCoords = setRegCoords;
+window.centerRegMiniMap = centerRegMiniMap;
+window.onRegAddressInput = onRegAddressInput;
+window.onRegAddressFocus = onRegAddressFocus;
+window.clearRegAddress = clearRegAddress;
+window.selectRegAddress = selectRegAddress;
+window.onRegAddressKeyDown = onRegAddressKeyDown;
+
 
 
 // ================= MODAL GÁN THIẾT BỊ VỚI NHAU (CÙNG NHÀ / NHÓM) =================
@@ -2333,25 +2984,30 @@ function applyTheme(theme) {
     const html = document.documentElement;
     const icon = document.getElementById('icon-theme');
     const text = document.getElementById('text-theme');
-    if (theme === 'light') {
-        body.classList.remove('theme-dark', 'dark');
-        html.classList.remove('dark');
-        body.classList.add('theme-light');
-        if (icon) icon.className = 'fa-solid fa-moon text-cyan-700 mr-1.5';
-        if (text) text.innerText = 'Nền: SÁNG';
-    } else {
+    const btnTheme = document.getElementById('btn-theme-toggle');
+    if (theme === 'dark') {
         body.classList.remove('theme-light');
         body.classList.add('theme-dark', 'dark');
         html.classList.add('dark');
-        if (icon) icon.className = 'fa-solid fa-sun text-amber-400 mr-1.5';
+        html.classList.remove('light');
+        if (icon) icon.className = 'fa-solid fa-sun text-amber-400';
         if (text) text.innerText = 'Nền: TỐI';
+        if (btnTheme) btnTheme.title = 'Giao diện: Nền TỐI (Bấm chuyển Sáng)';
+    } else {
+        body.classList.remove('theme-dark', 'dark');
+        html.classList.remove('dark');
+        html.classList.add('light');
+        body.classList.add('theme-light');
+        if (icon) icon.className = 'fa-solid fa-moon text-sky-600';
+        if (text) text.innerText = 'Nền: SÁNG';
+        if (btnTheme) btnTheme.title = 'Giao diện: Nền SÁNG (Bấm chuyển Tối)';
     }
     localStorage.setItem('hc_dashboard_theme', theme);
 }
 
 function toggleTheme() {
-    const isLight = document.body.classList.contains('theme-light');
-    applyTheme(isLight ? 'dark' : 'light');
+    const isDark = document.body.classList.contains('theme-dark') || document.documentElement.classList.contains('dark');
+    applyTheme(isDark ? 'light' : 'dark');
 }
 
 // ================= 6. REAL-TIME SERVER-SENT EVENTS (SSE) =================
@@ -2444,7 +3100,7 @@ function initSSE() {
 }
 
 function initDashboard() {
-    const savedTheme = localStorage.getItem('hc_dashboard_theme') || 'dark';
+    const savedTheme = localStorage.getItem('hc_dashboard_theme') || 'light';
     applyTheme(savedTheme);
     verifyMapVinaKey();
     initStatsChart();
@@ -2550,7 +3206,7 @@ function updateDeviceTableRealtime(devices) {
 
         // Format trạng thái
         let statusHtml = '';
-        const hbSeconds = d.heartbeat_interval || 300;
+        const hbSeconds = d.heartbeat_interval || 60;
         const lastSeenText = d.last_seen || 'Chưa kết nối';
         if (d.connection_status === 'SOS') {
             statusHtml = `
@@ -2805,6 +3461,15 @@ function updateAlertsTableRealtime(alerts) {
             actionButton = `<span class="text-emerald-500 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>Đã đóng băng</span>`;
         }
 
+        const deleteButton = window.IS_ADMIN ? `
+            <button type="button" 
+                onclick="deleteSingleAlertDashboard(${log.id})" 
+                class="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition cursor-pointer" 
+                title="Xóa bản ghi sự cố #SOS-${log.id}">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        ` : '';
+
         html += `
             <tr class="hover:bg-cyan-500/10 transition" data-alert-id="${log.id}">
                 <td class="p-3.5 whitespace-nowrap">
@@ -2822,7 +3487,10 @@ function updateAlertsTableRealtime(alerts) {
                     <div><strong>Kết quả:</strong> <span>${escapeHtml(log.report_display)}</span></div>
                 </td>
                 <td class="p-3.5 whitespace-nowrap">
-                    ${actionButton}
+                    <div class="flex items-center gap-2">
+                        ${actionButton}
+                        ${deleteButton}
+                    </div>
                 </td>
             </tr>
         `;
@@ -2831,6 +3499,73 @@ function updateAlertsTableRealtime(alerts) {
     tbody.innerHTML = html;
 }
 window.updateAlertsTableRealtime = updateAlertsTableRealtime;
+
+// ==============================================================================
+// XÓA LỊCH SỬ BÁO ĐỘNG (DASHBOARD ADMIN)
+// ==============================================================================
+async function deleteSingleAlertDashboard(alertId) {
+    if (!confirm(`Bạn có chắc chắn muốn xóa bản ghi sự cố #SOS-${alertId} không?`)) {
+        return;
+    }
+    try {
+        const res = await fetch('/api/alerts/delete/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete_single', alert_id: alertId })
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+            showToast(json.message || `Đã xóa bản ghi #SOS-${alertId}`, 'success');
+            const row = document.querySelector(`tr[data-alert-id="${alertId}"]`);
+            if (row) {
+                row.remove();
+                const tbody = document.getElementById('alerts-table-body');
+                if (tbody && tbody.querySelectorAll('tr[data-alert-id]').length === 0) {
+                    tbody.innerHTML = `
+                        <tr id="empty-alerts-row">
+                            <td colspan="6" class="p-6 text-center hc-text-muted">Chưa có sự kiện SOS nào.</td>
+                        </tr>
+                    `;
+                }
+            }
+        } else {
+            showToast(json.message || 'Lỗi khi xóa sự cố!', 'error');
+        }
+    } catch (err) {
+        showToast('Lỗi mạng khi thực hiện xóa!', 'error');
+    }
+}
+window.deleteSingleAlertDashboard = deleteSingleAlertDashboard;
+
+async function confirmClearAllAlertsDashboard() {
+    if (!confirm("CẢNH BÁO: Thao tác này sẽ xóa vĩnh viễn TOÀN BỘ lịch sử báo động trong hệ thống và đưa thiết bị về trạng thái bình thường. Bạn có chắc chắn muốn xóa không?")) {
+        return;
+    }
+    try {
+        const res = await fetch('/api/alerts/delete/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete_all' })
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+            showToast(json.message || 'Đã xóa toàn bộ lịch sử báo động thành công!', 'success');
+            const tbody = document.getElementById('alerts-table-body');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr id="empty-alerts-row">
+                        <td colspan="6" class="p-6 text-center hc-text-muted">Chưa có sự kiện SOS nào.</td>
+                    </tr>
+                `;
+            }
+        } else {
+            showToast(json.message || 'Lỗi khi xóa toàn bộ sự cố!', 'error');
+        }
+    } catch (err) {
+        showToast('Lỗi mạng khi xóa sự cố!', 'error');
+    }
+}
+window.confirmClearAllAlertsDashboard = confirmClearAllAlertsDashboard;
 
 if (document.readyState === 'loading') {
     document.addEventListener("DOMContentLoaded", initDashboard);
